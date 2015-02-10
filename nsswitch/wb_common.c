@@ -524,6 +524,7 @@ static int winbind_read_sock(struct winbindd_context *ctx,
 
 		pfd.fd = fd;
 		pfd.events = POLLIN|POLLHUP;
+		pfd.revents = 0;
 
 		/* Wait for 5 seconds for a reply. May need to parameterise this... */
 
@@ -544,7 +545,7 @@ static int winbind_read_sock(struct winbindd_context *ctx,
 			continue;
 		}
 
-		if ((ret == 1) && (pfd.revents & (POLLIN|POLLHUP|POLLERR))) {
+		if ((ret == 1) && (pfd.revents & (POLLIN|POLLHUP|POLLERR|POLLNVAL))) {
 
 			/* Do the Read */
 
