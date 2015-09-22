@@ -47,9 +47,11 @@
 #include <libutil.h>
 #endif
 
-#ifdef	STREAMSPTY
+#ifdef STREAMSPTY
 #include <stropts.h>
 #endif /* STREAMPTY */
+
+#include <signal.h>
 
 #include <popt.h>
 
