@@ -14,7 +14,7 @@ bld.SAMBA_LIBRARY('winbind-client',
 bld.SAMBA_BINARY('nsstest',
 		 source='nsstest.c',
 		 deps='replace dl',
-                 install=False
+		 install=False
 		 )
 
 # The nss_wrapper code relies strictly on the linux implementation and
@@ -39,7 +39,6 @@ if (Utils.unversioned_sys_platform() == 'linux' or (host_os.rfind('gnu') > -1)):
               pc_files=[],
               vnum='2')
 
-    # for nss_wins is linux only
     bld.SAMBA3_LIBRARY('nss_wins',
                        keep_underscore=True,
                        source='wins.c',
@@ -56,6 +55,12 @@ elif (host_os.rfind('freebsd') > -1):
 			  deps='winbind-client',
 			  realname='nss_winbind.so.1',
 			  vnum='1')
+
+	bld.SAMBA3_LIBRARY('nss_wins',
+			   source='wins.c wins_freebsd.c',
+			   deps='''param libsmb LIBTSOCKET''',
+			   realname='nss_wins.so.1',
+			   vnum='1')
 
 elif (host_os.rfind('netbsd') > -1):
 	# NetBSD winbind client is implemented as a wrapper
