@@ -342,6 +342,8 @@ static WERROR dns_tsig_compute_mac(TALLOC_CTX *mem_ctx,
 
 	memcpy(p, tsig_blob.data, tsig_blob.length);
 
+	/* FIXME: as in the verify case, some padding is wrong */
+	buffer_len -=2;
 	status = gensec_sign_packet(tkey->gensec, mem_ctx, buffer, buffer_len,
 				    buffer, buffer_len, &sig);
 	if (!NT_STATUS_IS_OK(status)) {
