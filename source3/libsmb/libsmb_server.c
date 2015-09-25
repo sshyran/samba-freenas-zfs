@@ -25,7 +25,7 @@
 
 #include "includes.h"
 #include "libsmb/libsmb.h"
-#include "libsmbclient.h"
+//#include "libsmbclient.h"
 #include "libsmb_internal.h"
 #include "../librpc/gen_ndr/ndr_lsa.h"
 #include "rpc_client/cli_pipe.h"

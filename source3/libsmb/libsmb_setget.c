@@ -24,7 +24,7 @@
 
 #include "includes.h"
 #define __LIBSMBCLIENT_INTERNAL__
-#include "libsmbclient.h"
+//#include "libsmbclient.h"
 #include "libsmb_internal.h"
 
 

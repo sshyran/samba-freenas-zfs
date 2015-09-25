@@ -12,7 +12,7 @@ bld.SAMBA3_SUBSYSTEM('IDMAP_RW',
 
 bld.SAMBA3_SUBSYSTEM('IDMAP_TDB_COMMON',
                      source='idmap_tdb_common.c',
-                     deps='tdb IDMAP_RW')
+                     deps='dbwrap pdb tdb IDMAP_RW')
 
 bld.SAMBA3_SUBSYSTEM('IDMAP_HASH',
                     source='idmap_hash/idmap_hash.c idmap_hash/mapfile.c',
@@ -69,7 +69,7 @@ bld.SAMBA3_MODULE('idmap_ldap',
 bld.SAMBA3_MODULE('idmap_nss',
                  subsystem='idmap',
                  source='idmap_nss.c',
-                 deps='samba-util',
+                 deps='pdb samba-util',
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('idmap_nss'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('idmap_nss'))
@@ -80,7 +80,8 @@ bld.SAMBA3_MODULE('idmap_tdb',
                  deps='samba-util tdb IDMAP_TDB_COMMON',
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('idmap_tdb'),
-                 enabled=bld.SAMBA3_IS_ENABLED_MODULE('idmap_tdb'))
+                 enabled=bld.SAMBA3_IS_ENABLED_MODULE('idmap_tdb'),
+                 allow_undefined_symbols=True)
 
 bld.SAMBA3_MODULE('idmap_tdb2',
                  subsystem='idmap',
@@ -168,3 +169,4 @@ bld.SAMBA3_MODULE('idmap_script',
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('idmap_script'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('idmap_script'))
+
