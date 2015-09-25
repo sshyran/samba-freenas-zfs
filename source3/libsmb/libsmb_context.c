@@ -24,7 +24,7 @@
 
 #include "includes.h"
 #include "libsmb/libsmb.h"
-#include "libsmbclient.h"
+//#include "libsmbclient.h"
 #include "libsmb_internal.h"
 #include "secrets.h"
 #include "../libcli/smb/smbXcli_base.h"

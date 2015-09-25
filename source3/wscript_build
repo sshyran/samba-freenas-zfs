@@ -1311,6 +1311,7 @@ bld.SAMBA3_BINARY('smbtorture' + bld.env.suffix3,
                  WB_REQTRANS
                  LOCKING
                  NDR_OPEN_FILES
+                 IDMAP_TDB_COMMON
                  idmap
                  samba-cluster-support
                  ''',
@@ -1544,4 +1545,3 @@ bld.RECURSE('smbd/notifyd')
 
 bld.ENFORCE_GROUP_ORDERING()
 bld.CHECK_PROJECT_RULES()
-

@@ -166,7 +166,6 @@ def CHECK_BUNDLED_SYSTEM(conf, libname, minversion='0.0.0',
                 return False
         return True
 
-
     # see if the library should only use a system version if another dependent
     # system version is found. That prevents possible use of mixed library
     # versions
