@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
-#include <libsmbclient.h>
+#include "libsmb_internal.h"
 #include <inttypes.h>
 #include "get_auth_data_fn.h"
 
