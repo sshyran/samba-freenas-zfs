@@ -48,6 +48,14 @@ def set_options(opt):
                         'You may specify list of paths where Kerberos is installed (e.g. /usr/local /usr/kerberos) to search krb5-config',
                    action='callback', callback=system_mitkrb5_callback, dest='with_system_mitkrb5', default=False)
 
+    opt.add_option('--with-libzfs',
+                   help='enable libZFS support',
+                   action='store_true', dest='with_libzfs', default=False)
+
+    opt.add_option('--without-libzfs',
+                   help='enable libZFS support',
+                   action='store_false', dest='with_libzfs', default=True)
+
     opt.add_option('--without-ad-dc',
                    help='disable AD DC functionality (enables Samba 4 client and Samba 3 code base).',
                    action='store_true', dest='without_ad_dc', default=False)
@@ -195,6 +203,9 @@ def configure(conf):
         if conf.check_cc(cflags='', ldflags='-Wl,-z,relro,-z,now', mandatory=need_relro,
                          msg="Checking compiler for full RELRO support"):
             conf.env['ENABLE_RELRO'] = True
+
+    if Options.options.with_libzfs != False:
+        conf.DEFINE('HAVE_LIBZFS', '1')
 
     conf.SAMBA_CONFIG_H('include/config.h')
 
