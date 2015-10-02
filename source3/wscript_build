@@ -97,7 +97,7 @@ bld.SAMBA3_SUBSYSTEM('TLDAP',
                     source='''lib/tldap.c
                     lib/tldap_util.c
                     ''',
-                    deps='asn1util LIBTSOCKET samba3util')
+                    deps='asn1util samba-passdb LIBTSOCKET samba3util')
 
 # libpdb.so should not expose internal symbols that are only usable
 # to the statically linked modules that are merged into libpdb.
@@ -652,6 +652,7 @@ bld.SAMBA3_SUBSYSTEM('LOCKING',
                     locking/share_mode_lock.c''',
                     deps='''
                     tdb
+                    samba-passdb
                     talloc
                     LEASES_DB
                     NDR_OPEN_FILES
@@ -659,7 +660,7 @@ bld.SAMBA3_SUBSYSTEM('LOCKING',
 
 bld.SAMBA3_SUBSYSTEM('LEASES_DB',
                     source='locking/leases_db.c',
-                    deps='NDR_LEASES_DB')
+                    deps='NDR_LEASES_DB samba-passdb')
 
 if bld.CONFIG_GET("WITH_PROFILE"):
     bld.SAMBA3_SUBSYSTEM('PROFILE',
@@ -707,7 +708,7 @@ bld.SAMBA3_SUBSYSTEM('PASSWD_UTIL',
 
 bld.SAMBA3_SUBSYSTEM('FNAME_UTIL',
                     source='lib/filename_util.c',
-                    deps='samba-util')
+                    deps='samba-util samba-passdb')
 
 bld.SAMBA3_SUBSYSTEM('LIBNET',
                     source='libnet/libnet_join.c',
@@ -1304,6 +1305,7 @@ bld.SAMBA3_BINARY('smbtorture' + bld.env.suffix3,
                  deps='''
                  talloc
                  param
+                 samba-passdb
                  libsmb
                  msrpc3
                  TLDAP

@@ -112,7 +112,7 @@ if bld.CONFIG_SET('HAVE_KRB5_LOCATE_PLUGIN_H'):
 
 bld.SAMBA_SUBSYSTEM('WB_REQTRANS',
 	source='wb_reqtrans.c',
-	deps='talloc tevent LIBASYNC_REQ'
+	deps='talloc tevent samba-passdb LIBASYNC_REQ'
 	)
 
 bld.SAMBA_BINARY('wbinfo',

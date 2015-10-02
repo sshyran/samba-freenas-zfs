@@ -2,17 +2,17 @@
 
 bld.SAMBA3_LIBRARY('idmap',
                    source='idmap.c idmap_util.c',
-                   deps='samba-util',
+                   deps='samba-util samba-passdb pdb',
                    allow_undefined_symbols=True,
                    private_library=True)
 
 bld.SAMBA3_SUBSYSTEM('IDMAP_RW',
                      source='idmap_rw.c',
-                     deps='samba-util')
+                     deps='samba-util pdb samba-passdb')
 
 bld.SAMBA3_SUBSYSTEM('IDMAP_TDB_COMMON',
                      source='idmap_tdb_common.c',
-                     deps='dbwrap pdb tdb IDMAP_RW')
+                     deps='dbwrap pdb samba-passdb tdb IDMAP_RW')
 
 bld.SAMBA3_SUBSYSTEM('IDMAP_HASH',
                     source='idmap_hash/idmap_hash.c idmap_hash/mapfile.c',
@@ -52,7 +52,7 @@ bld.SAMBA3_MODULE('idmap_rid',
 bld.SAMBA3_MODULE('idmap_passdb',
                  subsystem='idmap',
                  source='idmap_passdb.c',
-                 deps='samba-util samba-passdb',
+                 deps='samba-util pdb samba-passdb',
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('idmap_passdb'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('idmap_passdb'))
