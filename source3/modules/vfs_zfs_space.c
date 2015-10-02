@@ -45,7 +45,7 @@ static uint64_t vfs_zfs_space_disk_free(vfs_handle_struct *handle, const char *p
 
 	res = smb_zfs_disk_free(rp, bsize, dfree, dsize);
 	if (res == (uint64_t)-1)
-		res = SMB_VFS_NEXT_DISK_FREE(handle, path, small_query, bsize, dfree, dsize);
+		res = SMB_VFS_NEXT_DISK_FREE(handle, path,  bsize, dfree, dsize);
 	if (res == (uint64_t)-1)
 		return (res);
 
