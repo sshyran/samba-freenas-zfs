@@ -1642,6 +1642,9 @@ main() {
     if conf.CONFIG_SET('HAVE_LDAP'):
         default_static_modules.extend(TO_LIST('pdb_ldapsam idmap_ldap'))
 
+    if Options.options.with_libzfs:
+        default_static_modules.extend(TO_LIST('vfs_zfs_space'))
+
     if conf.CONFIG_SET('DARWINOS'):
         default_static_modules.extend(TO_LIST('charset_macosxfs'))
 
