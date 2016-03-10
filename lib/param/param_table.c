@@ -3844,7 +3844,6 @@ struct parm_struct parm_table[] = {
 		.offset		= GLOBAL_VAR(ads_dns_update),
 		.special	= NULL,
 		.enum_list	= enum_bool_auto,
-		.flags		= FLAG_ADVANCED,
 	},
 	{
 		.label		= "allow dns updates",
