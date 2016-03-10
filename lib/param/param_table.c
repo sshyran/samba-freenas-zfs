@@ -3838,6 +3838,15 @@ struct parm_struct parm_table[] = {
 		.enum_list	= NULL,
 	},
 	{
+		.label		= "ads dns update",
+		.type		= P_BOOL,
+		.p_class	= P_GLOBAL,
+		.offset		= GLOBAL_VAR(ads_dns_update),
+		.special	= NULL,
+		.enum_list	= enum_bool_auto,
+		.flags		= FLAG_ADVANCED,
+	},
+	{
 		.label		= "allow dns updates",
 		.type		= P_ENUM,
 		.p_class	= P_GLOBAL,
