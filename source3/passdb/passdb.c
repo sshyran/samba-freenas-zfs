@@ -36,6 +36,24 @@
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_PASSDB
 
+/******************************************************************
+ Get the default domain/netbios name to be used when
+ testing authentication.
+
+ LEGACY: this function provides the legacy domain mapping used with
+	 the lp_map_untrusted_to_domain() parameter
+******************************************************************/
+
+const char *my_sam_name(void)
+{
+       /* Standalone servers can only use the local netbios name */
+       if ( lp_server_role() == ROLE_STANDALONE )
+               return lp_netbios_name();
+
+       /* Default to the DOMAIN name when not specified */
+       return lp_workgroup();
+}
+
 /**********************************************************************
 ***********************************************************************/
 
@@ -640,8 +658,7 @@ bool lookup_global_sam_name(const char *name, int flags, uint32_t *rid,
 	/* BUILTIN groups are looked up elsewhere */
 	if (!sid_check_is_in_our_sam(&map->sid)) {
 		DEBUG(10, ("Found group %s (%s) not in our domain -- "
-			   "ignoring.\n",
-			   name, sid_string_dbg(&map->sid)));
+			   "ignoring.", name, sid_string_dbg(&map->sid)));
 		TALLOC_FREE(map);
 		return False;
 	}

@@ -1,7 +1,4 @@
-<samba:parameter name="kerberos method"
-                 context="G"
-                 type="enum"
-                 enumlist="enum_kerberos_method"
+<samba:parameter name="kerberos method" context="G" type="enum"
                  xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
 <description>
 	<para>

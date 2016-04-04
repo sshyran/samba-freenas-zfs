@@ -147,38 +147,6 @@ except ImportError:
 		# portability fixes may be added elsewhere (although, md5 should be everywhere by now)
 		md5 = None
 
-def readf(fname, m='r', encoding='ISO8859-1'):
-	"""backported from waf 1.8"""
-	if sys.hexversion > 0x3000000 and not 'b' in m:
-		m += 'b'
-		f = open(fname, m)
-		try:
-			txt = f.read()
-		finally:
-			f.close()
-		if encoding:
-			txt = txt.decode(encoding)
-		else:
-			txt = txt.decode()
-	else:
-		f = open(fname, m)
-		try:
-			txt = f.read()
-		finally:
-			f.close()
-	return txt
-
-def writef(fname, data, m='w', encoding='ISO8859-1'):
-	"""backported from waf 1.8"""
-	if sys.hexversion > 0x3000000 and not 'b' in m:
-		data = data.encode(encoding)
-		m += 'b'
-	f = open(fname, m)
-	try:
-		f.write(data)
-	finally:
-		f.close()
-
 class ordered_dict(UserDict):
 	def __init__(self, dict = None):
 		self.allkeys = []
@@ -455,7 +423,8 @@ def check_dir(path):
 			os.makedirs(path)
 		except OSError, e:
 			if not os.path.isdir(path):
-				raise WafError("Cannot create the folder '%s' (error: %s)" % (path, e))
+				raise Errors.WafError('Cannot create the folder %r' % path, ex=e)
+
 
 def cmd_output(cmd, **kw):
 
@@ -587,6 +556,15 @@ def load_tool(tool, tooldir=None):
 	finally:
 		for dt in tooldir:
 			sys.path.remove(dt)
+
+def readf(fname, m='r'):
+	"get the contents of a file, it is not used anywhere for the moment"
+	f = open(fname, m)
+	try:
+		txt = f.read()
+	finally:
+		f.close()
+	return txt
 
 def nada(*k, **kw):
 	"""A function that does nothing"""

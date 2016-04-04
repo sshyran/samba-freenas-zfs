@@ -17,13 +17,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
+#include "includes.h"
 #include "tldap.h"
-#include "system/network.h"
-#include "system/locale.h"
-#include "lib/util/talloc_stack.h"
-#include "lib/util/samba_util.h"
-#include "lib/util_tsock.h"
 #include "../lib/util/asn1.h"
 #include "../lib/tsocket/tsocket.h"
 #include "../lib/util/tevent_unix.h"
@@ -62,6 +57,9 @@ struct tldap_ctx_attribute {
 
 struct tldap_context {
 	int ld_version;
+	int ld_deref;
+	int ld_sizelimit;
+	int ld_timelimit;
 	struct tstream_context *conn;
 	bool server_down;
 	int msgid;
@@ -173,7 +171,7 @@ bool tldap_connection_ok(struct tldap_context *ld)
 static struct tldap_ctx_attribute *tldap_context_findattr(
 	struct tldap_context *ld, const char *name)
 {
-	size_t i, num_attrs;
+	int i, num_attrs;
 
 	num_attrs = talloc_array_length(ld->ctx_attrs);
 
@@ -487,6 +485,7 @@ static void tldap_msg_unset_pending(struct tevent_req *req)
 	 */
 	ld->pending = talloc_realloc(NULL, ld->pending, struct tevent_req *,
 				     num_pending - 1);
+	return;
 }
 
 static void tldap_msg_cleanup(struct tevent_req *req,
@@ -724,10 +723,12 @@ static struct tevent_req *tldap_req_create(TALLOC_CTX *mem_ctx,
 	if (req == NULL) {
 		return NULL;
 	}
+	ZERO_STRUCTP(state);
 	state->out = asn1_init(state);
 	if (state->out == NULL) {
 		goto err;
 	}
+	state->result = NULL;
 	state->id = tldap_next_msgid(ld);
 
 	if (!asn1_push_tag(state->out, ASN1_SEQUENCE(0))) goto err;
@@ -1314,7 +1315,7 @@ done:
 	}
 	s++;
 
-	if (asn1_has_error(data)) {
+	if (data->has_error) {
 		return false;
 	}
 
@@ -1528,7 +1529,7 @@ static bool tldap_push_filter_basic(struct tldap_context *ld,
 		if (!asn1_write_OctetString(data, uval, uval_len)) return false;
 	}
 
-	if (asn1_has_error(data)) {
+	if (data->has_error) {
 		return false;
 	}
 	return asn1_pop_tag(data);
@@ -1840,9 +1841,11 @@ int tldap_search(struct tldap_context *ld,
 	TALLOC_CTX *frame = talloc_stackframe();
 	struct tevent_context *ev;
 	struct tevent_req *req;
-	struct tldap_sync_search_state state = {
-		.mem_ctx = mem_ctx, .rc = TLDAP_SUCCESS
-	};
+	struct tldap_sync_search_state state;
+
+	ZERO_STRUCT(state);
+	state.mem_ctx = mem_ctx;
+	state.rc = TLDAP_SUCCESS;
 
 	ev = samba_tevent_context_init(frame);
 	if (ev == NULL) {
@@ -2016,7 +2019,7 @@ static bool tldap_decode_controls(struct tldap_req_state *state)
 
 		if (!asn1_start_tag(data, ASN1_SEQUENCE(0))) goto out;
 		if (!asn1_read_OctetString_talloc(msg, data, &oid)) goto out;
-		if (asn1_has_error(data) || (oid == NULL)) {
+		if ((data->has_error) || (oid == NULL)) {
 			goto out;
 		}
 		c->oid = oid;

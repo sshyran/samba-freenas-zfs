@@ -1,6 +1,6 @@
 <samba:parameter name="dns update command"
                  context="G"
-                 type="cmdlist"
+                 type="list"
                  xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
 <description>
 	<para>This option sets the command that is called when there are

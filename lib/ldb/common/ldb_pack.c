@@ -77,7 +77,7 @@ int ldb_pack_data(struct ldb_context *ldb,
 		  struct ldb_val *data)
 {
 	unsigned int i, j, real_elements=0;
-	size_t size, dn_len, attr_len, value_len;
+	size_t size;
 	const char *dn;
 	uint8_t *p;
 	size_t len;
@@ -91,19 +91,8 @@ int ldb_pack_data(struct ldb_context *ldb,
 	/* work out how big it needs to be */
 	size = 8;
 
-	size += 1;
+	size += 1 + strlen(dn);
 
-	dn_len = strlen(dn);
-	if (size + dn_len < size) {
-		errno = ENOMEM;
-		return -1;
-	}
-	size += dn_len;
-
-	/*
-	 * First calcuate the buffer size we need, and check for
-	 * overflows
-	 */
 	for (i=0;i<message->num_elements;i++) {
 		if (attribute_storable_values(&message->elements[i]) == 0) {
 			continue;
@@ -111,32 +100,9 @@ int ldb_pack_data(struct ldb_context *ldb,
 
 		real_elements++;
 
-		if (size + 5 < size) {
-			errno = ENOMEM;
-			return -1;
-		}
-		size += 5;
-
-		attr_len = strlen(message->elements[i].name);
-		if (size + attr_len < size) {
-			errno = ENOMEM;
-			return -1;
-		}
-		size += attr_len;
-
+		size += 1 + strlen(message->elements[i].name) + 4;
 		for (j=0;j<message->elements[i].num_values;j++) {
-			if (size + 5 < size) {
-				errno = ENOMEM;
-				return -1;
-			}
-			size += 5;
-
-			value_len = message->elements[i].values[j].length;
-			if (size + value_len < size) {
-				errno = ENOMEM;
-				return -1;
-			}
-			size += value_len;
+			size += 4 + message->elements[i].values[j].length + 1;
 		}
 	}
 
@@ -155,7 +121,7 @@ int ldb_pack_data(struct ldb_context *ldb,
 
 	/* the dn needs to be packed so we can be case preserving
 	   while hashing on a case folded dn */
-	len = dn_len;
+	len = strlen(dn);
 	memcpy(p, dn, len+1);
 	p += len + 1;
 
@@ -180,64 +146,20 @@ int ldb_pack_data(struct ldb_context *ldb,
 	return 0;
 }
 
-static bool ldb_consume_element_data(uint8_t **pp, size_t *premaining)
-{
-	unsigned int remaining = *premaining;
-	uint8_t *p = *pp;
-	uint32_t num_values = pull_uint32(p, 0);
-	uint32_t len;
-	int j;
-
-	p += 4;
-	if (remaining < 4) {
-		return false;
-	}
-	remaining -= 4;
-	for (j = 0; j < num_values; j++) {
-		len = pull_uint32(p, 0);
-		if (remaining < 5) {
-			return false;
-		}
-		remaining -= 5;
-		if (len > remaining) {
-			return false;
-		}
-		remaining -= len;
-		p += len + 4 + 1;
-	}
-
-	*premaining = remaining;
-	*pp = p;
-	return true;
-}
-
 /*
- * Unpack a ldb message from a linear buffer in ldb_val
- *
- * Providing a list of attributes to this function allows selective unpacking.
- * Giving a NULL list (or a list_size of 0) unpacks all the attributes.
- *
- * Free with ldb_unpack_data_free()
- */
-int ldb_unpack_data_only_attr_list(struct ldb_context *ldb,
-				   const struct ldb_val *data,
-				   struct ldb_message *message,
-				   const char * const *list,
-				   unsigned int list_size,
-				   unsigned int *nb_elements_in_db)
+  unpack a ldb message from a linear buffer in ldb_val
+
+  Free with ldb_unpack_data_free()
+*/
+int ldb_unpack_data(struct ldb_context *ldb,
+		    const struct ldb_val *data,
+		    struct ldb_message *message)
 {
 	uint8_t *p;
-	size_t remaining;
-	size_t dn_len;
+	unsigned int remaining;
 	unsigned int i, j;
 	unsigned format;
-	unsigned int nelem = 0;
 	size_t len;
-	unsigned int found = 0;
-
-	if (list == NULL) {
-		list_size = 0;
-	}
 
 	message->elements = NULL;
 
@@ -250,9 +172,6 @@ int ldb_unpack_data_only_attr_list(struct ldb_context *ldb,
 	format = pull_uint32(p, 0);
 	message->num_elements = pull_uint32(p, 4);
 	p += 8;
-	if (nb_elements_in_db) {
-		*nb_elements_in_db = message->num_elements;
-	}
 
 	remaining = data->length - 8;
 
@@ -262,12 +181,8 @@ int ldb_unpack_data_only_attr_list(struct ldb_context *ldb,
 		break;
 
 	case LDB_PACKING_FORMAT:
-		/*
-		 * With this check, we know that the DN at p is \0
-		 * terminated.
-		 */
-		dn_len = strnlen((char *)p, remaining);
-		if (dn_len == remaining) {
+		len = strnlen((char *)p, remaining);
+		if (len == remaining) {
 			errno = EIO;
 			goto failed;
 		}
@@ -276,17 +191,8 @@ int ldb_unpack_data_only_attr_list(struct ldb_context *ldb,
 			errno = ENOMEM;
 			goto failed;
 		}
-		/*
-		 * Redundant: by definition, remaining must be more
-		 * than one less than dn_len, as otherwise it would be
-		 * == dn_len
-		 */
-		if (remaining < dn_len + 1) {
-			errno = EIO;
-			goto failed;
-		}
-		remaining -= dn_len + 1;
-		p += dn_len + 1;
+		remaining -= len + 1;
+		p += len + 1;
 		break;
 
 	default:
@@ -303,157 +209,74 @@ int ldb_unpack_data_only_attr_list(struct ldb_context *ldb,
 		goto failed;
 	}
 
-	message->elements = talloc_zero_array(message, struct ldb_message_element,
-					      message->num_elements);
+	message->elements = talloc_array(message, struct ldb_message_element, message->num_elements);
 	if (!message->elements) {
 		errno = ENOMEM;
 		goto failed;
 	}
 
-	for (i=0;i<message->num_elements;i++) {
-		const char *attr = NULL;
-		size_t attr_len;
-		struct ldb_message_element *element = NULL;
+	memset(message->elements, 0,
+	       message->num_elements * sizeof(struct ldb_message_element));
 
+	for (i=0;i<message->num_elements;i++) {
 		if (remaining < 10) {
 			errno = EIO;
 			goto failed;
 		}
-		/*
-		 * With this check, we know that the attribute name at
-		 * p is \0 terminated.
-		 */
-		attr_len = strnlen((char *)p, remaining-6);
-		if (attr_len == remaining-6) {
+		len = strnlen((char *)p, remaining-6);
+		if (len == remaining-6) {
 			errno = EIO;
 			goto failed;
 		}
-		if (attr_len == 0) {
+		if (len == 0) {
 			errno = EIO;
 			goto failed;
 		}
-		attr = (char *)p;
-
-		/*
-		 * The general idea is to reduce allocations by skipping over
-		 * attributes that we do not actually care about.
-		 *
-		 * This is a bit expensive but normally the list is pretty small
-		 * also the cost of freeing unused attributes is quite important
-		 * and can dwarf the cost of looping.
-		 */
-		if (list_size != 0) {
-			bool keep = false;
-			int h;
-
-			/*
-			 * We know that p has a \0 terminator before the
-			 * end of the buffer due to the check above.
-			 */
-			for (h = 0; h < list_size && found < list_size; h++) {
-				if (ldb_attr_cmp(attr, list[h]) == 0) {
-					keep = true;
-					found++;
-					break;
-				}
-			}
-
-			if (!keep) {
-				if (remaining < (attr_len + 1)) {
-					errno = EIO;
-					goto failed;
-				}
-				remaining -= attr_len + 1;
-				p += attr_len + 1;
-				if (!ldb_consume_element_data(&p, &remaining)) {
-					errno = EIO;
-					goto failed;
-				}
-				continue;
-			}
-		}
-		element = &message->elements[nelem];
-		element->name = talloc_memdup(message->elements, attr, attr_len+1);
-
-		if (element->name == NULL) {
+		message->elements[i].flags = 0;
+		message->elements[i].name = talloc_strndup(message->elements, (char *)p, len);
+		if (message->elements[i].name == NULL) {
 			errno = ENOMEM;
 			goto failed;
 		}
-		element->flags = 0;
-
-		if (remaining < (attr_len + 1)) {
-			errno = EIO;
-			goto failed;
-		}
-		remaining -= attr_len + 1;
-		p += attr_len + 1;
-		element->num_values = pull_uint32(p, 0);
-		element->values = NULL;
-		if (element->num_values != 0) {
-			element->values = talloc_array(message->elements,
-						       struct ldb_val,
-						       element->num_values);
-			if (!element->values) {
+		remaining -= len + 1;
+		p += len + 1;
+		message->elements[i].num_values = pull_uint32(p, 0);
+		message->elements[i].values = NULL;
+		if (message->elements[i].num_values != 0) {
+			message->elements[i].values = talloc_array(message->elements,
+								     struct ldb_val,
+								     message->elements[i].num_values);
+			if (!message->elements[i].values) {
 				errno = ENOMEM;
 				goto failed;
 			}
 		}
 		p += 4;
-		if (remaining < 4) {
-			errno = EIO;
-			goto failed;
-		}
 		remaining -= 4;
-		for (j = 0; j < element->num_values; j++) {
-			if (remaining < 5) {
-				errno = EIO;
-				goto failed;
-			}
-			remaining -= 5;
-
+		for (j=0;j<message->elements[i].num_values;j++) {
 			len = pull_uint32(p, 0);
-			if (remaining < len) {
-				errno = EIO;
-				goto failed;
-			}
-			if (len + 1 < len) {
+			if (len > remaining-5) {
 				errno = EIO;
 				goto failed;
 			}
 
-			element->values[j].length = len;
-			element->values[j].data = talloc_size(element->values, len+1);
-			if (element->values[j].data == NULL) {
+			message->elements[i].values[j].length = len;
+			message->elements[i].values[j].data = talloc_size(message->elements[i].values, len+1);
+			if (message->elements[i].values[j].data == NULL) {
 				errno = ENOMEM;
 				goto failed;
 			}
-			memcpy(element->values[j].data, p + 4,
-			       len);
-			element->values[j].data[len] = 0;
+			memcpy(message->elements[i].values[j].data, p+4, len);
+			message->elements[i].values[j].data[len] = 0;
 
-			remaining -= len;
+			remaining -= len+4+1;
 			p += len+4+1;
 		}
-		nelem++;
 	}
-	/*
-	 * Adapt the number of elements to the real number of unpacked elements,
-	 * it means that we overallocated elements array.
-	 */
-	message->num_elements = nelem;
-
-	/*
-	 * Shrink the allocated size.  On current talloc behaviour
-	 * this will help if we skipped 32 or more attributes.
-	 */
-	message->elements = talloc_realloc(message, message->elements,
-					   struct ldb_message_element,
-					   message->num_elements);
 
 	if (remaining != 0) {
 		ldb_debug(ldb, LDB_DEBUG_ERROR,
-			  "Error: %zu bytes unread in ldb_unpack_data_only_attr_list",
-			  remaining);
+			  "Error: %d bytes unread in ldb_unpack_data", remaining);
 	}
 
 	return 0;
@@ -461,11 +284,4 @@ int ldb_unpack_data_only_attr_list(struct ldb_context *ldb,
 failed:
 	talloc_free(message->elements);
 	return -1;
-}
-
-int ldb_unpack_data(struct ldb_context *ldb,
-		    const struct ldb_val *data,
-		    struct ldb_message *message)
-{
-	return ldb_unpack_data_only_attr_list(ldb, data, message, NULL, 0, NULL);
 }

@@ -31,18 +31,7 @@
 #define _LOADPARM_H
 
 #include <talloc.h>
-
-struct parmlist_entry {
-	struct parmlist_entry *prev, *next;
-	char *key;
-	char *value;
-	char **list; /* For the source3 parametric options, to save the parsed list */
-	int priority;
-};
-
-struct parmlist {
-	struct parmlist_entry *entries;
-};
+#include "../lib/util/parmlist.h"
 
 /* the following are used by loadparm for option lists */
 typedef enum {
@@ -243,9 +232,15 @@ enum case_handling {CASE_LOWER,CASE_UPPER};
 #define DEFAULT_SMB2_MAX_CREDITS 8192
 
 #define LOADPARM_EXTRA_LOCALS						\
+	bool valid;						        \
 	int usershare;							\
 	struct timespec usershare_last_mod;				\
+	int iMaxPrintJobs;						\
+	char *szCopy;							\
 	char *szService;						\
+	char *szInclude;						\
+	bool bWidelinks;						\
+	bool bAvailable;							\
 	struct parmlist_entry *param_opt;				\
 	struct bitmap *copymap;						\
 	char dummy[3];		/* for alignment */
@@ -254,8 +249,20 @@ enum case_handling {CASE_LOWER,CASE_UPPER};
 
 #define LOADPARM_EXTRA_GLOBALS \
 	struct parmlist_entry *param_opt;				\
-	char *dnsdomain;						\
-	char *realm_original;
+	char *realm_original;						\
+	int iminreceivefile;						\
+	char *szPrintcapname;						\
+	int CupsEncrypt;						\
+	int  iPreferredMaster;						\
+	char *szLdapMachineSuffix;					\
+	char *szLdapUserSuffix;						\
+	char *szLdapIdmapSuffix;					\
+	char *szLdapGroupSuffix;					\
+	char *szIdmapUID;						\
+	char *szIdmapGID;						\
+	char *szIdmapBackend;						\
+	int winbindMaxDomainConnections;				\
+	int ismb2_max_credits;
 
 const char* server_role_str(uint32_t role);
 int lp_find_server_role(int server_role, int security, int domain_logons, int domain_master);

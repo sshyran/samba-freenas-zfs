@@ -23,7 +23,6 @@
 #include "lib/util/iov_buf.h"
 #include "lib/messages_util.h"
 #include "ctdbd_conn.h"
-#include "lib/cluster_support.h"
 
 
 struct messaging_ctdbd_context {
@@ -82,6 +81,7 @@ static int messaging_ctdb_send(struct server_id src,
 		backend->private_data, struct messaging_ctdbd_context);
 	uint8_t hdr[MESSAGE_HDR_LENGTH];
 	struct iovec iov2[iovlen+1];
+	NTSTATUS status;
 
 	if (num_fds > 0) {
 		return ENOSYS;
@@ -91,8 +91,12 @@ static int messaging_ctdb_send(struct server_id src,
 	iov2[0] = (struct iovec){ .iov_base = hdr, .iov_len = sizeof(hdr) };
 	memcpy(&iov2[1], iov, iovlen * sizeof(*iov));
 
-	return ctdbd_messaging_send_iov(ctx->conn, pid.vnn, pid.pid,
-					iov2, iovlen+1);
+	status = ctdbd_messaging_send_iov(ctx->conn, pid.vnn, pid.pid,
+					  iov2, iovlen+1);
+	if (NT_STATUS_IS_OK(status)) {
+		return 0;
+	}
+	return map_errno_from_nt_status(status);
 }
 
 static int messaging_ctdbd_destructor(struct messaging_ctdbd_context *ctx)
@@ -112,7 +116,7 @@ static int messaging_ctdb_recv(
 	struct messaging_context *msg_ctx = talloc_get_type_abort(
 		private_data, struct messaging_context);
 	struct server_id me = messaging_server_id(msg_ctx);
-	int ret;
+	NTSTATUS status;
 	struct iovec iov;
 	struct server_id src, dst;
 	enum messaging_type msg_type;
@@ -148,64 +152,56 @@ static int messaging_ctdb_recv(
 	 * Go through the event loop
 	 */
 
-	ret = messaging_send_iov_from(msg_ctx, src, dst, msg_type,
-				      &iov, 1, NULL, 0);
+	status = messaging_send_iov_from(msg_ctx, src, dst, msg_type,
+					 &iov, 1, NULL, 0);
 
-	if (ret != 0) {
+	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(10, ("%s: messaging_send_iov_from failed: %s\n",
-			   __func__, strerror(ret)));
+			   __func__, nt_errstr(status)));
 	}
 
 	return 0;
 }
 
-int messaging_ctdbd_init(struct messaging_context *msg_ctx,
-			 TALLOC_CTX *mem_ctx,
-			 struct messaging_backend **presult)
+NTSTATUS messaging_ctdbd_init(struct messaging_context *msg_ctx,
+			      TALLOC_CTX *mem_ctx,
+			      struct messaging_backend **presult)
 {
 	struct messaging_backend *result;
 	struct messaging_ctdbd_context *ctx;
-	int ret;
+	NTSTATUS status;
 
 	if (!(result = talloc(mem_ctx, struct messaging_backend))) {
 		DEBUG(0, ("talloc failed\n"));
-		return ENOMEM;
+		return NT_STATUS_NO_MEMORY;
 	}
 
 	if (!(ctx = talloc(result, struct messaging_ctdbd_context))) {
 		DEBUG(0, ("talloc failed\n"));
 		TALLOC_FREE(result);
-		return ENOMEM;
+		return NT_STATUS_NO_MEMORY;
 	}
 
-	ret = ctdbd_messaging_connection(ctx, lp_ctdbd_socket(),
-					 lp_ctdb_timeout(), &ctx->conn);
+	status = ctdbd_messaging_connection(ctx, &ctx->conn);
 
-	if (ret != 0) {
+	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(10, ("ctdbd_messaging_connection failed: %s\n",
-			   strerror(ret)));
+			   nt_errstr(status)));
 		TALLOC_FREE(result);
-		return ret;
+		return status;
 	}
 
-	ret = ctdbd_register_msg_ctx(ctx->conn, msg_ctx,
-				     messaging_tevent_context(msg_ctx));
+	status = ctdbd_register_msg_ctx(ctx->conn, msg_ctx);
 
-	if (ret != 0) {
+	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(10, ("ctdbd_register_msg_ctx failed: %s\n",
-			   strerror(ret)));
+			   nt_errstr(status)));
 		TALLOC_FREE(result);
-		return ret;
+		return status;
 	}
 
-	ret = register_with_ctdbd(ctx->conn, getpid(),
-				  messaging_ctdb_recv, msg_ctx);
-	if (ret != 0) {
-		DEBUG(10, ("register_with_ctdbd failed: %s\n",
-			   strerror(ret)));
-		TALLOC_FREE(result);
-		return ret;
-	}
+	status = register_with_ctdbd(ctx->conn, getpid(),
+				     messaging_ctdb_recv, msg_ctx);
 
 	global_ctdb_connection_pid = getpid();
 	global_ctdbd_connection = ctx->conn;
@@ -217,5 +213,5 @@ int messaging_ctdbd_init(struct messaging_context *msg_ctx,
 	result->private_data = (void *)ctx;
 
 	*presult = result;
-	return 0;
+	return NT_STATUS_OK;
 }

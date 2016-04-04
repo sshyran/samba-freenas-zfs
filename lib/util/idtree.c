@@ -181,13 +181,8 @@ restart:
 	 */
 	n = id;
 	while (p->bitmap == IDR_FULL) {
-		if (l >= MAX_LEVEL) {
+		if (!(p = pa[++l]))
 			break;
-		}
-		p = pa[++l];
-		if (p == NULL) {
-			break;
-		}
 		n = n >> IDR_BITS;
 		set_bit((n & IDR_MASK), p->bitmap);
 	}

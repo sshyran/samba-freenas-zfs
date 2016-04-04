@@ -57,8 +57,7 @@ WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const uin
 {
         struct GUID clsid;
         struct GUID iid;
-        WERROR result;
-	HRESULT coresult;
+        WERROR result, coresult;
         struct IUnknown **mqi;
         struct IWbemLevel1Login *pL;
 

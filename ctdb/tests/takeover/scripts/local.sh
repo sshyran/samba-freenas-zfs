@@ -1,6 +1,6 @@
 # Hey Emacs, this is a -*- shell-script -*- !!!  :-)
 
-test_prog="ctdb_takeover_tests ipalloc"
+test_prog="ctdb_takeover_tests ctdb_takeover_run_core"
 
 define_test ()
 {

@@ -88,7 +88,7 @@ static void winbind_close_sock(struct winbindd_context *ctx)
 
 /* Destructor for global context to ensure fd is closed */
 
-#if HAVE_DESTRUCTOR_ATTRIBUTE
+#if HAVE_FUNCTION_ATTRIBUTE_DESTRUCTOR
 __attribute__((destructor))
 #endif
 static void winbind_destructor(void)
@@ -195,7 +195,7 @@ static int make_safe_fd(int fd)
  * @brief Check if we talk to the priviliged pipe which should be owned by root.
  *
  * This checks if we have uid_wrapper running and if this is the case it will
- * allow one to connect to the winbind privileged pipe even it is not owned by root.
+ * allow to connect to the winbind privileged pipe even it is not owned by root.
  *
  * @param[in]  uid      The uid to check if we can safely talk to the pipe.
  *

@@ -50,10 +50,10 @@ fi
 echo "Target node is ${to_node}"
 
 echo "Turning off DeterministicIPs..."
-try_command_on_node -q all $CTDB setvar DeterministicIPs 0
+try_command_on_node 0 $CTDB setvar DeterministicIPs 0 -n all
 
 echo "Turning on NoIPFailback..."
-try_command_on_node -q all $CTDB setvar NoIPFailback 1
+try_command_on_node 0 $CTDB setvar NoIPFailback 1 -n all
 
 echo "Attempting to move ${test_ip} from node ${test_node} to node ${to_node}"
 try_command_on_node $test_node $CTDB moveip $test_ip $to_node

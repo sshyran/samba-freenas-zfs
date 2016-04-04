@@ -16,7 +16,6 @@ get_auth_data_fn(const char * pServer,
     char            workgroup[256] = { '\0' };
     char            username[256] = { '\0' };
     char            password[256] = { '\0' };
-    char           *ret;
 
     static int krb5_set = 1;
 
@@ -37,10 +36,7 @@ get_auth_data_fn(const char * pServer,
     }
 
     fprintf(stdout, "Workgroup: [%s] ", pWorkgroup);
-    ret = fgets(temp, sizeof(temp), stdin);
-    if (ret == NULL) {
-	    return;
-    }
+    fgets(temp, sizeof(temp), stdin);
     
     if (temp[strlen(temp) - 1] == '\n') /* A new line? */
     {
@@ -53,10 +49,7 @@ get_auth_data_fn(const char * pServer,
     }
     
     fprintf(stdout, "Username: [%s] ", pUsername);
-    ret = fgets(temp, sizeof(temp), stdin);
-    if (ret == NULL) {
-	    return;
-    }
+    fgets(temp, sizeof(temp), stdin);
     
     if (temp[strlen(temp) - 1] == '\n') /* A new line? */
     {
@@ -69,10 +62,7 @@ get_auth_data_fn(const char * pServer,
     }
     
     fprintf(stdout, "Password: ");
-    ret = fgets(temp, sizeof(temp), stdin);
-    if (ret == NULL) {
-	    return;
-    }
+    fgets(temp, sizeof(temp), stdin);
     
     if (temp[strlen(temp) - 1] == '\n') /* A new line? */
     {

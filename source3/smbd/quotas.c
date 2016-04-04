@@ -171,12 +171,17 @@ static bool nfs_quotas(char *nfspath, uid_t euser_id, uint64_t *bsize, uint64_t 
 	}
 
 	/*
-	 * gqr.status returns 1 if quotas exist, 2 if there is
-	 * no quota set, and 3 if no permission to get the quota.
-	 * If 3, return something sensible.
+	 * gqr.status returns 0 if the rpc call fails, 1 if quotas exist, 2 if there is
+	 * no quota set, and 3 if no permission to get the quota.  If 0 or 3 return
+	 * something sensible.
 	 */
 
 	switch (gqr.status) {
+	case 0:
+		DEBUG(9,("nfs_quotas: Remote Quotas Failed!  Error \"%i\" \n", gqr.status));
+		ret = False;
+		goto out;
+
 	case 1:
 		DEBUG(9,("nfs_quotas: Good quota data\n"));
 		D.dqb_bsoftlimit = gqr.getquota_rslt_u.gqr_rquota.rq_bsoftlimit;
@@ -192,10 +197,8 @@ static bool nfs_quotas(char *nfspath, uid_t euser_id, uint64_t *bsize, uint64_t 
 		break;
 
 	default:
-		DEBUG(9, ("nfs_quotas: Unknown Remote Quota Status \"%i\"\n",
-				gqr.status));
-		ret = false;
-		goto out;
+		DEBUG(9,("nfs_quotas: Remote Quotas Questionable!  Error \"%i\" \n", gqr.status ));
+		break;
 	}
 
 	DEBUG(10,("nfs_quotas: Let`s look at D a bit closer... status \"%i\" bsize \"%i\" active? \"%i\" bhard \"%i\" bsoft \"%i\" curb \"%i\" \n",
@@ -236,8 +239,10 @@ try to get the disk space from disk quotas (SunOS & Solaris2 version)
 Quota code by Peter Urbanec (amiga@cse.unsw.edu.au).
 ****************************************************************************/
 
-bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
-		 uint64_t *dfree, uint64_t *dsize)
+bool disk_quotas(const char *path,
+		uint64_t *bsize,
+		uint64_t *dfree,
+		uint64_t *dsize)
 {
 	uid_t euser_id;
 	int ret;
@@ -426,8 +431,7 @@ bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
 try to get the disk space from disk quotas - default version
 ****************************************************************************/
 
-bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
-		 uint64_t *dfree, uint64_t *dsize)
+bool disk_quotas(const char *path, uint64_t *bsize, uint64_t *dfree, uint64_t *dsize)
 {
   int r;
   struct dqblk D;
@@ -657,8 +661,7 @@ bool disk_quotas_vxfs(const char *name, char *path, uint64_t *bsize, uint64_t *d
 
 #else /* WITH_QUOTAS */
 
-bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
-		 uint64_t *dfree, uint64_t *dsize)
+bool disk_quotas(const char *path,uint64_t *bsize,uint64_t *dfree,uint64_t *dsize)
 {
 	(*bsize) = 512; /* This value should be ignored */
 
@@ -676,8 +679,7 @@ bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
 /* wrapper to the new sys_quota interface
    this file should be removed later
    */
-bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
-		 uint64_t *dfree, uint64_t *dsize)
+bool disk_quotas(const char *path,uint64_t *bsize,uint64_t *dfree,uint64_t *dsize)
 {
 	int r;
 	SMB_DISK_QUOTA D;
@@ -686,7 +688,7 @@ bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
 	id.uid = geteuid();
 
 	ZERO_STRUCT(D);
-	r = SMB_VFS_GET_QUOTA(conn, path, SMB_USER_QUOTA_TYPE, id, &D);
+  	r=sys_get_quota(path, SMB_USER_QUOTA_TYPE, id, &D);
 
 	/* Use softlimit to determine disk space, except when it has been exceeded */
 	*bsize = D.bsize;
@@ -712,9 +714,8 @@ bool disk_quotas(connection_struct *conn, const char *path, uint64_t *bsize,
 	} else if (D.softlimit==0 && D.hardlimit==0) {
 		goto try_group_quota;
 	} else {
-		if (D.softlimit == 0) {
+		if (D.softlimit == 0)
 			D.softlimit = D.hardlimit;
-		}
 		*dfree = D.softlimit - D.curblocks;
 		*dsize = D.softlimit;
 	}
@@ -725,7 +726,7 @@ try_group_quota:
 	id.gid = getegid();
 
 	ZERO_STRUCT(D);
-	r = SMB_VFS_GET_QUOTA(conn, path, SMB_GROUP_QUOTA_TYPE, id, &D);
+  	r=sys_get_quota(path, SMB_GROUP_QUOTA_TYPE, id, &D);
 
 	/* Use softlimit to determine disk space, except when it has been exceeded */
 	*bsize = D.bsize;
@@ -751,9 +752,8 @@ try_group_quota:
 	} else if (D.softlimit==0 && D.hardlimit==0) {
 		return False;
 	} else {
-		if (D.softlimit == 0) {
+		if (D.softlimit == 0)
 			D.softlimit = D.hardlimit;
-		}
 		*dfree = D.softlimit - D.curblocks;
 		*dsize = D.softlimit;
 	}

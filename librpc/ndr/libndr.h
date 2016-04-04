@@ -26,10 +26,8 @@
 #define __LIBNDR_H__
 
 #include <talloc.h>
-#include "../lib/util/memory.h" /* for discard_const */
-#include "../lib/util/byteorder.h"
-#include "../lib/util/data_blob.h"
-#include "../lib/util/time.h"
+#include <sys/time.h>
+#include "../lib/util/samba_util.h" /* for discard_const */
 #include "../lib/util/charset/charset.h"
 
 /*

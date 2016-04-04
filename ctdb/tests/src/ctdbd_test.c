@@ -20,14 +20,8 @@
 #ifndef _CTDBD_TEST_C
 #define _CTDBD_TEST_C
 
-#include "replace.h"
-#include "system/network.h"
-
-#include <talloc.h>
-/* Allow use of deprecated function tevent_loop_allow_nesting() */
-#define TEVENT_DEPRECATED
-#include <tevent.h>
-
+#include "includes.h"
+#include "tdb.h"
 #include "ctdb_private.h"
 
 /*
@@ -41,12 +35,13 @@ bool fast_start;
 #include "common/ctdb_io.c"
 #include "common/ctdb_util.c"
 #include "common/ctdb_ltdb.c"
-#include "common/db_hash.c"
-#include "common/srvid.c"
+#include "common/ctdb_message.c"
 #include "common/cmdline.c"
 #include "common/rb_tree.c"
-#include "common/reqid.c"
-#include "common/logging.c"
+#include "common/system_common.c"
+#include "common/ctdb_logging.c"
+#include "common/ctdb_fork.c"
+#include "common/system_util.c"
 
 /* CTDB_SERVER_OBJ */
 #include "server/ctdb_daemon.c"
@@ -61,11 +56,6 @@ bool fast_start;
 #include "server/ctdb_ltdb_server.c"
 #include "server/ctdb_traverse.c"
 #include "server/eventscript.c"
-#include "server/ipalloc_common.c"
-#include "server/ipalloc_deterministic.c"
-#include "server/ipalloc_nondeterministic.c"
-#include "server/ipalloc_lcp2.c"
-#include "server/ipalloc.c"
 #include "server/ctdb_takeover.c"
 #include "server/ctdb_serverids.c"
 #include "server/ctdb_persistent.c"
@@ -79,7 +69,6 @@ bool fast_start;
 #include "server/ctdb_statistics.c"
 #include "server/ctdb_update_record.c"
 #include "server/ctdb_lock.c"
-#include "server/ctdb_fork.c"
 
 /* CTDB_CLIENT_OBJ */
 #include "client/ctdb_client.c"

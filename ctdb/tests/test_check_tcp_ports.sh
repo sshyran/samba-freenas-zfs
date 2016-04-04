@@ -2,8 +2,7 @@
 
 DIRNAME=$(dirname $0)
 
-CTDB_BASE="${DIRNAME}/../config"
-. "${CTDB_BASE}/functions"
+. ${DIRNAME}/../config/functions
 
 SERVICE="test-service"
 

@@ -171,7 +171,7 @@ void start_fssd(struct tevent_context *ev_ctx,
 	}
 
 	/* child */
-	status = smbd_reinit_after_fork(msg_ctx, ev_ctx, true, NULL);
+	status = smbd_reinit_after_fork(msg_ctx, ev_ctx, true);
 	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(0,("reinit_after_fork() failed\n"));
 		smb_panic("reinit_after_fork() failed");
@@ -182,7 +182,7 @@ void start_fssd(struct tevent_context *ev_ctx,
 	fssd_setup_sig_term_handler(ev_ctx);
 	fssd_setup_sig_hup_handler(ev_ctx, msg_ctx);
 
-	ok = serverid_register(messaging_server_id(msg_ctx),
+	ok = serverid_register(procid_self(),
 			       FLAG_MSG_GENERAL |
 			       FLAG_MSG_PRINT_GENERAL);
 	if (!ok) {

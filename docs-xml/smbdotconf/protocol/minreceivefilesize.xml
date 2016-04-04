@@ -1,7 +1,8 @@
 <samba:parameter name="min receivefile size"
-                 type="bytes"
-                 context="G"
-                 xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
+		type="integer"
+		context="G"
+                 generated_function="0"
+		xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
 <description>
 <para>This option changes the behavior of <citerefentry><refentrytitle>smbd</refentrytitle>
 <manvolnum>8</manvolnum></citerefentry> when processing SMBwriteX calls. Any incoming

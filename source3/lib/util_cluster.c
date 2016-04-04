@@ -21,17 +21,16 @@
 #include "includes.h"
 #include "ctdbd_conn.h"
 #include "util_cluster.h"
-#include "lib/cluster_support.h"
 
 bool cluster_probe_ok(void)
 {
 	if (lp_clustering()) {
-		int ret;
+		NTSTATUS status;
 
-		ret = ctdbd_probe(lp_ctdbd_socket(), lp_ctdb_timeout());
-		if (ret != 0) {
+		status = ctdbd_probe();
+		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(0, ("clustering=yes but ctdbd connect failed: "
-				  "%s\n", strerror(ret)));
+				  "%s\n", nt_errstr(status)));
 			return false;
 		}
 	}

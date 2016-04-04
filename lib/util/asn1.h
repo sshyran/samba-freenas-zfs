@@ -20,13 +20,20 @@
 #ifndef _ASN_1_H
 #define _ASN_1_H
 
-#include "replace.h"
-#include <talloc.h>
-#include "lib/util/data_blob.h"
+struct nesting {
+	off_t start;
+	size_t taglen; /* for parsing */
+	struct nesting *next;
+};
 
+struct asn1_data {
+	uint8_t *data;
+	size_t length;
+	off_t ofs;
+	struct nesting *nesting;
+	bool has_error;
+};
 
-struct nesting;
-struct asn1_data;
 typedef struct asn1_data ASN1_DATA;
 
 #define ASN1_APPLICATION(x) ((x)+0x60)
@@ -47,10 +54,6 @@ typedef struct asn1_data ASN1_DATA;
 
 struct asn1_data *asn1_init(TALLOC_CTX *mem_ctx);
 void asn1_free(struct asn1_data *data);
-bool asn1_has_error(const struct asn1_data *data);
-void asn1_set_error(struct asn1_data *data);
-bool asn1_has_nesting(const struct asn1_data *data);
-off_t asn1_current_ofs(const struct asn1_data *data);
 bool asn1_write(struct asn1_data *data, const void *p, int len);
 bool asn1_write_uint8(struct asn1_data *data, uint8_t v);
 bool asn1_push_tag(struct asn1_data *data, uint8_t tag);
@@ -76,6 +79,7 @@ bool asn1_peek(struct asn1_data *data, void *p, int len);
 bool asn1_read(struct asn1_data *data, void *p, int len);
 bool asn1_read_uint8(struct asn1_data *data, uint8_t *v);
 bool asn1_peek_uint8(struct asn1_data *data, uint8_t *v);
+bool asn1_peek_tag_needed_size(struct asn1_data *data, uint8_t tag, size_t *size);
 bool asn1_peek_tag(struct asn1_data *data, uint8_t tag);
 bool asn1_start_tag(struct asn1_data *data, uint8_t tag);
 bool asn1_end_tag(struct asn1_data *data);
@@ -95,9 +99,8 @@ bool asn1_read_enumerated(struct asn1_data *data, int *v);
 bool asn1_check_enumerated(struct asn1_data *data, int v);
 bool asn1_write_enumerated(struct asn1_data *data, uint8_t v);
 bool asn1_blob(const struct asn1_data *asn1, DATA_BLOB *blob);
-bool asn1_extract_blob(struct asn1_data *asn1, TALLOC_CTX *mem_ctx,
-		       DATA_BLOB *pblob);
 void asn1_load_nocopy(struct asn1_data *data, uint8_t *buf, size_t len);
-int asn1_peek_full_tag(DATA_BLOB blob, uint8_t tag, size_t *packet_size);
+NTSTATUS asn1_full_tag(DATA_BLOB blob, uint8_t tag, size_t *packet_size);
+NTSTATUS asn1_peek_full_tag(DATA_BLOB blob, uint8_t tag, size_t *packet_size);
 
 #endif /* _ASN_1_H */

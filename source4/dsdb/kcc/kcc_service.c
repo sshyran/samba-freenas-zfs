@@ -34,7 +34,6 @@
 #include "librpc/gen_ndr/ndr_drsuapi.h"
 #include "librpc/gen_ndr/ndr_drsblobs.h"
 #include "param/param.h"
-#include "libds/common/roles.h"
 
 /*
   establish system creds

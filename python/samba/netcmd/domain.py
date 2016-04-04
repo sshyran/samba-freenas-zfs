@@ -5,7 +5,7 @@
 # Copyright Jelmer Vernooij 2007-2012
 # Copyright Giampaolo Lauria 2011
 # Copyright Matthieu Patou <mat@matws.net> 2011
-# Copyright Andrew Bartlett 2008-2015
+# Copyright Andrew Bartlett 2008
 # Copyright Stefan Metzmacher 2012
 #
 # This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,6 @@ import ctypes
 import random
 import tempfile
 import logging
-import subprocess
 from getpass import getpass
 from samba.net import Net, LIBNET_JOIN_AUTOMATIC
 import samba.ntacls
@@ -45,7 +44,6 @@ from samba.dcerpc import lsa
 from samba.dcerpc import netlogon
 from samba.dcerpc import security
 from samba.dcerpc import nbt
-from samba.dcerpc import misc
 from samba.dcerpc.samr import DOMAIN_PASSWORD_COMPLEX, DOMAIN_PASSWORD_STORE_CLEARTEXT
 from samba.netcmd import (
     Command,
@@ -60,7 +58,7 @@ from samba.upgrade import upgrade_from_samba3
 from samba.drs_utils import (
                             sendDsReplicaSync, drsuapi_connect, drsException,
                             sendRemoveDsServer)
-from samba import remove_dc, arcfour_encrypt, string_to_byte_array
+from samba import arcfour_encrypt, string_to_byte_array
 
 from samba.dsdb import (
     DS_DOMAIN_FUNCTION_2000,
@@ -68,14 +66,11 @@ from samba.dsdb import (
     DS_DOMAIN_FUNCTION_2003_MIXED,
     DS_DOMAIN_FUNCTION_2008,
     DS_DOMAIN_FUNCTION_2008_R2,
-    DS_DOMAIN_FUNCTION_2012,
-    DS_DOMAIN_FUNCTION_2012_R2,
     DS_NTDSDSA_OPT_DISABLE_OUTBOUND_REPL,
     DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL,
     UF_WORKSTATION_TRUST_ACCOUNT,
     UF_SERVER_TRUST_ACCOUNT,
-    UF_TRUSTED_FOR_DELEGATION,
-    UF_PARTIAL_SECRETS_ACCOUNT
+    UF_TRUSTED_FOR_DELEGATION
     )
 
 from samba.provision import (
@@ -90,16 +85,9 @@ from samba.provision.common import (
 )
 
 def get_testparm_var(testparm, smbconf, varname):
-    errfile = open(os.devnull, 'w')
-    p = subprocess.Popen([testparm, '-s', '-l',
-                          '--parameter-name=%s' % varname, smbconf],
-                         stdout=subprocess.PIPE, stderr=errfile)
-    (out,err) = p.communicate()
-    errfile.close()
-    lines = out.split('\n')
-    if lines:
-        return lines[0].strip()
-    return ""
+    cmd = "%s -s -l --parameter-name='%s' %s 2>/dev/null" % (testparm, varname, smbconf)
+    output = os.popen(cmd, 'r').readline()
+    return output.strip()
 
 try:
    import samba.dckeytab
@@ -206,7 +194,7 @@ class cmd_domain_provision(Command):
          Option("--dnspass", type="string", metavar="PASSWORD",
                 help="choose dns password (otherwise random)"),
          Option("--ldapadminpass", type="string", metavar="PASSWORD",
-                help="choose password to set between Samba and its LDAP backend (otherwise random)"),
+                help="choose password to set between Samba and it's LDAP backend (otherwise random)"),
          Option("--root", type="string", metavar="USERNAME",
                 help="choose 'root' unix username"),
          Option("--nobody", type="string", metavar="USERNAME",
@@ -236,7 +224,7 @@ class cmd_domain_provision(Command):
          Option("--ol-mmr-urls", type="string", metavar="LDAPSERVER",
                 help="List of LDAP-URLS [ ldap://<FQHN>:<PORT>/  (where <PORT> has to be different than 389!) ] separated with comma (\",\") for use with OpenLDAP-MMR (Multi-Master-Replication), e.g.: \"ldap://s4dc1:9000,ldap://s4dc2:9000\""),
          Option("--use-xattrs", type="choice", choices=["yes", "no", "auto"], help="Define if we should use the native fs capabilities or a tdb file for storing attributes likes ntacl, auto tries to make an inteligent guess based on the user rights and system capabilities", default="auto"),
-
+         Option("--use-ntvfs", action="store_true", help="Use NTVFS for the fileserver (default = no)"),
          Option("--use-rfc2307", action="store_true", help="Use AD to store posix attributes (default = no)"),
         ]
 
@@ -251,15 +239,8 @@ class cmd_domain_provision(Command):
         Option("--ldap-backend-nosync", help="Configure LDAP backend not to call fsync() (for performance in test environments)", action="store_true"),
         ]
 
-    ntvfs_options = [
-         Option("--use-ntvfs", action="store_true", help="Use NTVFS for the fileserver (default = no)"),
-    ]
-
     if os.getenv('TEST_LDAP', "no") == "yes":
         takes_options.extend(openldap_options)
-
-    if samba.is_ntvfs_fileserver_built():
-         takes_options.extend(ntvfs_options)
 
     takes_args = []
 
@@ -509,6 +490,8 @@ class cmd_domain_dcpromo(Command):
                action="store_true"),
         Option("--machinepass", type=str, metavar="PASSWORD",
                help="choose machine password (otherwise random)"),
+        Option("--use-ntvfs", help="Use NTVFS for the fileserver (default = no)",
+               action="store_true"),
         Option("--dns-backend", type="choice", metavar="NAMESERVER-BACKEND",
                choices=["SAMBA_INTERNAL", "BIND9_DLZ", "NONE"],
                help="The DNS server backend. SAMBA_INTERNAL is the builtin name server (default), "
@@ -518,14 +501,6 @@ class cmd_domain_dcpromo(Command):
         Option("--quiet", help="Be quiet", action="store_true"),
         Option("--verbose", help="Be verbose", action="store_true")
         ]
-
-    ntvfs_options = [
-         Option("--use-ntvfs", action="store_true", help="Use NTVFS for the fileserver (default = no)"),
-    ]
-
-    if samba.is_ntvfs_fileserver_built():
-         takes_options.extend(ntvfs_options)
-
 
     takes_args = ["domain", "role?"]
 
@@ -594,6 +569,8 @@ class cmd_domain_join(Command):
                help="choose machine password (otherwise random)"),
         Option("--adminpass", type="string", metavar="PASSWORD",
                help="choose adminstrator password when joining as a subdomain (otherwise random)"),
+        Option("--use-ntvfs", help="Use NTVFS for the fileserver (default = no)",
+               action="store_true"),
         Option("--dns-backend", type="choice", metavar="NAMESERVER-BACKEND",
                choices=["SAMBA_INTERNAL", "BIND9_DLZ", "NONE"],
                help="The DNS server backend. SAMBA_INTERNAL is the builtin name server (default), "
@@ -603,13 +580,6 @@ class cmd_domain_join(Command):
         Option("--quiet", help="Be quiet", action="store_true"),
         Option("--verbose", help="Be verbose", action="store_true")
        ]
-
-    ntvfs_options = [
-        Option("--use-ntvfs", help="Use NTVFS for the fileserver (default = no)",
-               action="store_true")
-    ]
-    if samba.is_ntvfs_fileserver_built():
-        takes_options.extend(ntvfs_options)
 
     takes_args = ["domain", "role?"]
 
@@ -678,13 +648,8 @@ class cmd_domain_demote(Command):
     synopsis = "%prog [options]"
 
     takes_options = [
-        Option("--server", help="writable DC to write demotion changes on", type=str),
-        Option("-H", "--URL", help="LDB URL for database or target server", type=str,
-               metavar="URL", dest="H"),
-        Option("--remove-other-dead-server", help="Dead DC (name or NTDS GUID) "
-               "to remove ALL references to (rather than this DC)", type=str),
-        Option("--quiet", help="Be quiet", action="store_true"),
-        Option("--verbose", help="Be verbose", action="store_true"),
+        Option("--server", help="DC to force replication before demote", type=str),
+        Option("--targetdir", help="where provision is stored", type=str),
         ]
 
     takes_optiongroups = {
@@ -694,36 +659,13 @@ class cmd_domain_demote(Command):
         }
 
     def run(self, sambaopts=None, credopts=None,
-            versionopts=None, server=None,
-            remove_other_dead_server=None, H=None,
-            verbose=False, quiet=False):
+            versionopts=None, server=None, targetdir=None):
         lp = sambaopts.get_loadparm()
         creds = credopts.get_credentials(lp)
         net = Net(creds, lp, server=credopts.ipaddress)
 
-        logger = self.get_logger()
-        if verbose:
-            logger.setLevel(logging.DEBUG)
-        elif quiet:
-            logger.setLevel(logging.WARNING)
-        else:
-            logger.setLevel(logging.INFO)
-
-        if remove_other_dead_server is not None:
-            if server is not None:
-                samdb = SamDB(url="ldap://%s" % server,
-                              session_info=system_session(),
-                              credentials=creds, lp=lp)
-            else:
-                samdb = SamDB(url=H, session_info=system_session(), credentials=creds, lp=lp)
-            try:
-                remove_dc.remove_dc(samdb, logger, remove_other_dead_server)
-            except remove_dc.DemoteException as err:
-                raise CommandError("Demote failed: %s" % err)
-            return
-
         netbios_name = lp.get("netbios name")
-        samdb = SamDB(url=H, session_info=system_session(), credentials=creds, lp=lp)
+        samdb = SamDB(session_info=system_session(), credentials=creds, lp=lp)
         if not server:
             res = samdb.search(expression='(&(objectClass=computer)(serverReferenceBL=*))', attrs=["dnsHostName", "name"])
             if (len(res) == 0):
@@ -760,48 +702,37 @@ class cmd_domain_demote(Command):
 
         self.errf.write("Deactivating inbound replication\n")
 
+        nmsg = ldb.Message()
+        nmsg.dn = msg[0].dn
+
+        dsa_options |= DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL
+        nmsg["options"] = ldb.MessageElement(str(dsa_options), ldb.FLAG_MOD_REPLACE, "options")
+        samdb.modify(nmsg)
+
         if not (dsa_options & DS_NTDSDSA_OPT_DISABLE_OUTBOUND_REPL) and not samdb.am_rodc():
-            nmsg = ldb.Message()
-            nmsg.dn = msg[0].dn
-
-            dsa_options |= DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL
-            nmsg["options"] = ldb.MessageElement(str(dsa_options), ldb.FLAG_MOD_REPLACE, "options")
-            samdb.modify(nmsg)
-
 
             self.errf.write("Asking partner server %s to synchronize from us\n"
                             % server)
             for part in (samdb.get_schema_basedn(),
                             samdb.get_config_basedn(),
                             samdb.get_root_basedn()):
-                nc = drsuapi.DsReplicaObjectIdentifier()
-                nc.dn = str(part)
-
-                req1 = drsuapi.DsReplicaSyncRequest1()
-                req1.naming_context = nc;
-                req1.options = drsuapi.DRSUAPI_DRS_WRIT_REP
-                req1.source_dsa_guid = misc.GUID(ntds_guid)
-
                 try:
-                    drsuapiBind.DsReplicaSync(drsuapi_handle, 1, req1)
-                except RuntimeError as (werr, string):
-                    if werr == 8452: #WERR_DS_DRA_NO_REPLICA
-                        pass
-                    else:
-                        self.errf.write(
-                            "Error while demoting, "
+                    sendDsReplicaSync(drsuapiBind, drsuapi_handle, ntds_guid, str(part), drsuapi.DRSUAPI_DRS_WRIT_REP)
+                except drsException, e:
+                    self.errf.write(
+                        "Error while demoting, "
                         "re-enabling inbound replication\n")
-                        dsa_options ^= DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL
-                        nmsg["options"] = ldb.MessageElement(str(dsa_options), ldb.FLAG_MOD_REPLACE, "options")
-                        samdb.modify(nmsg)
-                        raise CommandError("Error while sending a DsReplicaSync for partion %s" % str(part), e)
+                    dsa_options ^= DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL
+                    nmsg["options"] = ldb.MessageElement(str(dsa_options), ldb.FLAG_MOD_REPLACE, "options")
+                    samdb.modify(nmsg)
+                    raise CommandError("Error while sending a DsReplicaSync for partion %s" % str(part), e)
         try:
             remote_samdb = SamDB(url="ldap://%s" % server,
                                 session_info=system_session(),
                                 credentials=creds, lp=lp)
 
             self.errf.write("Changing userControl and container\n")
-            res = remote_samdb.search(base=str(remote_samdb.domain_dn()),
+            res = remote_samdb.search(base=str(remote_samdb.get_root_basedn()),
                                 expression="(&(objectClass=user)(sAMAccountName=%s$))" %
                                             netbios_name.upper(),
                                 attrs=["userAccountControl"])
@@ -827,7 +758,7 @@ class cmd_domain_demote(Command):
 
         olduac = uac
 
-        uac &= ~(UF_SERVER_TRUST_ACCOUNT|UF_TRUSTED_FOR_DELEGATION|UF_PARTIAL_SECRETS_ACCOUNT)
+        uac ^= (UF_SERVER_TRUST_ACCOUNT|UF_TRUSTED_FOR_DELEGATION)
         uac |= UF_WORKSTATION_TRUST_ACCOUNT
 
         msg = ldb.Message()
@@ -848,14 +779,13 @@ class cmd_domain_demote(Command):
             raise CommandError("Error while changing account control", e)
 
         parent = msg.dn.parent()
-        dc_name = res[0].dn.get_rdn_value()
-        rdn = "CN=%s" % dc_name
-
+        rdn = str(res[0].dn)
+        rdn = string.replace(rdn, ",%s" % str(parent), "")
         # Let's move to the Computer container
         i = 0
-        newrdn = str(rdn)
+        newrdn = rdn
 
-        computer_dn = ldb.Dn(remote_samdb, "CN=Computers,%s" % str(remote_samdb.domain_dn()))
+        computer_dn = ldb.Dn(remote_samdb, "CN=Computers,%s" % str(remote_samdb.get_root_basedn()))
         res = remote_samdb.search(base=computer_dn, expression=rdn, scope=ldb.SCOPE_ONELEVEL)
 
         if (len(res) != 0):
@@ -913,36 +843,34 @@ class cmd_domain_demote(Command):
         domain = remote_samdb.get_root_basedn()
 
         try:
-            req1 = drsuapi.DsRemoveDSServerRequest1()
-            req1.server_dn = str(server_dsa_dn)
-            req1.domain_dn = str(domain)
-            req1.commit = 1
-
-            drsuapiBind.DsRemoveDSServer(drsuapi_handle, 1, req1)
-        except RuntimeError as (werr, string):
-            if not (dsa_options & DS_NTDSDSA_OPT_DISABLE_OUTBOUND_REPL) and not samdb.am_rodc():
-                self.errf.write(
-                    "Error while demoting, re-enabling inbound replication\n")
-                dsa_options ^= DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL
-                nmsg["options"] = ldb.MessageElement(str(dsa_options), ldb.FLAG_MOD_REPLACE, "options")
-                samdb.modify(nmsg)
+            sendRemoveDsServer(drsuapiBind, drsuapi_handle, server_dsa_dn, domain)
+        except drsException, e:
+            self.errf.write(
+                "Error while demoting, re-enabling inbound replication\n")
+            dsa_options ^= DS_NTDSDSA_OPT_DISABLE_INBOUND_REPL
+            nmsg["options"] = ldb.MessageElement(str(dsa_options), ldb.FLAG_MOD_REPLACE, "options")
+            samdb.modify(nmsg)
 
             msg = ldb.Message()
             msg.dn = newdn
 
             msg["userAccountControl"] = ldb.MessageElement("%d" % uac,
-                                                           ldb.FLAG_MOD_REPLACE,
-                                                           "userAccountControl")
+                                                    ldb.FLAG_MOD_REPLACE,
+                                                    "userAccountControl")
+            print str(dc_dn)
             remote_samdb.modify(msg)
             remote_samdb.rename(newdn, dc_dn)
-            if werr == 8452: #WERR_DS_DRA_NO_REPLICA
-                raise CommandError("The DC %s is not present on (already removed from) the remote server: " % server_dsa_dn, e)
-            else:
-                raise CommandError("Error while sending a removeDsServer of %s: " % server_dsa_dn, e)
+            raise CommandError("Error while sending a removeDsServer", e)
 
-        remove_dc.remove_sysvol_references(remote_samdb, dc_name)
+        for s in ("CN=Enterprise,CN=Microsoft System Volumes,CN=System,CN=Configuration",
+                  "CN=%s,CN=Microsoft System Volumes,CN=System,CN=Configuration" % lp.get("realm"),
+                  "CN=Domain System Volumes (SYSVOL share),CN=File Replication Service,CN=System"):
+            try:
+                remote_samdb.delete(ldb.Dn(remote_samdb,
+                                    "%s,%s,%s" % (str(rdn), s, str(remote_samdb.get_root_basedn()))))
+            except ldb.LdbError, l:
+                pass
 
-        # These are objects under the computer account that should be deleted
         for s in ("CN=Enterprise,CN=NTFRS Subscriptions",
                   "CN=%s, CN=NTFRS Subscriptions" % lp.get("realm"),
                   "CN=Domain system Volumes (SYSVOL Share), CN=NTFRS Subscriptions",
@@ -971,10 +899,10 @@ class cmd_domain_level(Command):
         Option("-H", "--URL", help="LDB URL for database or target server", type=str,
                metavar="URL", dest="H"),
         Option("--quiet", help="Be quiet", action="store_true"),
-        Option("--forest-level", type="choice", choices=["2003", "2008", "2008_R2", "2012", "2012_R2"],
-            help="The forest function level (2003 | 2008 | 2008_R2 | 2012 | 2012_R2)"),
-        Option("--domain-level", type="choice", choices=["2003", "2008", "2008_R2", "2012", "2012_R2"],
-            help="The domain function level (2003 | 2008 | 2008_R2 | 2012 | 2012_R2)")
+        Option("--forest-level", type="choice", choices=["2003", "2008", "2008_R2"],
+            help="The forest function level (2003 | 2008 | 2008_R2)"),
+        Option("--domain-level", type="choice", choices=["2003", "2008", "2008_R2"],
+            help="The domain function level (2003 | 2008 | 2008_R2)")
             ]
 
     takes_args = ["subcommand"]
@@ -1002,34 +930,27 @@ class cmd_domain_level(Command):
           attrs=["msDS-Behavior-Version"])
         assert len(res_dc_s) >= 1
 
-        # default values, since "msDS-Behavior-Version" does not exist on Windows 2000 AD
-        level_forest = DS_DOMAIN_FUNCTION_2000
-        level_domain = DS_DOMAIN_FUNCTION_2000
-
-        if "msDS-Behavior-Version" in res_forest[0]:
+        try:
             level_forest = int(res_forest[0]["msDS-Behavior-Version"][0])
-        if "msDS-Behavior-Version" in res_domain[0]:
             level_domain = int(res_domain[0]["msDS-Behavior-Version"][0])
-        level_domain_mixed = int(res_domain[0]["nTMixedDomain"][0])
+            level_domain_mixed = int(res_domain[0]["nTMixedDomain"][0])
 
-        min_level_dc = None
-        for msg in res_dc_s:
-            if "msDS-Behavior-Version" in msg:
-                if min_level_dc is None or int(msg["msDS-Behavior-Version"][0]) < min_level_dc:
+            min_level_dc = int(res_dc_s[0]["msDS-Behavior-Version"][0]) # Init value
+            for msg in res_dc_s:
+                if int(msg["msDS-Behavior-Version"][0]) < min_level_dc:
                     min_level_dc = int(msg["msDS-Behavior-Version"][0])
-            else:
-                min_level_dc = DS_DOMAIN_FUNCTION_2000
-                # well, this is the least
-                break
 
-        if level_forest < DS_DOMAIN_FUNCTION_2000 or level_domain < DS_DOMAIN_FUNCTION_2000:
-            raise CommandError("Domain and/or forest function level(s) is/are invalid. Correct them or reprovision!")
-        if min_level_dc < DS_DOMAIN_FUNCTION_2000:
-            raise CommandError("Lowest function level of a DC is invalid. Correct this or reprovision!")
-        if level_forest > level_domain:
-            raise CommandError("Forest function level is higher than the domain level(s). Correct this or reprovision!")
-        if level_domain > min_level_dc:
-            raise CommandError("Domain function level is higher than the lowest function level of a DC. Correct this or reprovision!")
+            if level_forest < 0 or level_domain < 0:
+                raise CommandError("Domain and/or forest function level(s) is/are invalid. Correct them or reprovision!")
+            if min_level_dc < 0:
+                raise CommandError("Lowest function level of a DC is invalid. Correct this or reprovision!")
+            if level_forest > level_domain:
+                raise CommandError("Forest function level is higher than the domain level(s). Correct this or reprovision!")
+            if level_domain > min_level_dc:
+                raise CommandError("Domain function level is higher than the lowest function level of a DC. Correct this or reprovision!")
+
+        except KeyError:
+            raise CommandError("Could not retrieve the actual domain, forest level and/or lowest DC function level!")
 
         if subcommand == "show":
             self.message("Domain and forest function level for domain '%s'" % domain_dn)
@@ -1052,12 +973,8 @@ class cmd_domain_level(Command):
                 outstr = "2008"
             elif level_forest == DS_DOMAIN_FUNCTION_2008_R2:
                 outstr = "2008 R2"
-            elif level_forest == DS_DOMAIN_FUNCTION_2012:
-                outstr = "2012"
-            elif level_forest == DS_DOMAIN_FUNCTION_2012_R2:
-                outstr = "2012 R2"
             else:
-                outstr = "higher than 2012 R2"
+                outstr = "higher than 2008 R2"
             self.message("Forest function level: (Windows) " + outstr)
 
             if level_domain == DS_DOMAIN_FUNCTION_2000 and level_domain_mixed != 0:
@@ -1072,12 +989,8 @@ class cmd_domain_level(Command):
                 outstr = "2008"
             elif level_domain == DS_DOMAIN_FUNCTION_2008_R2:
                 outstr = "2008 R2"
-            elif level_domain == DS_DOMAIN_FUNCTION_2012:
-                outstr = "2012"
-            elif level_domain == DS_DOMAIN_FUNCTION_2012_R2:
-                outstr = "2012 R2"
             else:
-                outstr = "higher than 2012 R2"
+                outstr = "higher than 2008 R2"
             self.message("Domain function level: (Windows) " + outstr)
 
             if min_level_dc == DS_DOMAIN_FUNCTION_2000:
@@ -1088,12 +1001,8 @@ class cmd_domain_level(Command):
                 outstr = "2008"
             elif min_level_dc == DS_DOMAIN_FUNCTION_2008_R2:
                 outstr = "2008 R2"
-            elif min_level_dc == DS_DOMAIN_FUNCTION_2012:
-                outstr = "2012"
-            elif min_level_dc == DS_DOMAIN_FUNCTION_2012_R2:
-                outstr = "2012 R2"
             else:
-                outstr = "higher than 2012 R2"
+                outstr = "higher than 2008 R2"
             self.message("Lowest function level of a DC: (Windows) " + outstr)
 
         elif subcommand == "raise":
@@ -1106,13 +1015,10 @@ class cmd_domain_level(Command):
                     new_level_domain = DS_DOMAIN_FUNCTION_2008
                 elif domain_level == "2008_R2":
                     new_level_domain = DS_DOMAIN_FUNCTION_2008_R2
-                elif domain_level == "2012":
-                    new_level_domain = DS_DOMAIN_FUNCTION_2012
-                elif domain_level == "2012_R2":
-                    new_level_domain = DS_DOMAIN_FUNCTION_2012_R2
 
                 if new_level_domain <= level_domain and level_domain_mixed == 0:
                     raise CommandError("Domain function level can't be smaller than or equal to the actual one!")
+
                 if new_level_domain > min_level_dc:
                     raise CommandError("Domain function level can't be higher than the lowest function level of a DC!")
 
@@ -1165,16 +1071,10 @@ class cmd_domain_level(Command):
                     new_level_forest = DS_DOMAIN_FUNCTION_2008
                 elif forest_level == "2008_R2":
                     new_level_forest = DS_DOMAIN_FUNCTION_2008_R2
-                elif forest_level == "2012":
-                    new_level_forest = DS_DOMAIN_FUNCTION_2012
-                elif forest_level == "2012_R2":
-                    new_level_forest = DS_DOMAIN_FUNCTION_2012_R2
-
                 if new_level_forest <= level_forest:
                     raise CommandError("Forest function level can't be smaller than or equal to the actual one!")
                 if new_level_forest > level_domain:
                     raise CommandError("Forest function level can't be higher than the domain function level(s). Please raise it/them first!")
-
                 m = ldb.Message()
                 m.dn = ldb.Dn(samdb, "CN=Partitions,%s" % samdb.get_config_basedn())
                 m["msDS-Behavior-Version"]= ldb.MessageElement(
@@ -1458,6 +1358,8 @@ class cmd_domain_classicupgrade(Command):
         Option("--verbose", help="Be verbose", action="store_true"),
         Option("--use-xattrs", type="choice", choices=["yes","no","auto"], metavar="[yes|no|auto]",
                    help="Define if we should use the native fs capabilities or a tdb file for storing attributes likes ntacl, auto tries to make an inteligent guess based on the user rights and system capabilities", default="auto"),
+        Option("--use-ntvfs", help="Use NTVFS for the fileserver (default = no)",
+               action="store_true"),
         Option("--dns-backend", type="choice", metavar="NAMESERVER-BACKEND",
                choices=["SAMBA_INTERNAL", "BIND9_FLATFILE", "BIND9_DLZ", "NONE"],
                help="The DNS server backend. SAMBA_INTERNAL is the builtin name server (default), "
@@ -1466,13 +1368,6 @@ class cmd_domain_classicupgrade(Command):
                    "NONE skips the DNS setup entirely (this DC will not be a DNS server)",
                default="SAMBA_INTERNAL")
     ]
-
-    ntvfs_options = [
-        Option("--use-ntvfs", help="Use NTVFS for the fileserver (default = no)",
-               action="store_true")
-    ]
-    if samba.is_ntvfs_fileserver_built():
-        takes_options.extend(ntvfs_options)
 
     takes_args = ["smbconf"]
 

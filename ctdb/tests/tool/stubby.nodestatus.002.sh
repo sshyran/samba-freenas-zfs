@@ -2,19 +2,19 @@
 
 . "${TEST_SCRIPTS_DIR}/unit.sh"
 
-define_test "all, 3 nodes, 1 disconnected"
+define_test "-n all, 3 nodes, all OK"
 
-required_result 1 <<EOF
+required_result 0 <<EOF
 Number of nodes:3
 pnn:0 192.168.20.41    OK
-pnn:1 192.168.20.42    DISCONNECTED|INACTIVE
+pnn:1 192.168.20.42    OK
 pnn:2 192.168.20.43    OK (THIS NODE)
 EOF
 
 simple_test all <<EOF
 NODEMAP
 0       192.168.20.41   0x0
-1       192.168.20.42   0x1
+1       192.168.20.42   0x0
 2       192.168.20.43   0x0     CURRENT RECMASTER
 
 IFACES

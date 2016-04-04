@@ -18,22 +18,13 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
+#include "includes.h"
 #include "system/filesys.h"
-#include "system/network.h"
+#include "popt.h"
+#include "cmdline.h"
 
-#include <popt.h>
-#include <talloc.h>
-#include <tevent.h>
-#include <tdb.h>
-
-#include "lib/util/time.h"
-
-#include "ctdb_private.h"
-#include "ctdb_client.h"
-
-#include "common/cmdline.h"
-#include "common/common.h"
+#include <sys/time.h>
+#include <time.h>
 
 static int timelimit = 10;
 static int lock_count = 0;
@@ -58,8 +49,7 @@ static void alarm_handler(int sig)
 /*
 	Just try locking/unlocking the same record over and over
 */
-static void bench_fetch_one_loop(struct ctdb_context *ctdb,
-				 struct tevent_context *ev)
+static void bench_fetch_one_loop(struct ctdb_context *ctdb, struct event_context *ev)
 {
 	TDB_DATA key, data;
 
@@ -101,7 +91,7 @@ int main(int argc, const char *argv[])
 	const char **extra_argv;
 	int extra_argc = 0;
 	poptContext pc;
-	struct tevent_context *ev;
+	struct event_context *ev;
 
 	pc = poptGetContext(argv[0], argc, argv, popt_options, POPT_CONTEXT_KEEP_FIRST);
 
@@ -121,7 +111,7 @@ int main(int argc, const char *argv[])
 		while (extra_argv[extra_argc]) extra_argc++;
 	}
 
-	ev = tevent_context_init(NULL);
+	ev = event_context_init(NULL);
 
 	ctdb = ctdb_cmdline_client(ev, timeval_current_ofs(3, 0));
 
@@ -143,7 +133,7 @@ int main(int argc, const char *argv[])
 		uint32_t recmode=1;
 		ctdb_ctrl_getrecmode(ctdb, ctdb, timeval_zero(), CTDB_CURRENT_NODE, &recmode);
 		if (recmode == 0) break;
-		tevent_loop_once(ev);
+		event_loop_once(ev);
 	}
 
 	signal(SIGALRM, alarm_handler);

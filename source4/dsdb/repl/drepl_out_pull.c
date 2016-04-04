@@ -127,7 +127,7 @@ WERROR dreplsrv_schedule_partition_pull_source(struct dreplsrv_service *s,
 	op->cb_data	= cb_data;
 	op->schedule_time = time(NULL);
 
-	DLIST_ADD_END(s->ops.pending, op);
+	DLIST_ADD_END(s->ops.pending, op, struct dreplsrv_out_operation *);
 
 	return WERR_OK;
 }

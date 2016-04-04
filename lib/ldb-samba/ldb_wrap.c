@@ -67,12 +67,8 @@ static void ldb_wrap_debug(void *context, enum ldb_debug_level level,
 	};
 	if (CHECK_DEBUGLVL(samba_level)) {
 		char *s = NULL;
-		int ret;
-
-		ret = vasprintf(&s, fmt, ap);
-		if (ret == -1) {
-			return;
-		}
+		vasprintf(&s, fmt, ap);
+		if (!s) return;
 		DEBUG(samba_level, ("ldb: %s\n", s));
 		free(s);
 	}

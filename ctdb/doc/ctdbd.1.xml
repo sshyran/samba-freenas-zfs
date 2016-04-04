@@ -72,7 +72,7 @@
 	    should not be stored on the shared cluster filesystem.
 	  </para>
 	  <para>
-	    Defaults to <filename>/usr/local/var/lib/ctdb</filename>.
+	    This directory would usually be <filename>/var/lib/ctdb</filename>
 	  </para>
 	</listitem>
       </varlistentry>
@@ -87,7 +87,8 @@
 	    filesystem.
 	  </para>
 	  <para>
-	    Defaults to <filename>/usr/local/var/lib/ctdb/persistent</filename>.
+	    This directory would usually be
+	    <filename>/var/lib/ctdb/persistent</filename>
 	  </para>
 	</listitem>
       </varlistentry>
@@ -101,7 +102,8 @@
 	    should not be stored on the shared cluster filesystem.
 	  </para>
 	  <para>
-	    Defaults to <filename>/usr/local/var/lib/ctdb/state</filename>.
+	    This directory would usually be
+	    <filename>/var/lib/ctdb/state</filename>
 	  </para>
 	</listitem>
       </varlistentry>
@@ -117,7 +119,7 @@
 	  </para>
 	  <para>
 	    Default is <envar>CTDB_BASE</envar>/events.d, so usually
-	    <filename>/usr/local/etc/ctdb/events.d</filename>, which is part of
+	    <filename>/etc/ctdb/events.d</filename>, which is part of
 	    the CTDB installation.
 	  </para>
 	</listitem>
@@ -150,8 +152,9 @@
 	<listitem>
 	  <para>
 	    STRING specifies where ctdbd will write its log. The
-	    default is
-	    file:<filename>/usr/local/var/log/log.ctdb</filename>.
+	    default is file:<filename>/var/log/log.ctdb</filename> or
+	    similar - the prefix may differ depending on how CTDB was
+	    built.
 	  </para>
 	  <para>
 	    Valid values are:
@@ -162,7 +165,7 @@
 	      <listitem>
 		<para>
 		  FILENAME where ctdbd will write its log. This is usually
-		  <filename>/usr/local/var/log/log.ctdb</filename>.
+		  <filename>/var/log/log.ctdb</filename>.
 		</para>
 	      </listitem>
 	    </varlistentry>
@@ -268,7 +271,7 @@
 	  </para>
 	  <para>
 	    Default is <envar>CTDB_BASE</envar>/nodes, so usually
-	    <filename>/usr/local/etc/ctdb/nodes</filename>.
+	    <filename>/etc/ctdb/nodes</filename>.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -317,7 +320,7 @@
 	  </para>
 	  <para>
 	    This file is usually
-	    <filename>/usr/local/etc/ctdb/notify.sh</filename>.
+	    <filename>/etc/ctdb/notify.sh</filename>.
 	  </para>
 	  <para>
 	    Please see the <citetitle>NOTIFICATION SCRIPT</citetitle>
@@ -358,7 +361,7 @@
 	  </para>
 	  <para>
 	    This is usually the file
-	    <filename>/usr/local/etc/ctdb/public_addresses</filename>
+	    <filename>/etc/ctdb/public_addresses</filename>
 	  </para>
 	</listitem>
       </varlistentry>
@@ -400,7 +403,7 @@
 	<listitem>
 	  <para>
 	    IPADDR specifies the single IP that CTDB will use in
-	    conjunction with LVS.
+	    conjuction with LVS.
 	  </para>
 	  <para>
 	    Please see the <citetitle>LVS</citetitle> section in
@@ -447,6 +450,17 @@
 	    in <citerefentry><refentrytitle>ctdb</refentrytitle>
 	    <manvolnum>7</manvolnum></citerefentry> for more
 	    information about the STOPPED state.
+	  </para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term>--syslog</term>
+	<listitem>
+	  <para>
+	    Send log messages to syslog instead of the CTDB logfile.
+	    This option overrides --logfile.  The default is to log to
+	    a file.
 	  </para>
 	</listitem>
       </varlistentry>
@@ -537,10 +551,10 @@
 	    communicate with ctdbd.
 	  </para>
 	  <para>
-	    The default is <filename>/usr/local/var/run/ctdb/ctdbd.socket</filename>.
-	    You only need to use this option if you plan to run
-	    multiple ctdbd daemons on the same physical host, usually
-	    for testing.
+	    The default is <filename>/tmp/ctdb.socket</filename> . You
+	    only need to use this option if you plan to run multiple
+	    ctdbd daemons on the same physical host, usually for
+	    testing.
 	  </para>
 	</listitem>
       </varlistentry>

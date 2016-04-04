@@ -137,8 +137,7 @@ def abi_check(self):
     topsrc = self.bld.srcnode.abspath()
     abi_gen = os.path.join(topsrc, 'buildtools/scripts/abi_gen.sh')
 
-    abi_file = "%s/%s-%s.sigs" % (self.abi_directory, self.version_libname,
-                                  self.vnum)
+    abi_file = "%s/%s-%s.sigs" % (self.abi_directory, self.name, self.vnum)
 
     tsk = self.create_task('abi_check', self.link_task.outputs[0])
     tsk.ABI_FILE = abi_file
@@ -148,10 +147,12 @@ def abi_check(self):
 
 def abi_process_file(fname, version, symmap):
     '''process one ABI file, adding new symbols to the symmap'''
-    for line in Utils.readf(fname).splitlines():
+    f = open(fname, mode='r')
+    for line in f:
         symname = line.split(":")[0]
         if not symname in symmap:
             symmap[symname] = version
+    f.close()
 
 
 def abi_write_vscript(f, libname, current_version, versions, symmap, abi_match):
@@ -225,7 +226,7 @@ def abi_build_vscript(task):
 def ABI_VSCRIPT(bld, libname, abi_directory, version, vscript, abi_match=None):
     '''generate a vscript file for our public libraries'''
     if abi_directory:
-        source = bld.path.ant_glob('%s/%s-[0-9]*.sigs' % (abi_directory, libname), flat=True)
+        source = bld.path.ant_glob('%s/%s-[0-9]*.sigs' % (abi_directory, libname))
         def abi_file_key(path):
             return version_key(path[:-len(".sigs")].rsplit("-")[-1])
         source = sorted(source.split(), key=abi_file_key)

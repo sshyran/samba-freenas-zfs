@@ -1,10 +1,8 @@
 # customised version of 'waf dist' for Samba tools
 # uses git ls-files to get file lists
 
-import os, sys, tarfile
-import Utils, Scripting, Logs, Options
-from Configure import conf
-from samba_utils import os_path_relpath
+import Utils, os, sys, tarfile, stat, Scripting, Logs, Options
+from samba_utils import *
 
 dist_dirs = None
 dist_files = None

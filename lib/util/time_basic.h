@@ -24,7 +24,8 @@
 #ifndef _SAMBA_TIME_BASIC_H_
 #define _SAMBA_TIME_BASIC_H_
 
-struct timeval;
+#include "replace.h"
+#include "system/time.h"
 
 /**
 a gettimeofday wrapper

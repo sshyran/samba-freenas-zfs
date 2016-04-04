@@ -20,7 +20,6 @@
 #include "replace.h"
 #include "server_id_db_util.h"
 #include "serverid.h"
-#include "lib/util/samba_util.h"
 
 static int server_id_db_check_exclusive(
 	struct server_id_db *db, const char *name,
@@ -72,7 +71,14 @@ static int server_id_db_check_exclusive(
 	unsigned num_servers, struct server_id *servers)
 {
 	struct server_id me = server_id_db_pid(db);
+	bool exists[num_servers];
+	bool ok;
 	int i;
+
+	ok = serverids_exist(servers, num_servers, exists);
+	if (!ok) {
+		return ENOMEM;
+	}
 
 	for (i=0; i<num_servers; i++) {
 		int ret;
@@ -84,7 +90,7 @@ static int server_id_db_check_exclusive(
 			continue;
 		}
 
-		if (serverid_exists(&servers[i])) {
+		if (exists[i]) {
 			return EEXIST;
 		}
 

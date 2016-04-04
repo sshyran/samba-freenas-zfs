@@ -26,7 +26,7 @@
 #include "smbd/scavenger.h"
 #include "locking/proto.h"
 #include "lib/util/util_process.h"
-#include "lib/util/sys_rw_data.h"
+#include "lib/sys_rw.h"
 
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_SCAVENGER
@@ -144,17 +144,21 @@ static int smbd_scavenger_server_id_destructor(struct server_id *id)
 
 static bool scavenger_say_hello(int fd, struct server_id self)
 {
-	ssize_t ret;
+	const uint8_t *msg = (const uint8_t *)&self;
+	size_t remaining = sizeof(self);
+	size_t ofs = 0;
 	struct server_id_buf tmp;
 
-	ret = write_data(fd, &self, sizeof(self));
-	if (ret == -1) {
-		DEBUG(2, ("Failed to write to pipe: %s\n", strerror(errno)));
-		return false;
-	}
-	if (ret < sizeof(self)) {
-		DBG_WARNING("Could not write serverid\n");
-		return false;
+	while (remaining > 0) {
+		ssize_t ret;
+
+		ret = sys_write(fd, msg + ofs, remaining);
+		if (ret == -1) {
+			DEBUG(2, ("Failed to write to pipe: %s\n",
+				  strerror(errno)));
+			return false;
+		}
+		remaining -= ret;
 	}
 
 	DEBUG(4, ("scavenger_say_hello: self[%s]\n",
@@ -164,18 +168,21 @@ static bool scavenger_say_hello(int fd, struct server_id self)
 
 static bool scavenger_wait_hello(int fd, struct server_id *child)
 {
+	uint8_t *msg = (uint8_t *)child;
+	size_t remaining = sizeof(*child);
+	size_t ofs = 0;
 	struct server_id_buf tmp;
-	ssize_t ret;
 
-	ret = read_data(fd, child, sizeof(struct server_id));
-	if (ret == -1) {
-		DEBUG(2, ("Failed to read from pipe: %s\n",
-			  strerror(errno)));
-		return false;
-	}
-	if (ret < sizeof(struct server_id)) {
-		DBG_WARNING("Could not read serverid\n");
-		return false;
+	while (remaining > 0) {
+		ssize_t ret;
+
+		ret = sys_read(fd, msg + ofs, remaining);
+		if (ret == -1) {
+			DEBUG(2, ("Failed to read from pipe: %s\n",
+				  strerror(errno)));
+			return false;
+		}
+		remaining -= ret;
 	}
 
 	DEBUG(4, ("scavenger_say_hello: child[%s]\n",
@@ -189,6 +196,7 @@ static bool smbd_scavenger_start(struct smbd_scavenger_state *state)
 	struct tevent_fd *fde = NULL;
 	int fds[2];
 	int ret;
+	uint64_t unique_id;
 	bool ok;
 
 	SMB_ASSERT(server_id_equal(&state->parent_id, &self));
@@ -226,6 +234,8 @@ static bool smbd_scavenger_start(struct smbd_scavenger_state *state)
 	smb_set_close_on_exec(fds[0]);
 	smb_set_close_on_exec(fds[1]);
 
+	unique_id = serverid_get_random_unique_id();
+
 	ret = fork();
 	if (ret == -1) {
 		int err = errno;
@@ -242,14 +252,17 @@ static bool smbd_scavenger_start(struct smbd_scavenger_state *state)
 
 		close(fds[0]);
 
-		status = smbd_reinit_after_fork(state->msg, state->ev,
-						true, "smbd-scavenger");
+		set_my_unique_id(unique_id);
+
+		status = smbd_reinit_after_fork(state->msg, state->ev, true);
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(2, ("reinit_after_fork failed: %s\n",
 				  nt_errstr(status)));
 			exit_server("reinit_after_fork failed");
 			return false;
 		}
+
+		prctl_set_comment("smbd-scavenger");
 
 		state->am_scavenger = true;
 		*state->scavenger_id = messaging_server_id(state->msg);

@@ -18,14 +18,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "replace.h"
-#include "system/filesys.h"
-#include "system/network.h"
-#include "system/locale.h"
-
+#include <stdio.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <ctype.h> /* isprint */
+#include <string.h> /* strstr */
+#include <fcntl.h> /* mode_t */
+#include <sys/stat.h> /* S_IRUSR */
+#include <stdint.h> /* uint32_t */
+#include <netinet/in.h> /* struct sockaddr_in */
+#include <sys/socket.h> /* struct sockaddr */
+#include <sys/param.h>  /* MIN */
 #include <tdb.h>
+#include <unistd.h> /* getopt */
+#include <errno.h>
 
-#include "protocol/protocol.h"
+#include "ctdb_protocol.h"
 
 enum {
 	MAX_HEADER_SIZE=24,

@@ -72,7 +72,7 @@ bool talloc_dict_set(struct talloc_dict *dict, DATA_BLOB key, void *pdata)
 			TALLOC_FREE(rec);
 			return false;
 		}
-		memcpy(&old_data, value.dptr, sizeof(old_data));
+		old_data = *(void **)(value.dptr);
 		TALLOC_FREE(old_data);
 		if (data == NULL) {
 			status = dbwrap_record_delete(rec);
@@ -138,7 +138,6 @@ static int talloc_dict_traverse_fn(struct db_record *rec, void *private_data)
 	TDB_DATA value;
 	struct talloc_dict_traverse_state *state =
 		(struct talloc_dict_traverse_state *)private_data;
-	void *p;
 
 	key = dbwrap_record_get_key(rec);
 	value = dbwrap_record_get_value(rec);
@@ -146,10 +145,8 @@ static int talloc_dict_traverse_fn(struct db_record *rec, void *private_data)
 	if (value.dsize != sizeof(void *)) {
 		return -1;
 	}
-
-	memcpy(&p, value.dptr, sizeof(p));
 	return state->fn(data_blob_const(key.dptr, key.dsize),
-			 p, state->private_data);
+			 *(void **)value.dptr, state->private_data);
 }
 
 /*

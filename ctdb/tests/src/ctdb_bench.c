@@ -17,23 +17,15 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
+#include "includes.h"
 #include "system/filesys.h"
-#include "system/network.h"
-
-#include <popt.h>
-#include <talloc.h>
-#include <tevent.h>
-
-#include "lib/util/time.h"
-#include "lib/util/debug.h"
-
-#include "ctdb_private.h"
+#include "popt.h"
+#include "cmdline.h"
 #include "ctdb_client.h"
+#include "ctdb_private.h"
 
-#include "common/cmdline.h"
-#include "common/common.h"
-#include "common/logging.h"
+#include <sys/time.h>
+#include <time.h>
 
 static struct timeval tp1,tp2;
 
@@ -64,7 +56,7 @@ static int incr_func(struct ctdb_call_info *call)
 	if (call->record_data.dsize == 0) {
 		call->new_data = talloc(call, TDB_DATA);
 		if (call->new_data == NULL) {
-			return ENOMEM;
+			return CTDB_ERR_NOMEM;
 		}
 		call->new_data->dptr = talloc_size(call, 4);
 		call->new_data->dsize = 4;
@@ -86,31 +78,26 @@ static int fetch_func(struct ctdb_call_info *call)
 }
 
 
-struct bench_data {
-	struct ctdb_context *ctdb;
-	struct tevent_context *ev;
-	int msg_count;
-	int msg_plus, msg_minus;
-};
+static int msg_count;
+static int msg_plus, msg_minus;
 
 /*
   handler for messages in bench_ring()
 */
-static void ring_message_handler(uint64_t srvid, TDB_DATA data,
-				 void *private_data)
+static void ring_message_handler(struct ctdb_context *ctdb, uint64_t srvid, 
+				 TDB_DATA data, void *private_data)
 {
-	struct bench_data *bdata = talloc_get_type_abort(
-		private_data, struct bench_data);
 	int incr = *(int *)data.dptr;
+	int *count = (int *)private_data;
 	int dest;
 
-	bdata->msg_count++;
-	dest = (ctdb_get_pnn(bdata->ctdb) + num_nodes + incr) % num_nodes;
-	ctdb_client_send_message(bdata->ctdb, dest, srvid, data);
+	(*count)++;
+	dest = (ctdb_get_pnn(ctdb) + num_nodes + incr) % num_nodes;
+	ctdb_client_send_message(ctdb, dest, srvid, data);
 	if (incr == 1) {
-		bdata->msg_plus++;
+		msg_plus++;
 	} else {
-		bdata->msg_minus++;
+		msg_minus++;
 	}
 }
 
@@ -129,11 +116,10 @@ static void send_start_messages(struct ctdb_context *ctdb, int incr)
 	ctdb_client_send_message(ctdb, dest, 0, data);
 }
 
-static void each_second(struct tevent_context *ev, struct tevent_timer *te,
-			struct timeval t, void *private_data)
+static void each_second(struct event_context *ev, struct timed_event *te, 
+					 struct timeval t, void *private_data)
 {
-	struct bench_data *bdata = talloc_get_type_abort(
-		private_data, struct bench_data);
+	struct ctdb_context *ctdb = talloc_get_type(private_data, struct ctdb_context);
 
 	/* we kickstart the ring into action by inserting messages from node
 	   with pnn 0.
@@ -141,57 +127,49 @@ static void each_second(struct tevent_context *ev, struct tevent_timer *te,
 	   running in which case the ring is broken and the messages are lost.
 	   if so, once every second try again to restart the ring
 	*/
-	if (bdata->msg_plus == 0) {
+	if (msg_plus == 0) {
 //		printf("no messages recevied, try again to kickstart the ring in forward direction...\n");
-		send_start_messages(bdata->ctdb, 1);
+		send_start_messages(ctdb, 1);
 	}
-	if (bdata->msg_minus == 0) {
+	if (msg_minus == 0) {
 //		printf("no messages recevied, try again to kickstart the ring in reverse direction...\n");
-		send_start_messages(bdata->ctdb, -1);
+		send_start_messages(ctdb, -1);
 	}
-	tevent_add_timer(bdata->ev, bdata, timeval_current_ofs(1, 0),
-			 each_second, bdata);
+	event_add_timed(ctdb->ev, ctdb, timeval_current_ofs(1, 0), each_second, ctdb);
 }
 
-static void dummy_event(struct tevent_context *ev, struct tevent_timer *te,
-			struct timeval t, void *private_data)
+static void dummy_event(struct event_context *ev, struct timed_event *te, 
+					 struct timeval t, void *private_data)
 {
-	struct bench_data *bdata = talloc_get_type_abort(
-		private_data, struct bench_data);
-
-	tevent_add_timer(bdata->ev, bdata, timeval_current_ofs(1, 0),
-			 dummy_event, bdata);
+	struct ctdb_context *ctdb = talloc_get_type(private_data, struct ctdb_context);
+	event_add_timed(ctdb->ev, ctdb, timeval_current_ofs(1, 0), dummy_event, ctdb);
 }
 
 /*
   benchmark sending messages in a ring around the nodes
 */
-static void bench_ring(struct bench_data *bdata)
+static void bench_ring(struct ctdb_context *ctdb, struct event_context *ev)
 {
-	int pnn = ctdb_get_pnn(bdata->ctdb);
+	int pnn=ctdb_get_pnn(ctdb);
 
 	if (pnn == 0) {
-		tevent_add_timer(bdata->ev, bdata, timeval_current_ofs(1, 0),
-				 each_second, bdata);
+		event_add_timed(ctdb->ev, ctdb, timeval_current_ofs(1, 0), each_second, ctdb);
 	} else {
-		tevent_add_timer(bdata->ev, bdata, timeval_current_ofs(1, 0),
-				 dummy_event, bdata);
+		event_add_timed(ctdb->ev, ctdb, timeval_current_ofs(1, 0), dummy_event, ctdb);
 	}
 
 	start_timer();
 	while (end_timer() < timelimit) {
-		if (pnn == 0 && bdata->msg_count % 10000 == 0 && end_timer() > 0) {
-			printf("Ring: %.2f msgs/sec (+ve=%d -ve=%d)\r",
-			       bdata->msg_count/end_timer(),
-			       bdata->msg_plus, bdata->msg_minus);
+		if (pnn == 0 && msg_count % 10000 == 0 && end_timer() > 0) {
+			printf("Ring: %.2f msgs/sec (+ve=%d -ve=%d)\r", 
+			       msg_count/end_timer(), msg_plus, msg_minus);
 			fflush(stdout);
 		}
-		tevent_loop_once(bdata->ev);
+		event_loop_once(ev);
 	}
 
-	printf("Ring: %.2f msgs/sec (+ve=%d -ve=%d)\n",
-	       bdata->msg_count/end_timer(),
-	       bdata->msg_plus, bdata->msg_minus);
+	printf("Ring: %.2f msgs/sec (+ve=%d -ve=%d)\n", 
+	       msg_count/end_timer(), msg_plus, msg_minus);
 }
 
 /*
@@ -215,8 +193,7 @@ int main(int argc, const char *argv[])
 	int extra_argc = 0;
 	int ret;
 	poptContext pc;
-	struct tevent_context *ev;
-	struct bench_data *bdata;
+	struct event_context *ev;
 
 	pc = poptGetContext(argv[0], argc, argv, popt_options, POPT_CONTEXT_KEEP_FIRST);
 
@@ -241,7 +218,7 @@ int main(int argc, const char *argv[])
 		exit(1);
 	}
 
-	ev = tevent_context_init(NULL);
+	ev = event_context_init(NULL);
 
 	/* initialise ctdb */
 	ctdb = ctdb_cmdline_client(ev, timeval_current_ofs(3, 0));
@@ -267,14 +244,7 @@ int main(int argc, const char *argv[])
 		DEBUG(DEBUG_DEBUG,("ctdb_set_call() failed, ignoring return code %d\n", ret));
 	}
 
-	bdata = talloc_zero(ctdb, struct bench_data);
-	if (bdata == NULL) {
-		goto error;
-	}
-	bdata->ctdb = ctdb;
-	bdata->ev = ev;
-
-	if (ctdb_client_set_message_handler(ctdb, 0, ring_message_handler, bdata))
+	if (ctdb_client_set_message_handler(ctdb, 0, ring_message_handler,&msg_count))
 		goto error;
 
 	printf("Waiting for cluster\n");
@@ -282,11 +252,11 @@ int main(int argc, const char *argv[])
 		uint32_t recmode=1;
 		ctdb_ctrl_getrecmode(ctdb, ctdb, timeval_zero(), CTDB_CURRENT_NODE, &recmode);
 		if (recmode == 0) break;
-		tevent_loop_once(ev);
+		event_loop_once(ev);
 	}
 
-	bench_ring(bdata);
-
+	bench_ring(ctdb, ev);
+       
 error:
 	return 0;
 }

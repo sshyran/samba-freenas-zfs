@@ -22,22 +22,13 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
+#include "includes.h"
 #include "system/filesys.h"
-#include "system/network.h"
 #include "system/time.h"
-
-#include <popt.h>
-#include <talloc.h>
-#include <tevent.h>
-
-#include "lib/tdb_wrap/tdb_wrap.h"
-#include "lib/util/time.h"
-
+#include "popt.h"
+#include "cmdline.h"
 #include "ctdb_private.h"
-
-#include "common/cmdline.h"
-#include "common/common.h"
+#include "lib/tdb_wrap/tdb_wrap.h"
 
 #define MAXINDEX 64
 char indices[MAXINDEX];
@@ -111,7 +102,7 @@ int main(int argc, const char *argv[])
 	const char **extra_argv;
 	int extra_argc = 0;
 	poptContext pc;
-	struct tevent_context *ev;
+	struct event_context *ev;
 
 	pc = poptGetContext(argv[0], argc, argv, popt_options, POPT_CONTEXT_KEEP_FIRST);
 
@@ -131,7 +122,7 @@ int main(int argc, const char *argv[])
 		while (extra_argv[extra_argc]) extra_argc++;
 	}
 
-	ev = tevent_context_init(NULL);
+	ev = event_context_init(NULL);
 
 	ctdb = ctdb_cmdline_client(ev, timeval_current_ofs(5, 0));
 	if (ctdb == NULL) {

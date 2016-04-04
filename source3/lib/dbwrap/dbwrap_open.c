@@ -25,7 +25,6 @@
 #include "dbwrap/dbwrap_tdb.h"
 #include "dbwrap/dbwrap_ctdb.h"
 #include "lib/param/param.h"
-#include "lib/cluster_support.h"
 #include "util_tdb.h"
 #include "ctdbd_conn.h"
 

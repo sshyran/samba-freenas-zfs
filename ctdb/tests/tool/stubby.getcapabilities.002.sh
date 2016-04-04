@@ -8,6 +8,7 @@ required_result 0 <<EOF
 RECMASTER: YES
 LMASTER: YES
 LVS: NO
+NATGW: YES
 EOF
 
 simple_test <<EOF

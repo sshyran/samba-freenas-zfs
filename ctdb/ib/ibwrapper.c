@@ -20,24 +20,28 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "replace.h"
-#include "system/network.h"
-
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <malloc.h>
 #include <assert.h>
-#include <talloc.h>
-#include <tevent.h>
+#include <unistd.h>
 
-#include "lib/util/dlinklist.h"
-#include "lib/util/debug.h"
-
-#include "common/logging.h"
+#include "includes.h"
+#include "ibwrapper.h"
 
 #include <infiniband/kern-abi.h>
 #include <rdma/rdma_cma_abi.h>
 #include <rdma/rdma_cma.h>
 
-#include "ibwrapper.h"
 #include "ibwrapper_internal.h"
+#include "lib/util/dlinklist.h"
 
 #define IBW_LASTERR_BUFSIZE 512
 static char ibw_lasterr[IBW_LASTERR_BUFSIZE];
@@ -47,8 +51,8 @@ static char ibw_lasterr[IBW_LASTERR_BUFSIZE];
 #define IBW_RECV_BUFSIZE 256
 #define IBW_RECV_THRESHOLD (1 * 1024 * 1024)
 
-static void ibw_event_handler_verbs(struct tevent_context *ev,
-	struct tevent_fd *fde, uint16_t flags, void *private_data);
+static void ibw_event_handler_verbs(struct event_context *ev,
+	struct fd_event *fde, uint16_t flags, void *private_data);
 static int ibw_fill_cq(struct ibw_conn *conn);
 static int ibw_wc_recv(struct ibw_conn *conn, struct ibv_wc *wc);
 static int ibw_wc_send(struct ibw_conn *conn, struct ibv_wc *wc);
@@ -259,8 +263,8 @@ static int ibw_setup_cq_qp(struct ibw_conn *conn)
 	}
 	DEBUG(DEBUG_DEBUG, ("created channel %p\n", pconn->verbs_channel));
 
-	pconn->verbs_channel_event = tevent_add_fd(pctx->ectx, NULL, /* not pconn or conn */
-		pconn->verbs_channel->fd, TEVENT_FD_READ, ibw_event_handler_verbs, conn);
+	pconn->verbs_channel_event = event_add_fd(pctx->ectx, NULL, /* not pconn or conn */
+		pconn->verbs_channel->fd, EVENT_FD_READ, ibw_event_handler_verbs, conn);
 
 	pconn->pd = ibv_alloc_pd(pconn->cm_id->verbs);
 	if (!pconn->pd) {
@@ -406,8 +410,8 @@ static int ibw_manage_connect(struct ibw_conn *conn)
 	return rc;
 }
 
-static void ibw_event_handler_cm(struct tevent_context *ev,
-	struct tevent_fd *fde, uint16_t flags, void *private_data)
+static void ibw_event_handler_cm(struct event_context *ev,
+	struct fd_event *fde, uint16_t flags, void *private_data)
 {
 	int	rc;
 	struct ibw_ctx	*ctx = talloc_get_type(private_data, struct ibw_ctx);
@@ -577,8 +581,8 @@ error:
 	return;
 }
 
-static void ibw_event_handler_verbs(struct tevent_context *ev,
-	struct tevent_fd *fde, uint16_t flags, void *private_data)
+static void ibw_event_handler_verbs(struct event_context *ev,
+	struct fd_event *fde, uint16_t flags, void *private_data)
 {
 	struct ibw_conn	*conn = talloc_get_type(private_data, struct ibw_conn);
 	struct ibw_conn_priv *pconn = talloc_get_type(conn->internal, struct ibw_conn_priv);
@@ -934,7 +938,7 @@ struct ibw_ctx *ibw_init(struct ibw_initattr *attr, int nattr,
 	void *ctx_userdata,
 	ibw_connstate_fn_t ibw_connstate,
 	ibw_receive_fn_t ibw_receive,
-	struct tevent_context *ectx)
+	struct event_context *ectx)
 {
 	struct ibw_ctx *ctx = talloc_zero(NULL, struct ibw_ctx);
 	struct ibw_ctx_priv *pctx;
@@ -971,8 +975,8 @@ struct ibw_ctx *ibw_init(struct ibw_initattr *attr, int nattr,
 		goto cleanup;
 	}
 
-	pctx->cm_channel_event = tevent_add_fd(pctx->ectx, pctx,
-		pctx->cm_channel->fd, TEVENT_FD_READ, ibw_event_handler_cm, ctx);
+	pctx->cm_channel_event = event_add_fd(pctx->ectx, pctx,
+		pctx->cm_channel->fd, EVENT_FD_READ, ibw_event_handler_cm, ctx);
 
 #if RDMA_USER_CM_MAX_ABI_VERSION >= 2
 	rc = rdma_create_id(pctx->cm_channel, &pctx->cm_id, ctx, RDMA_PS_TCP);

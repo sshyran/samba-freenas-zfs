@@ -212,7 +212,6 @@ static int tevent_signal_destructor(struct tevent_signal *se)
 		/* restore old handler, if any */
 		if (sig_state->oldact[se->signum]) {
 			sigaction(se->signum, sig_state->oldact[se->signum], NULL);
-			talloc_free(sig_state->oldact[se->signum]);
 			sig_state->oldact[se->signum] = NULL;
 		}
 #ifdef SA_SIGINFO
@@ -343,8 +342,6 @@ struct tevent_signal *tevent_common_add_signal(struct tevent_context *ev,
 			return NULL;
 		}
 		if (sigaction(signum, &act, sig_state->oldact[signum]) == -1) {
-			talloc_free(sig_state->oldact[signum]);
-			sig_state->oldact[signum] = NULL;
 			talloc_free(se);
 			return NULL;
 		}
@@ -508,7 +505,6 @@ void tevent_cleanup_pending_signal_handlers(struct tevent_signal *se)
 	if (sig_state->sig_handlers[se->signum] == NULL) {
 		if (sig_state->oldact[se->signum]) {
 			sigaction(se->signum, sig_state->oldact[se->signum], NULL);
-			talloc_free(sig_state->oldact[se->signum]);
 			sig_state->oldact[se->signum] = NULL;
 		}
 	}

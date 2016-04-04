@@ -20,7 +20,6 @@
  */
 
 #include "util_process.h"
-#include "config.h"
 
 #ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>

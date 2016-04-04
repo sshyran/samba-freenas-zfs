@@ -37,11 +37,7 @@ def dns_connect(server, lp, creds):
     if server.lower() == 'localhost':
         server = '127.0.0.1'
     binding_str = "ncacn_ip_tcp:%s[sign]" % server
-    try:
-        dns_conn = dnsserver.dnsserver(binding_str, lp, creds)
-    except RuntimeError, e:
-        raise CommandError('Connecting to DNS RPC server %s failed with %s' % (server, e))
-
+    dns_conn = dnsserver.dnsserver(binding_str, lp, creds)
     return dns_conn
 
 

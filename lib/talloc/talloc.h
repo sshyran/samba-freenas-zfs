@@ -47,8 +47,6 @@ extern "C" {
 
 int talloc_version_major(void);
 int talloc_version_minor(void);
-/* This is mostly useful only for testing */
-int talloc_test_get_magic(void);
 
 /**
  * @brief Define a talloc parent type
@@ -751,7 +749,7 @@ type *talloc_get_type(const void *ptr, #type);
  * @brief Safely turn a void pointer into a typed pointer.
  *
  * This macro is used together with talloc(mem_ctx, struct foo). If you had to
- * assign the talloc chunk pointer to some void pointer variable,
+ * assing the talloc chunk pointer to some void pointer variable,
  * talloc_get_type_abort() is the recommended way to get the convert the void
  * pointer back to a typed pointer.
  *

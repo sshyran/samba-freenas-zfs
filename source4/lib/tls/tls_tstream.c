@@ -28,7 +28,7 @@
 #if ENABLE_GNUTLS
 #include <gnutls/gnutls.h>
 
-#define DH_BITS 2048
+#define DH_BITS 1024
 
 #if defined(HAVE_GNUTLS_DATUM) && !defined(HAVE_GNUTLS_DATUM_T)
 typedef gnutls_datum gnutls_datum_t;

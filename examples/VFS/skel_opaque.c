@@ -54,9 +54,8 @@ static uint64_t skel_disk_free(vfs_handle_struct *handle, const char *path,
 	return 0;
 }
 
-static int skel_get_quota(vfs_handle_struct *handle, const char *path,
-			  enum SMB_QUOTA_TYPE qtype, unid_t id,
-			  SMB_DISK_QUOTA *dq)
+static int skel_get_quota(vfs_handle_struct *handle, enum SMB_QUOTA_TYPE qtype,
+			  unid_t id, SMB_DISK_QUOTA *dq)
 {
 	errno = ENOSYS;
 	return -1;
@@ -962,7 +961,6 @@ struct vfs_fn_pointers skel_opaque_fns = {
 	.set_offline_fn = skel_set_offline
 };
 
-static_decl_vfs;
 NTSTATUS vfs_skel_opaque_init(void)
 {
 	return smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "skel_opaque",

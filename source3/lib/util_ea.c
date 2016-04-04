@@ -103,7 +103,7 @@ struct ea_list *read_nttrans_ea_list(TALLOC_CTX *ctx, const char *pdata, size_t 
 			return NULL;
 		}
 
-		DLIST_ADD_END(ea_list_head, eal);
+		DLIST_ADD_END(ea_list_head, eal, struct ea_list *);
 		if (next_offset == 0) {
 			break;
 		}

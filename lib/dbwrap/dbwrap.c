@@ -395,6 +395,11 @@ int dbwrap_wipe(struct db_context *db)
 	return db->wipe(db);
 }
 
+int dbwrap_hash_size(struct db_context *db)
+{
+	return db->hash_size;
+}
+
 int dbwrap_check(struct db_context *db)
 {
 	if (db->check == NULL) {
@@ -449,9 +454,9 @@ int dbwrap_transaction_cancel(struct db_context *db)
 	return db->transaction_cancel(db);
 }
 
-size_t dbwrap_db_id(struct db_context *db, uint8_t *id, size_t idlen)
+void dbwrap_db_id(struct db_context *db, const uint8_t **id, size_t *idlen)
 {
-	return db->id(db, id, idlen);
+	db->id(db, id, idlen);
 }
 
 bool dbwrap_is_persistent(struct db_context *db)

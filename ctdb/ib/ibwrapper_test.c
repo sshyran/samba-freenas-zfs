@@ -20,19 +20,23 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "replace.h"
-#include "system/network.h"
-#include "system/time.h"
-
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <malloc.h>
 #include <assert.h>
-#include <talloc.h>
-#include <tevent.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <time.h>
 
-#include "lib/util/time.h"
-#include "lib/util/debug.h"
-
-#include "common/logging.h"
-
+#include "includes.h"
 #include "ib/ibwrapper.h"
 
 struct ibwtest_ctx {
@@ -73,7 +77,7 @@ enum testopcode {
 	TESTOP_SEND_RND = 3
 };
 
-static int ibwtest_connect_everybody(struct ibwtest_ctx *tcx)
+int ibwtest_connect_everybody(struct ibwtest_ctx *tcx)
 {
 	struct ibw_conn		*conn;
 	struct ibwtest_conn	*tconn = talloc_zero(tcx, struct ibwtest_conn);
@@ -91,7 +95,7 @@ static int ibwtest_connect_everybody(struct ibwtest_ctx *tcx)
 	return 0;
 }
 
-static int ibwtest_send_id(struct ibw_conn *conn)
+int ibwtest_send_id(struct ibw_conn *conn)
 {
 	struct ibwtest_ctx *tcx = talloc_get_type(conn->ctx->ctx_userdata, struct ibwtest_ctx);
 	char *buf;
@@ -119,7 +123,7 @@ static int ibwtest_send_id(struct ibw_conn *conn)
 	return 0;
 }
 
-static int ibwtest_send_test_msg(struct ibwtest_ctx *tcx, struct ibw_conn *conn, const char *msg)
+int ibwtest_send_test_msg(struct ibwtest_ctx *tcx, struct ibw_conn *conn, const char *msg)
 {
 	char *buf, *p;
 	void *key;
@@ -150,7 +154,7 @@ static int ibwtest_send_test_msg(struct ibwtest_ctx *tcx, struct ibw_conn *conn,
 	return 0;
 }
 
-static unsigned char ibwtest_fill_random(unsigned char *buf, uint32_t size)
+unsigned char ibwtest_fill_random(unsigned char *buf, uint32_t size)
 {
 	uint32_t	i = size;
 	unsigned char	sum = 0;
@@ -164,7 +168,7 @@ static unsigned char ibwtest_fill_random(unsigned char *buf, uint32_t size)
 	return sum;
 }
 
-static unsigned char ibwtest_get_sum(unsigned char *buf, uint32_t size)
+unsigned char ibwtest_get_sum(unsigned char *buf, uint32_t size)
 {
 	uint32_t	i = size;
 	unsigned char	sum = 0;
@@ -176,7 +180,7 @@ static unsigned char ibwtest_get_sum(unsigned char *buf, uint32_t size)
 	return sum;
 }
 
-static int ibwtest_do_varsize_scenario_conn_size(struct ibwtest_ctx *tcx, struct ibw_conn *conn, uint32_t size)
+int ibwtest_do_varsize_scenario_conn_size(struct ibwtest_ctx *tcx, struct ibw_conn *conn, uint32_t size)
 {
 	unsigned char *buf;
 	void	*key;
@@ -201,7 +205,7 @@ static int ibwtest_do_varsize_scenario_conn_size(struct ibwtest_ctx *tcx, struct
 	return 0;
 }
 
-static int ibwtest_do_varsize_scenario_conn(struct ibwtest_ctx *tcx, struct ibw_conn *conn)
+int ibwtest_do_varsize_scenario_conn(struct ibwtest_ctx *tcx, struct ibw_conn *conn)
 {
 	uint32_t	size;
 	int	i;
@@ -230,7 +234,7 @@ static int ibwtest_do_varsize_scenario_conn(struct ibwtest_ctx *tcx, struct ibw_
 	}
 }*/
 
-static int ibwtest_connstate_handler(struct ibw_ctx *ctx, struct ibw_conn *conn)
+int ibwtest_connstate_handler(struct ibw_ctx *ctx, struct ibw_conn *conn)
 {
 	struct ibwtest_ctx	*tcx = NULL; /* userdata */
 	struct ibwtest_conn	*tconn = NULL; /* userdata */
@@ -294,7 +298,7 @@ static int ibwtest_connstate_handler(struct ibw_ctx *ctx, struct ibw_conn *conn)
 	return 0;
 }
 
-static int ibwtest_receive_handler(struct ibw_conn *conn, void *buf, int n)
+int ibwtest_receive_handler(struct ibw_conn *conn, void *buf, int n)
 {
 	struct ibwtest_conn *tconn;
 	enum testopcode op;
@@ -371,9 +375,8 @@ error:
 	return -1;
 }
 
-static void ibwtest_timeout_handler(struct tevent_context *ev,
-				    struct tevent_timer *te,
-				    struct timeval t, void *private_data)
+void ibwtest_timeout_handler(struct event_context *ev, struct timed_event *te, 
+	struct timeval t, void *private_data)
 {
 	struct ibwtest_ctx *tcx = talloc_get_type(private_data, struct ibwtest_ctx);
 	int	rc;
@@ -398,7 +401,7 @@ static void ibwtest_timeout_handler(struct tevent_context *ev,
 
 static struct ibwtest_ctx *testctx = NULL;
 
-static void ibwtest_sigint_handler(int sig)
+void ibwtest_sigint_handler(int sig)
 {
 	DEBUG(DEBUG_ERR, ("got SIGINT\n"));
 	if (testctx) {
@@ -419,7 +422,7 @@ static void ibwtest_sigint_handler(int sig)
 	}
 }
 
-static int ibwtest_parse_attrs(struct ibwtest_ctx *tcx, char *optext,
+int ibwtest_parse_attrs(struct ibwtest_ctx *tcx, char *optext,
 	struct ibw_initattr **pattrs, int *nattrs, char op)
 {
 	int	i = 0, n = 1;
@@ -474,7 +477,7 @@ static int ibwtest_get_address(const char *address, struct in_addr *addr)
 	return 0;
 }
 
-static int ibwtest_getdests(struct ibwtest_ctx *tcx, char op)
+int ibwtest_getdests(struct ibwtest_ctx *tcx, char op)
 {
 	int	i;
 	struct ibw_initattr	*attrs = NULL;
@@ -500,7 +503,7 @@ static int ibwtest_getdests(struct ibwtest_ctx *tcx, char op)
 	return 0;
 }
 
-static int ibwtest_init_server(struct ibwtest_ctx *tcx)
+int ibwtest_init_server(struct ibwtest_ctx *tcx)
 {
 	if (tcx->naddrs!=1) {
 		fprintf(stderr, "incorrect number of addrs(%d!=1)\n", tcx->naddrs);
@@ -521,7 +524,7 @@ static int ibwtest_init_server(struct ibwtest_ctx *tcx)
 	return 0;
 }
 
-static void ibwtest_usage(struct ibwtest_ctx *tcx, char *name)
+void ibwtest_usage(struct ibwtest_ctx *tcx, char *name)
 {
 	printf("Usage:\n");
 	printf("\t%s -i <id> -o {name:value} -d {addr:port} -t nsec -s\n", name);
@@ -602,7 +605,7 @@ int main(int argc, char *argv[])
 		goto cleanup;
 	}
 
-	ev = tevent_context_init(NULL);
+	ev = event_context_init(NULL);
 	assert(ev);
 
 	tcx->ibwctx = ibw_init(tcx->attrs, tcx->nattrs,
@@ -623,12 +626,11 @@ int main(int argc, char *argv[])
 
 	while(!tcx->kill_me && !tcx->error) {
 		if (tcx->nsec) {
-			tevent_add_timer(ev, tcx,
-					 timeval_current_ofs(0, tcx->nsec),
-					 ibwtest_timeout_handler, tcx);
+			event_add_timed(ev, tcx, timeval_current_ofs(0, tcx->nsec),
+				ibwtest_timeout_handler, tcx);
 		}
 
-		tevent_loop_once(ev);
+		event_loop_once(ev);
 
 		if (tcx->sleep_usec)
 			usleep(tcx->sleep_usec);

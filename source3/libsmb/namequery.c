@@ -2275,12 +2275,59 @@ fail:
 }
 
 /********************************************************
+ Resolve via "lmhosts" method.
+*********************************************************/
+
+static NTSTATUS resolve_lmhosts(const char *name, int name_type,
+				struct ip_service **return_iplist,
+				int *return_count)
+{
+	/*
+	 * "lmhosts" means parse the local lmhosts file.
+	 */
+	struct sockaddr_storage *ss_list;
+	NTSTATUS status = NT_STATUS_DOMAIN_CONTROLLER_NOT_FOUND;
+	TALLOC_CTX *ctx = NULL;
+
+	*return_iplist = NULL;
+	*return_count = 0;
+
+	DEBUG(3,("resolve_lmhosts: "
+		"Attempting lmhosts lookup for name %s<0x%x>\n",
+		name, name_type));
+
+	ctx = talloc_init("resolve_lmhosts");
+	if (!ctx) {
+		return NT_STATUS_NO_MEMORY;
+	}
+
+	status = resolve_lmhosts_file_as_sockaddr(get_dyn_LMHOSTSFILE(), 
+						  name, name_type, 
+						  ctx, 
+						  &ss_list, 
+						  return_count);
+	if (NT_STATUS_IS_OK(status)) {
+		if (convert_ss2service(return_iplist, 
+				       ss_list,
+				       return_count)) {
+			talloc_free(ctx);
+			return NT_STATUS_OK;
+		} else {
+			talloc_free(ctx);
+			return NT_STATUS_NO_MEMORY;
+		}
+	}
+	talloc_free(ctx);
+	return status;
+}
+
+
+/********************************************************
  Resolve via "hosts" method.
 *********************************************************/
 
 static NTSTATUS resolve_hosts(const char *name, int name_type,
-			      TALLOC_CTX *mem_ctx,
-			      struct sockaddr_storage **return_iplist,
+			      struct ip_service **return_iplist,
 			      int *return_count)
 {
 	/*
@@ -2341,15 +2388,16 @@ static NTSTATUS resolve_hosts(const char *name, int name_type,
 
 		*return_count += 1;
 
-		*return_iplist = talloc_realloc(
-			mem_ctx, *return_iplist, struct sockaddr_storage,
-			*return_count);
+		*return_iplist = SMB_REALLOC_ARRAY(*return_iplist,
+						struct ip_service,
+						*return_count);
 		if (!*return_iplist) {
 			DEBUG(3,("resolve_hosts: malloc fail !\n"));
 			freeaddrinfo(ailist);
 			return NT_STATUS_NO_MEMORY;
 		}
-		(*return_iplist)[i] = ss;
+		(*return_iplist)[i].ss = ss;
+		(*return_iplist)[i].port = PORT_NONE;
 		i++;
 	}
 	if (ailist) {
@@ -2667,16 +2715,9 @@ NTSTATUS internal_resolve_name(const char *name,
 		tok = resolve_order[i];
 
 		if((strequal(tok, "host") || strequal(tok, "hosts"))) {
-			struct sockaddr_storage *ss_list;
-			status = resolve_hosts(name, name_type,
-					       talloc_tos(), &ss_list,
+			status = resolve_hosts(name, name_type, return_iplist,
 					       return_count);
 			if (NT_STATUS_IS_OK(status)) {
-				if (!convert_ss2service(return_iplist,
-							ss_list,
-							return_count)) {
-					status = NT_STATUS_NO_MEMORY;
-				}
 				goto done;
 			}
 		} else if(strequal( tok, "kdc")) {
@@ -2699,16 +2740,9 @@ NTSTATUS internal_resolve_name(const char *name,
 				goto done;
 			}
 		} else if (strequal(tok, "lmhosts")) {
-			struct sockaddr_storage *ss_list;
-			status = resolve_lmhosts_file_as_sockaddr(
-				get_dyn_LMHOSTSFILE(), name, name_type,
-				talloc_tos(), &ss_list, return_count);
+			status = resolve_lmhosts(name, name_type,
+						 return_iplist, return_count);
 			if (NT_STATUS_IS_OK(status)) {
-				if (!convert_ss2service(return_iplist,
-							ss_list,
-							return_count)) {
-					status = NT_STATUS_NO_MEMORY;
-				}
 				goto done;
 			}
 		} else if (strequal(tok, "wins")) {

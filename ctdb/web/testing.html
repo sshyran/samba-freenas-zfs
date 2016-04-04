@@ -99,9 +99,9 @@ Number of nodes:4
 </pre>
 
 <h3>ctdb ping</h3>
-this command tries to "ping" the local CTDB daemon.
+this command tries to "ping" each of the CTDB daemons in the cluster.
 <pre>
-  onnode -q all ctdb ping
+  ctdb ping -n all
 
   response from 0 time=0.000050 sec  (13 clients)
   response from 1 time=0.000154 sec  (27 clients)

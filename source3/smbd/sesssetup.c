@@ -26,6 +26,11 @@
 #include "../lib/tsocket/tsocket.h"
 #include "smbd/smbd.h"
 #include "smbd/globals.h"
+#include "../libcli/auth/spnego.h"
+#include "../auth/ntlmssp/ntlmssp.h"
+#include "../librpc/gen_ndr/krb5pac.h"
+#include "libads/kerberos_proto.h"
+#include "../lib/util/asn1.h"
 #include "auth.h"
 #include "messages.h"
 #include "smbprofile.h"
@@ -133,7 +138,6 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 	struct smbXsrv_session *session = NULL;
 	uint16_t smb_bufsize = SVAL(req->vwv+2, 0);
 	uint32_t client_caps = IVAL(req->vwv+10, 0);
-	struct smbXsrv_session_auth0 *auth;
 
 	DEBUG(3,("Doing spnego session setup\n"));
 
@@ -212,7 +216,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 		if (NT_STATUS_IS_OK(status)) {
 			session->status = NT_STATUS_MORE_PROCESSING_REQUIRED;
 			status = NT_STATUS_MORE_PROCESSING_REQUIRED;
-			TALLOC_FREE(session->pending_auth);
+			TALLOC_FREE(session->gensec);
 		}
 		if (!NT_STATUS_EQUAL(status, NT_STATUS_MORE_PROCESSING_REQUIRED)) {
 			reply_nterror(req, nt_status_squash(status));
@@ -230,31 +234,19 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 		}
 	}
 
-	status = smbXsrv_session_find_auth(session, xconn, now, &auth);
-	if (!NT_STATUS_IS_OK(status)) {
-		status = smbXsrv_session_create_auth(session, xconn, now,
-						     0, /* flags */
-						     0, /* security */
-						     &auth);
-		if (!NT_STATUS_IS_OK(status)) {
-			reply_nterror(req, nt_status_squash(status));
-			return;
-		}
-	}
-
-	if (auth->gensec == NULL) {
+	if (!session->gensec) {
 		status = auth_generic_prepare(session, xconn->remote_address,
-					      &auth->gensec);
+					      &session->gensec);
 		if (!NT_STATUS_IS_OK(status)) {
 			TALLOC_FREE(session);
 			reply_nterror(req, nt_status_squash(status));
 			return;
 		}
 
-		gensec_want_feature(auth->gensec, GENSEC_FEATURE_SESSION_KEY);
-		gensec_want_feature(auth->gensec, GENSEC_FEATURE_UNIX_TOKEN);
+		gensec_want_feature(session->gensec, GENSEC_FEATURE_SESSION_KEY);
+		gensec_want_feature(session->gensec, GENSEC_FEATURE_UNIX_TOKEN);
 
-		status = gensec_start_mech_by_oid(auth->gensec,
+		status = gensec_start_mech_by_oid(session->gensec,
 						  GENSEC_OID_SPNEGO);
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(0, ("Failed to start SPNEGO handler!\n"));
@@ -265,7 +257,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 	}
 
 	become_root();
-	status = gensec_update(auth->gensec,
+	status = gensec_update(session->gensec,
 			       talloc_tos(),
 			       in_blob, &out_blob);
 	unbecome_root();
@@ -279,7 +271,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 	if (NT_STATUS_IS_OK(status) && session->global->auth_session_info == NULL) {
 		struct auth_session_info *session_info = NULL;
 
-		status = gensec_session_info(auth->gensec,
+		status = gensec_session_info(session->gensec,
 					     session,
 					     &session_info);
 		if (!NT_STATUS_IS_OK(status)) {
@@ -365,7 +357,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 		session->global->auth_time = now;
 		if (client_caps & CAP_DYNAMIC_REAUTH) {
 			session->global->expiration_time =
-				gensec_expire_time(auth->gensec);
+				gensec_expire_time(session->gensec);
 		} else {
 			session->global->expiration_time =
 				GENSEC_EXPIRE_TIME_INFINITY;
@@ -405,7 +397,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 	} else if (NT_STATUS_IS_OK(status)) {
 		struct auth_session_info *session_info = NULL;
 
-		status = gensec_session_info(auth->gensec,
+		status = gensec_session_info(session->gensec,
 					     session,
 					     &session_info);
 		if (!NT_STATUS_IS_OK(status)) {
@@ -453,7 +445,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 		session->global->auth_time = now;
 		if (client_caps & CAP_DYNAMIC_REAUTH) {
 			session->global->expiration_time =
-				gensec_expire_time(auth->gensec);
+				gensec_expire_time(session->gensec);
 		} else {
 			session->global->expiration_time =
 				GENSEC_EXPIRE_TIME_INFINITY;

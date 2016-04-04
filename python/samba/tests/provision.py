@@ -116,6 +116,9 @@ class Disabled(object):
     def test_join_domain(self):
         raise NotImplementedError(self.test_join_domain)
 
+    def test_vampire(self):
+        raise NotImplementedError(self.test_vampire)
+
 
 class SanitizeServerRoleTests(TestCase):
 

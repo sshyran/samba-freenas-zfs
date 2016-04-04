@@ -17,25 +17,15 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
+#include "includes.h"
 #include "system/filesys.h"
-#include "system/network.h"
-
-#include <popt.h>
-#include <talloc.h>
-#include <tevent.h>
+#include "popt.h"
+#include "../include/ctdb_client.h"
+#include "../include/ctdb_private.h"
+#include "../common/rb_tree.h"
 #include <ctype.h>
 
-#include "lib/util/debug.h"
-#include "ctdb_private.h"
-#include "ctdb_client.h"
-
-#include "common/rb_tree.h"
-#include "common/common.h"
-#include "common/logging.h"
-#include "common/cmdline.h"
-
-
+#include "internal/cmdline.h"
 
 /* Handle common command line options for ctdb test progs
  */
@@ -59,7 +49,7 @@ static void ctdb_cmdline_callback(poptContext con,
 {
 	switch (opt->val) {
 	case OPT_EVENTSYSTEM:
-		tevent_set_default_backend(arg);
+		event_set_default_backend(arg);
 		break;
 	}
 }
@@ -78,10 +68,9 @@ struct poptOption popt_ctdb_cmdline[] = {
 /*
   startup daemon side of ctdb according to command line options
  */
-struct ctdb_context *ctdb_cmdline_init(struct tevent_context *ev)
+struct ctdb_context *ctdb_cmdline_init(struct event_context *ev)
 {
 	struct ctdb_context *ctdb;
-	enum debug_level log_level;
 	int ret;
 
 	/* initialise ctdb */
@@ -107,10 +96,8 @@ struct ctdb_context *ctdb_cmdline_init(struct tevent_context *ev)
 	}
 
 	/* Set the debug level */
-	if (debug_level_parse(ctdb_cmdline.debuglevel, &log_level)) {
-		DEBUGLEVEL = debug_level_to_int(log_level);
-	} else {
-		DEBUGLEVEL = debug_level_to_int(DEBUG_NOTICE);
+	if (!parse_debug(ctdb_cmdline.debuglevel, &DEBUGLEVEL)) {
+		DEBUGLEVEL = DEBUG_NOTICE;
 	}
 
 	/* set up the tree to store server ids */
@@ -127,7 +114,6 @@ struct ctdb_context *ctdb_cmdline_client(struct tevent_context *ev,
 					 struct timeval req_timeout)
 {
 	struct ctdb_context *ctdb;
-	enum debug_level log_level;
 	char *socket_name;
 	int ret;
 
@@ -159,10 +145,8 @@ struct ctdb_context *ctdb_cmdline_client(struct tevent_context *ev,
 	}
 
 	/* Set the debug level */
-	if (debug_level_parse(ctdb_cmdline.debuglevel, &log_level)) {
-		DEBUGLEVEL = debug_level_to_int(log_level);
-	} else {
-		DEBUGLEVEL = debug_level_to_int(DEBUG_NOTICE);
+	if (!parse_debug(ctdb_cmdline.debuglevel, &DEBUGLEVEL)) {
+		DEBUGLEVEL = DEBUG_NOTICE;
 	}
 
 	ret = ctdb_socket_connect(ctdb);

@@ -231,7 +231,7 @@ NTSTATUS nbt_dgram_send(struct nbt_dgram_socket *dgmsock,
 		goto failed;
 	}
 
-	DLIST_ADD_END(dgmsock->send_queue, req);
+	DLIST_ADD_END(dgmsock->send_queue, req, struct nbt_dgram_request *);
 
 	TEVENT_FD_WRITEABLE(dgmsock->fde);
 

@@ -17,6 +17,4 @@ Tutorial describing working with tevent library.
 
 @subpage tevent_queue
 
-@subpage tevent_thread
-
 */

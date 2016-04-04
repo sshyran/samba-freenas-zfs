@@ -90,15 +90,19 @@ static struct tdb_wrap_private *tdb_wrap_private_open(TALLOC_CTX *mem_ctx,
 						      mode_t mode)
 {
 	struct tdb_wrap_private *result;
-	struct tdb_logging_context lctx = { .log_fn = tdb_wrap_log };
+	struct tdb_logging_context lctx;
 
-	result = talloc_pooled_object(mem_ctx, struct tdb_wrap_private,
-				      1, strlen(name)+1);
+	result = talloc(mem_ctx, struct tdb_wrap_private);
 	if (result == NULL) {
 		return NULL;
 	}
-	/* Doesn't fail, see talloc_pooled_object */
 	result->name = talloc_strdup(result, name);
+	if (result->name == NULL) {
+		goto fail;
+	}
+
+	lctx.log_fn = tdb_wrap_log;
+	lctx.log_private = NULL;
 
 	result->tdb = tdb_open_ex(name, hash_size, tdb_flags,
 				  open_flags, mode, &lctx, NULL);

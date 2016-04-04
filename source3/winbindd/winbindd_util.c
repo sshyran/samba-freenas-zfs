@@ -34,10 +34,6 @@
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_WINBIND
 
-static struct winbindd_domain *
-add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
-			    struct winbindd_methods *methods);
-
 extern struct winbindd_methods cache_methods;
 
 /**
@@ -123,40 +119,14 @@ static bool is_in_internal_domain(const struct dom_sid *sid)
    If the domain already exists in the list,
    return it and don't re-initialize.  */
 
-static struct winbindd_domain *
-add_trusted_domain(const char *domain_name, const char *alt_name,
-		   struct winbindd_methods *methods, const struct dom_sid *sid)
-{
-	struct winbindd_tdc_domain tdc;
-
-	ZERO_STRUCT(tdc);
-
-	tdc.domain_name = domain_name;
-	tdc.dns_name = alt_name;
-	if (sid) {
-		sid_copy(&tdc.sid, sid);
-	}
-
-	return add_trusted_domain_from_tdc(&tdc, methods);
-}
-
-/* Add a trusted domain out of a trusted domain cache
-   entry
-*/
-static struct winbindd_domain *
-add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
-			    struct winbindd_methods *methods)
+static struct winbindd_domain *add_trusted_domain(const char *domain_name, const char *alt_name,
+						  struct winbindd_methods *methods,
+						  const struct dom_sid *sid)
 {
 	struct winbindd_domain *domain;
 	const char *alternative_name = NULL;
 	const char **ignored_domains, **dom;
 	int role = lp_server_role();
-	const char *domain_name = tdc->domain_name;
-	const struct dom_sid *sid = &tdc->sid;
-
-	if (is_null_sid(sid)) {
-		sid = NULL;
-	}
 
 	ignored_domains = lp_parm_string_list(-1, "winbind", "ignore domains", NULL);
 	for (dom=ignored_domains; dom && *dom; dom++) {
@@ -168,8 +138,8 @@ add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
 
 	/* use alt_name if available to allow DNS lookups */
 
-	if (tdc->dns_name && *tdc->dns_name) {
-		alternative_name = tdc->dns_name;
+	if (alt_name && *alt_name) {
+		alternative_name = alt_name;
 	}
 
 	/* We can't call domain_list() as this function is called from
@@ -181,7 +151,8 @@ add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
 			break;
 		}
 
-		if (alternative_name) {
+		if (alternative_name && *alternative_name)
+		{
 			if (strequal(alternative_name, domain->name) ||
 			    strequal(alternative_name, domain->alt_name))
 			{
@@ -189,7 +160,12 @@ add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
 			}
 		}
 
-		if (sid != NULL) {
+		if (sid)
+		{
+			if (is_null_sid(sid)) {
+				continue;
+			}
+
 			if (dom_sid_equal(sid, &domain->sid)) {
 				break;
 			}
@@ -243,16 +219,13 @@ add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
 	domain->internal = is_internal_domain(sid);
 	domain->sequence_number = DOM_SEQUENCE_NONE;
 	domain->last_seq_check = 0;
-	domain->initialized = false;
+	domain->initialized = False;
 	domain->online = is_internal_domain(sid);
 	domain->check_online_timeout = 0;
 	domain->dc_probe_pid = (pid_t)-1;
-	if (sid != NULL) {
+	if (sid) {
 		sid_copy(&domain->sid, sid);
 	}
-	domain->domain_flags = tdc->trust_flags;
-	domain->domain_type = tdc->trust_type;
-	domain->domain_trust_attribs = tdc->trust_attribs;
 
 	/* Is this our primary domain ? */
 	if (strequal(domain_name, get_global_sam_name()) &&
@@ -270,22 +243,18 @@ add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc,
 		if (lp_security() == SEC_ADS) {
 			domain->active_directory = true;
 		}
-	} else if (!domain->internal) {
-		if (domain->domain_type == LSA_TRUST_TYPE_UPLEVEL) {
-			domain->active_directory = true;
-		}
 	}
 
 	/* Link to domain list */
-	DLIST_ADD_END(_domain_list, domain);
+	DLIST_ADD_END(_domain_list, domain, struct winbindd_domain *);
 
 	wcache_tdc_add_domain( domain );
 
 	setup_domain_child(domain);
 
-	DEBUG(2,
-	      ("Added domain %s %s %s\n", domain->name, domain->alt_name,
-	       !is_null_sid(&domain->sid) ? sid_string_dbg(&domain->sid) : ""));
+	DEBUG(2,("Added domain %s %s %s\n",
+		 domain->name, domain->alt_name,
+		 &domain->sid?sid_string_dbg(&domain->sid):""));
 
 	return domain;
 }
@@ -343,37 +312,24 @@ static void trustdom_list_done(struct tevent_req *req)
 	struct winbindd_response *response;
 	int res, err;
 	char *p;
-	struct winbindd_tdc_domain trust_params = {0};
-	ptrdiff_t extra_len;
 
 	res = wb_domain_request_recv(req, state, &response, &err);
 	if ((res == -1) || (response->result != WINBINDD_OK)) {
-		DBG_WARNING("Could not receive trustdoms\n");
+		DEBUG(1, ("Could not receive trustdoms\n"));
 		TALLOC_FREE(state);
 		return;
 	}
-
-	if (response->length < sizeof(struct winbindd_response)) {
-		DBG_ERR("ill-formed trustdom response - short length\n");
-		TALLOC_FREE(state);
-		return;
-	}
-
-	extra_len = response->length - sizeof(struct winbindd_response);
 
 	p = (char *)response->extra_data.data;
 
-	while ((p - (char *)response->extra_data.data) < extra_len) {
+	while ((p != NULL) && (*p != '\0')) {
 		char *q, *sidstr, *alt_name;
-
-		DBG_DEBUG("parsing response line '%s'\n", p);
-
-		ZERO_STRUCT(trust_params);
-		trust_params.domain_name = p;
+		struct dom_sid sid;
+		char *alternate_name = NULL;
 
 		alt_name = strchr(p, '\\');
 		if (alt_name == NULL) {
-			DBG_ERR("Got invalid trustdom response\n");
+			DEBUG(0, ("Got invalid trustdom response\n"));
 			break;
 		}
 
@@ -382,52 +338,26 @@ static void trustdom_list_done(struct tevent_req *req)
 
 		sidstr = strchr(alt_name, '\\');
 		if (sidstr == NULL) {
-			DBG_ERR("Got invalid trustdom response\n");
+			DEBUG(0, ("Got invalid trustdom response\n"));
 			break;
 		}
 
 		*sidstr = '\0';
 		sidstr += 1;
 
-		/* use the real alt_name if we have one, else pass in NULL */
-		if (!strequal(alt_name, "(null)")) {
-			trust_params.dns_name = alt_name;
-		}
+		q = strchr(sidstr, '\n');
+		if (q != NULL)
+			*q = '\0';
 
-		q = strtok(sidstr, "\\");
-		if (q == NULL) {
-			DBG_ERR("Got invalid trustdom response\n");
-			break;
-		}
-
-		if (!string_to_sid(&trust_params.sid, sidstr)) {
+		if (!string_to_sid(&sid, sidstr)) {
 			DEBUG(0, ("Got invalid trustdom response\n"));
 			break;
 		}
 
-		q = strtok(NULL, "\\");
-		if (q == NULL) {
-			DBG_ERR("Got invalid trustdom response\n");
-			break;
-		}
+		/* use the real alt_name if we have one, else pass in NULL */
 
-		trust_params.trust_flags = (uint32_t)strtoul(q, NULL, 10);
-
-		q = strtok(NULL, "\\");
-		if (q == NULL) {
-			DBG_ERR("Got invalid trustdom response\n");
-			break;
-		}
-
-		trust_params.trust_type = (uint32_t)strtoul(q, NULL, 10);
-
-		q = strtok(NULL, "\n");
-		if (q == NULL) {
-			DBG_ERR("Got invalid trustdom response\n");
-			break;
-		}
-
-		trust_params.trust_attribs = (uint32_t)strtoul(q, NULL, 10);
+		if ( !strequal( alt_name, "(null)" ) )
+			alternate_name = alt_name;
 
 		/*
 		 * We always call add_trusted_domain() cause on an existing
@@ -435,10 +365,13 @@ static void trustdom_list_done(struct tevent_req *req)
 		 * This is important because we need the SID for sibling
 		 * domains.
 		 */
-		(void)add_trusted_domain_from_tdc(&trust_params,
-						  &cache_methods);
+		(void)add_trusted_domain(p, alternate_name,
+					    &cache_methods,
+					    &sid);
 
-		p = q + strlen(q) + 1;
+		p=q;
+		if (p != NULL)
+			p += 1;
 	}
 
 	/*
@@ -505,8 +438,10 @@ static void rescan_forest_root_trusts( void )
 		d = find_domain_from_name_noinit( dom_list[i].domain_name );
 
 		if ( !d ) {
-			d = add_trusted_domain_from_tdc(&dom_list[i],
-							&cache_methods);
+			d = add_trusted_domain( dom_list[i].domain_name,
+						dom_list[i].dns_name,
+						&cache_methods,
+						&dom_list[i].sid );
 		}
 
 		if (d == NULL) {
@@ -572,8 +507,10 @@ static void rescan_forest_trusts( void )
 			   about it */
 
 			if ( !d ) {
-				d = add_trusted_domain_from_tdc(&dom_list[i],
-								&cache_methods);
+				d = add_trusted_domain( dom_list[i].domain_name,
+							dom_list[i].dns_name,
+							&cache_methods,
+							&dom_list[i].sid );
 			}
 
 			if (d == NULL) {

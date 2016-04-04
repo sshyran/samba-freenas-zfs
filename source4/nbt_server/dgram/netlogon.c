@@ -31,7 +31,6 @@
 #include "dsdb/samdb/ldb_modules/util.h"
 #include "libcli/security/security.h"
 #include "nbt_server/dgram/proto.h"
-#include "libds/common/roles.h"
 
 /*
   reply to a GETDC request

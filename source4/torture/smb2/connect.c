@@ -90,7 +90,7 @@ static NTSTATUS torture_smb2_write(struct torture_context *tctx, struct smb2_tre
 
 	status = smb2_write(tree, &w);
 	if (!NT_STATUS_IS_OK(status)) {
-		printf("write 1 failed - %s\n", nt_errstr(status));
+		printf("write failed - %s\n", nt_errstr(status));
 		return status;
 	}
 
@@ -98,7 +98,7 @@ static NTSTATUS torture_smb2_write(struct torture_context *tctx, struct smb2_tre
 
 	status = smb2_write(tree, &w);
 	if (!NT_STATUS_IS_OK(status)) {
-		printf("write 2 failed - %s\n", nt_errstr(status));
+		printf("write failed - %s\n", nt_errstr(status));
 		return status;
 	}
 
@@ -137,9 +137,8 @@ static NTSTATUS torture_smb2_write(struct torture_context *tctx, struct smb2_tre
 /*
   send a create
 */
-static NTSTATUS torture_smb2_createfile(struct smb2_tree *tree,
-					const char *fname,
-					struct smb2_handle *handle)
+static struct smb2_handle torture_smb2_createfile(struct smb2_tree *tree, 
+					      const char *fname)
 {
 	struct smb2_create io;
 	NTSTATUS status;
@@ -159,8 +158,8 @@ static NTSTATUS torture_smb2_createfile(struct smb2_tree *tree,
 
 	status = smb2_create(tree, tmp_ctx, &io);
 	if (!NT_STATUS_IS_OK(status)) {
-		TALLOC_FREE(tmp_ctx);
-		return status;
+		printf("create1 failed - %s\n", nt_errstr(status));
+		return io.out.file.handle;
 	}
 
 	if (DEBUGLVL(1)) {
@@ -180,10 +179,8 @@ static NTSTATUS torture_smb2_createfile(struct smb2_tree *tree,
 	}
 
 	talloc_free(tmp_ctx);
-
-	*handle = io.out.file.handle;
-
-	return NT_STATUS_OK;
+	
+	return io.out.file.handle;
 }
 
 
@@ -197,54 +194,74 @@ bool torture_smb2_connect(struct torture_context *torture)
 	struct smb2_request *req;
 	struct smb2_handle h1, h2;
 	NTSTATUS status;
-	bool ok;
 
-	ok = torture_smb2_connection(torture, &tree);
-	torture_assert(torture, ok, "torture_smb2_connection failed");
+	if (!torture_smb2_connection(torture, &tree)) {
+		return false;
+	}
 
 	smb2_util_unlink(tree, "test9.dat");
 
-	status = torture_smb2_createfile(tree, "test9.dat", &h1);
-	torture_assert_ntstatus_ok(torture, status, "create failed");
-
-	status = torture_smb2_createfile(tree, "test9.dat", &h2);
-	torture_assert_ntstatus_ok(torture, status, "create failed");
-
+	h1 = torture_smb2_createfile(tree, "test9.dat");
+	h2 = torture_smb2_createfile(tree, "test9.dat");
 	status = torture_smb2_write(torture, tree, h1);
-	torture_assert_ntstatus_ok(torture, status, "write failed");
-
+	if (!NT_STATUS_IS_OK(status)) {
+		printf("Write failed - %s\n", nt_errstr(status));
+		return false;
+	}
 	status = torture_smb2_close(tree, h1);
-	torture_assert_ntstatus_ok(torture, status, "close failed");
-
+	if (!NT_STATUS_IS_OK(status)) {
+		printf("Close failed - %s\n", nt_errstr(status));
+		return false;
+	}
 	status = torture_smb2_close(tree, h2);
-	torture_assert_ntstatus_ok(torture, status, "close failed");
+	if (!NT_STATUS_IS_OK(status)) {
+		printf("Close failed - %s\n", nt_errstr(status));
+		return false;
+	}
 
 	status = smb2_util_close(tree, h1);
-	torture_assert_ntstatus_equal(torture, status, NT_STATUS_FILE_CLOSED,
-				      "close should have closed the handle");
+	if (!NT_STATUS_EQUAL(status, NT_STATUS_FILE_CLOSED)) {
+		printf("close should have closed the handle - %s\n", nt_errstr(status));
+		return false;
+	}
 
 	status = smb2_tdis(tree);
-	torture_assert_ntstatus_ok(torture, status, "tdis failed");
+	if (!NT_STATUS_IS_OK(status)) {
+		printf("tdis failed - %s\n", nt_errstr(status));
+		return false;
+	}
 
 	status = smb2_tdis(tree);
-	torture_assert_ntstatus_equal(torture, status,
-				      NT_STATUS_NETWORK_NAME_DELETED,
-				      "tdis should have closed the tcon");
+	if (!NT_STATUS_EQUAL(status, NT_STATUS_NETWORK_NAME_DELETED)) {
+		printf("tdis should have disabled session - %s\n", nt_errstr(status));
+		return false;
+	}
 
  	status = smb2_logoff(tree->session);
-	torture_assert_ntstatus_ok(torture, status, "logoff failed");
+	if (!NT_STATUS_IS_OK(status)) {
+		printf("Logoff failed - %s\n", nt_errstr(status));
+		return false;
+	}
 
 	req = smb2_logoff_send(tree->session);
-	torture_assert_not_null(torture, req, "smb2_logoff_send failed");
+	if (!req) {
+		printf("smb2_logoff_send() failed\n");
+		return false;
+	}
 
 	req->session = NULL;
 
 	status = smb2_logoff_recv(req);
-	torture_assert_ntstatus_equal(torture, status, NT_STATUS_USER_SESSION_DELETED,
-				      "logoff should have disabled session");
+	if (!NT_STATUS_EQUAL(status, NT_STATUS_USER_SESSION_DELETED)) {
+		printf("Logoff should have disabled session - %s\n", nt_errstr(status));
+		return false;
+	}
 
 	status = smb2_keepalive(tree->session->transport);
-	torture_assert_ntstatus_ok(torture, status, "keepalive failed");
+	if (!NT_STATUS_IS_OK(status)) {
+		printf("keepalive failed? - %s\n", nt_errstr(status));
+		return false;
+	}
 
 	talloc_free(mem_ctx);
 

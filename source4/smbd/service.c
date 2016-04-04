@@ -44,7 +44,7 @@ NTSTATUS register_server_service(const char *name,
 	NT_STATUS_HAVE_NO_MEMORY(srv);
 	srv->service_name = name;
 	srv->task_init = task_init;
-	DLIST_ADD_END(registered_servers, srv);
+	DLIST_ADD_END(registered_servers, srv, struct registered_server *);
 	return NT_STATUS_OK;
 }
 

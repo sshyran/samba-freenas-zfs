@@ -12,7 +12,6 @@ if [ -n "$ctdb_dir" -a -d "${ctdb_dir}/bin" ] ; then
     PATH="${ctdb_dir}/bin:${PATH}"
     export CTDB_LOCK_HELPER="${ctdb_dir}/bin/ctdb_lock_helper"
     export CTDB_EVENT_HELPER="${ctdb_dir}/bin/ctdb_event_helper"
-    export CTDB_RECOVERY_HELPER="${ctdb_dir}/bin/ctdb_recovery_helper"
 fi
 
 export CTDB_NODES="${TEST_VAR_DIR}/nodes.txt"
@@ -22,7 +21,7 @@ export CTDB_NODES="${TEST_VAR_DIR}/nodes.txt"
 daemons_stop ()
 {
     echo "Attempting to politely shutdown daemons..."
-    onnode -q all $CTDB shutdown || true
+    onnode 1 $CTDB shutdown -n all || true
 
     echo "Sleeping for a while..."
     sleep_for 1

@@ -24,48 +24,60 @@
 #include "lib/dbwrap/dbwrap_ctdb.h"
 #include "torture/proto.h"
 
-int ctdbd_probe(const char *sockname, int timeout)
+NTSTATUS ctdbd_probe(void)
 {
-	return ENOSYS;
+	return NT_STATUS_NOT_IMPLEMENTED;
 }
 
-int ctdbd_messaging_send_iov(struct ctdbd_connection *conn,
-			     uint32_t dst_vnn, uint64_t dst_srvid,
-			     const struct iovec *iov, int iovlen)
+NTSTATUS ctdbd_messaging_send_iov(struct ctdbd_connection *conn,
+				  uint32_t dst_vnn, uint64_t dst_srvid,
+				  const struct iovec *iov, int iovlen)
 {
-	return ENOSYS;
+	return NT_STATUS_NOT_IMPLEMENTED;
 }
 
-int register_with_ctdbd(struct ctdbd_connection *conn, uint64_t srvid,
-			int (*cb)(uint32_t src_vnn, uint32_t dst_vnn,
-				  uint64_t dst_srvid,
-				  const uint8_t *msg, size_t msglen,
-				  void *private_data),
-			void *private_data)
+NTSTATUS register_with_ctdbd(struct ctdbd_connection *conn, uint64_t srvid,
+			     int (*cb)(uint32_t src_vnn, uint32_t dst_vnn,
+				       uint64_t dst_srvid,
+				       const uint8_t *msg, size_t msglen,
+				       void *private_data),
+			     void *private_data)
 {
-	return ENOSYS;
+	return NT_STATUS_NOT_IMPLEMENTED;
 }
 
-int ctdbd_register_ips(struct ctdbd_connection *conn,
-		       const struct sockaddr_storage *_server,
-		       const struct sockaddr_storage *_client,
-		       int (*cb)(uint32_t src_vnn, uint32_t dst_vnn,
-				 uint64_t dst_srvid,
-				 const uint8_t *msg, size_t msglen,
-				 void *private_data),
-		       void *private_data)
+NTSTATUS ctdbd_register_ips(struct ctdbd_connection *conn,
+			    const struct sockaddr_storage *_server,
+			    const struct sockaddr_storage *_client,
+			    int (*cb)(uint32_t src_vnn, uint32_t dst_vnn,
+				      uint64_t dst_srvid,
+				      const uint8_t *msg, size_t msglen,
+				      void *private_data),
+			    void *private_data)
 {
-	return ENOSYS;
+	return NT_STATUS_NOT_IMPLEMENTED;
 }
 
-bool ctdb_processes_exist(struct ctdbd_connection *conn,
-			  const struct server_id *pids, int num_pids,
+const char *lp_ctdbd_socket(void)
+{
+	return "";
+}
+
+bool ctdb_serverids_exist_supported(struct ctdbd_connection *conn)
+{
+	return false;
+}
+
+bool ctdb_serverids_exist(struct ctdbd_connection *conn,
+			  const struct server_id *pids, unsigned num_pids,
 			  bool *results)
 {
 	return false;
 }
 
-bool ctdbd_process_exists(struct ctdbd_connection *conn, uint32_t vnn, pid_t pid)
+bool ctdb_processes_exist(struct ctdbd_connection *conn,
+			  const struct server_id *pids, int num_pids,
+			  bool *results)
 {
 	return false;
 }
@@ -81,11 +93,11 @@ struct db_context *db_open_ctdb(TALLOC_CTX *mem_ctx,
 	return NULL;
 }
 
-int messaging_ctdbd_init(struct messaging_context *msg_ctx,
-			 TALLOC_CTX *mem_ctx,
+NTSTATUS messaging_ctdbd_init(struct messaging_context *msg_ctx,
+			      TALLOC_CTX *mem_ctx,
 			      struct messaging_backend **presult)
 {
-	return ENOSYS;
+	return NT_STATUS_NOT_IMPLEMENTED;
 }
 
 struct ctdbd_connection *messaging_ctdbd_connection(void)

@@ -19,7 +19,7 @@
 
 #include "includes.h"
 #include "torture.h"
-#include "libcli/libcli.h"
+#include "smb_cli.h"
 #include "torture/raw/proto.h"
 #include "smb_composite/smb_composite.h"
 #include "lib/cmdline/popt_common.h"

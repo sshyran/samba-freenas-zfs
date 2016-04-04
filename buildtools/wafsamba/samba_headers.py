@@ -1,8 +1,7 @@
 # specialist handling of header files for Samba
 
-import os, re, sys, fnmatch
-import Build, Logs, Utils
-from samba_utils import TO_LIST, os_path_relpath
+import Build, re, Task, TaskGen, shutil, sys, Logs
+from samba_utils import *
 
 
 def header_install_path(header, header_path):

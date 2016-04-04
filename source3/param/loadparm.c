@@ -75,6 +75,10 @@
 #include <sys/sysctl.h>
 #endif
 
+#ifdef HAVE_HTTPCONNECTENCRYPT
+#include <cups/http.h>
+#endif
+
 bool bLoaded = false;
 
 extern userdom_struct current_user_info;
@@ -93,11 +97,8 @@ static struct smbconf_csn conf_last_csn;
 static int config_backend = CONFIG_BACKEND_FILE;
 
 /* some helpful bits */
-#define LP_SNUM_OK(i) (((i) >= 0) && ((i) < iNumServices) && \
-                       (ServicePtrs != NULL) && \
-		       (ServicePtrs[(i)] != NULL) && ServicePtrs[(i)]->valid)
-#define VALID(i) ((ServicePtrs != NULL) && (ServicePtrs[i]!= NULL) && \
-                  ServicePtrs[i]->valid)
+#define LP_SNUM_OK(i) (((i) >= 0) && ((i) < iNumServices) && (ServicePtrs != NULL) && ServicePtrs[(i)]->valid)
+#define VALID(i) (ServicePtrs != NULL && ServicePtrs[i]->valid)
 
 #define USERSHARE_VALID 1
 #define USERSHARE_PENDING_DELETE 2
@@ -121,8 +122,8 @@ static struct loadparm_service sDefault =
 	.invalid_users = NULL,
 	.valid_users = NULL,
 	.admin_users = NULL,
-	.copy = NULL,
-	.include = NULL,
+	.szCopy = NULL,
+	.szInclude = NULL,
 	.preexec = NULL,
 	.postexec = NULL,
 	.root_preexec = NULL,
@@ -157,7 +158,7 @@ static struct loadparm_service sDefault =
 	.aio_write_behind = NULL,
 	.dfree_command = NULL,
 	.min_print_space = 0,
-	.max_print_jobs = 1000,
+	.iMaxPrintJobs = 1000,
 	.max_reported_print_jobs = 0,
 	.write_cache_size = 0,
 	.create_mask = 0744,
@@ -182,7 +183,7 @@ static struct loadparm_service sDefault =
 	.hide_unwriteable_files = false,
 	.browseable = true,
 	.access_based_share_enum = false,
-	.available = true,
+	.bAvailable = true,
 	.read_only = true,
 	.spotlight = false,
 	.guest_only = false,
@@ -203,7 +204,7 @@ static struct loadparm_service sDefault =
 	.level2_oplocks = true,
 	.only_user = false,
 	.mangled_names = true,
-	.wide_links = false,
+	.bWidelinks = false,
 	.follow_symlinks = true,
 	.sync_always = false,
 	.strict_allocate = false,
@@ -466,7 +467,7 @@ bool store_lp_set_cmdline(const char *pszParmName, const char *pszParmValue)
 		return false;
 	}
 
-	DLIST_ADD_END(stored_options, entry);
+	DLIST_ADD_END(stored_options, entry, struct lp_stored_option);
 
 	return true;
 }
@@ -587,7 +588,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	/*
 	 * By default support explicit binding to broadcast
  	 * addresses.
- 	 */
+         */
 	Globals.nmbd_bind_explicit_broadcast = true;
 
 	s = talloc_asprintf(talloc_tos(), "Samba %s", samba_version_string());
@@ -707,7 +708,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.reset_on_zero_vc = false;
 	Globals.log_writeable_files_on_exit = false;
 	Globals.create_krb5_conf = true;
-	Globals._winbind_max_domain_connections = 1;
+	Globals.winbindMaxDomainConnections = 1;
 
 	/* hostname lookups can be very expensive and are broken on
 	   a large number of sites (tridge) */
@@ -718,10 +719,10 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 
 	lpcfg_string_set(Globals.ctx, &Globals.passdb_backend, "tdbsam");
 	lpcfg_string_set(Globals.ctx, &Globals.ldap_suffix, "");
-	lpcfg_string_set(Globals.ctx, &Globals._ldap_machine_suffix, "");
-	lpcfg_string_set(Globals.ctx, &Globals._ldap_user_suffix, "");
-	lpcfg_string_set(Globals.ctx, &Globals._ldap_group_suffix, "");
-	lpcfg_string_set(Globals.ctx, &Globals._ldap_idmap_suffix, "");
+	lpcfg_string_set(Globals.ctx, &Globals.szLdapMachineSuffix, "");
+	lpcfg_string_set(Globals.ctx, &Globals.szLdapUserSuffix, "");
+	lpcfg_string_set(Globals.ctx, &Globals.szLdapGroupSuffix, "");
+	lpcfg_string_set(Globals.ctx, &Globals.szLdapIdmapSuffix, "");
 
 	lpcfg_string_set(Globals.ctx, &Globals.ldap_admin_dn, "");
 	Globals.ldap_ssl = LDAP_SSL_START_TLS;
@@ -773,14 +774,12 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.wins_dns_proxy = true;
 
 	Globals.allow_trusted_domains = true;
-	lpcfg_string_set(Globals.ctx, &Globals.idmap_backend, "tdb");
+	lpcfg_string_set(Globals.ctx, &Globals.szIdmapBackend, "tdb");
 
 	lpcfg_string_set(Globals.ctx, &Globals.template_shell, "/bin/false");
-	lpcfg_string_set(Globals.ctx, &Globals.template_homedir,
-			 "/home/%D/%U");
+	lpcfg_string_set(Globals.ctx, &Globals.template_homedir, "/home/%D/%U");
 	lpcfg_string_set(Globals.ctx, &Globals.winbind_separator, "\\");
-	lpcfg_string_set(Globals.ctx, &Globals.winbindd_socket_directory,
-			 dyn_WINBINDD_SOCKET_DIR);
+	lpcfg_string_set(Globals.ctx, &Globals.winbindd_socket_directory, dyn_WINBINDD_SOCKET_DIR);
 
 	lpcfg_string_set(Globals.ctx, &Globals.cups_server, "");
 	lpcfg_string_set(Globals.ctx, &Globals.iprint_server, "");
@@ -845,7 +844,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	/* By default no shares out of the registry */
 	Globals.registry_shares = false;
 
-	Globals.min_receivefile_size = 0;
+	Globals.iminreceivefile = 0;
 
 	Globals.map_untrusted_to_domain = false;
 	Globals.multicast_dns_register = true;
@@ -853,7 +852,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.smb2_max_read = DEFAULT_SMB2_MAX_READ;
 	Globals.smb2_max_write = DEFAULT_SMB2_MAX_WRITE;
 	Globals.smb2_max_trans = DEFAULT_SMB2_MAX_TRANSACT;
-	Globals.smb2_max_credits = DEFAULT_SMB2_MAX_CREDITS;
+	Globals.ismb2_max_credits = DEFAULT_SMB2_MAX_CREDITS;
 	Globals.smb2_leases = false;
 
 	lpcfg_string_set(Globals.ctx, &Globals.ncalrpc_dir,
@@ -868,21 +867,20 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	lpcfg_string_set(Globals.ctx, &Globals._tls_keyfile, "tls/key.pem");
 	lpcfg_string_set(Globals.ctx, &Globals._tls_certfile, "tls/cert.pem");
 	lpcfg_string_set(Globals.ctx, &Globals._tls_cafile, "tls/ca.pem");
-	lpcfg_string_set(Globals.ctx, &Globals.tls_priority,
-			 "NORMAL:-VERS-SSL3.0");
+	lpcfg_string_set(Globals.ctx, &Globals.tls_priority, "NORMAL:-VERS-SSL3.0");
 
 	lpcfg_string_set(Globals.ctx, &Globals.share_backend, "classic");
 
-	Globals._preferred_master = Auto;
+	Globals.iPreferredMaster = Auto;
 
 	Globals.allow_dns_updates = DNS_UPDATE_SIGNED;
 
 	lpcfg_string_set(Globals.ctx, &Globals.ntp_signd_socket_directory,
-			 get_dyn_NTP_SIGND_SOCKET_DIR());
+		get_dyn_NTP_SIGND_SOCKET_DIR());
 
 	lpcfg_string_set(Globals.ctx,
-			 &Globals.winbindd_privileged_socket_directory,
-			 get_dyn_WINBINDD_PRIVILEGED_SOCKET_DIR());
+		&Globals.winbindd_privileged_socket_directory,
+		get_dyn_WINBINDD_PRIVILEGED_SOCKET_DIR());
 
 	s = talloc_asprintf(talloc_tos(), "%s/samba_kcc", get_dyn_SCRIPTSBINDIR());
 	if (s == NULL) {
@@ -920,8 +918,6 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.kpasswd_port = 464;
 
 	Globals.web_port = 901;
-
-	Globals.aio_max_threads = 100;
 
 	/* Now put back the settings that were set with lp_set_cmdline() */
 	apply_lp_set_cmdline();
@@ -1021,15 +1017,44 @@ char *lp_ ## fn_name(TALLOC_CTX *ctx,int i) {return(lp_string((ctx), (LP_SNUM_OK
 #define FN_LOCAL_PARM_CHAR(fn_name,val) \
  char lp_ ## fn_name(const struct share_params *p) {return(LP_SNUM_OK(p->service)? ServicePtrs[(p->service)]->val : sDefault.val);}
 
+static FN_GLOBAL_INTEGER(winbind_max_domain_connections_int,
+		  winbindMaxDomainConnections)
+
 int lp_winbind_max_domain_connections(void)
 {
 	if (lp_winbind_offline_logon() &&
-	    lp__winbind_max_domain_connections() > 1) {
+	    lp_winbind_max_domain_connections_int() > 1) {
 		DEBUG(1, ("offline logons active, restricting max domain "
 			  "connections to 1\n"));
 		return 1;
 	}
-	return MAX(1, lp__winbind_max_domain_connections());
+	return MAX(1, lp_winbind_max_domain_connections_int());
+}
+
+int lp_smb2_max_credits(void)
+{
+	if (Globals.ismb2_max_credits == 0) {
+		Globals.ismb2_max_credits = DEFAULT_SMB2_MAX_CREDITS;
+	}
+	return Globals.ismb2_max_credits;
+}
+int lp_cups_encrypt(void)
+{
+	int result = 0;
+#ifdef HAVE_HTTPCONNECTENCRYPT
+	switch (Globals.CupsEncrypt) {
+		case Auto:
+			result = HTTP_ENCRYPT_REQUIRED;
+			break;
+		case true:
+			result = HTTP_ENCRYPT_ALWAYS;
+			break;
+		case false:
+			result = HTTP_ENCRYPT_NEVER;
+			break;
+	}
+#endif
+	return result;
 }
 
 /* These functions remain in source3/param for now */
@@ -1248,22 +1273,6 @@ unsigned long lp_parm_ulong(int snum, const char *type, const char *option, unsi
 /* Return parametric option from a given service. Type is a part of option before ':' */
 /* Parametric option has following syntax: 'Type: option = value' */
 
-unsigned long long lp_parm_ulonglong(int snum, const char *type,
-				     const char *option, unsigned long long def)
-{
-	struct parmlist_entry *data = get_parametrics(snum, type, option);
-
-	if (data && data->value && *data->value) {
-		return lp_ulonglong(data->value);
-	}
-
-	return def;
-}
-
-/* Return parametric option from a given service. Type is a part of option
- * before ':' */
-/* Parametric option has following syntax: 'Type: option = value' */
-
 bool lp_parm_bool(int snum, const char *type, const char *option, bool def)
 {
 	struct parmlist_entry *data = get_parametrics(snum, type, option);
@@ -1361,7 +1370,7 @@ static void free_service_byindex(int idx)
 	}
 
 	free_service(ServicePtrs[idx]);
-	TALLOC_FREE(ServicePtrs[idx]);
+	talloc_free_children(ServicePtrs[idx]);
 }
 
 /***************************************************************************
@@ -1383,30 +1392,20 @@ static int add_a_service(const struct loadparm_service *pservice, const char *na
 		}
 	}
 
-	/* Re use empty slots if any before allocating new one.*/
-	for (i=0; i < iNumServices; i++) {
-		if (ServicePtrs[i] == NULL) {
-			break;
-		}
+	/* if not, then create one */
+	i = iNumServices;
+	tsp = talloc_realloc(NULL, ServicePtrs, struct loadparm_service *, num_to_alloc);
+	if (tsp == NULL) {
+		DEBUG(0,("add_a_service: failed to enlarge ServicePtrs!\n"));
+		return (-1);
 	}
-	if (i == iNumServices) {
-		/* if not, then create one */
-		tsp = talloc_realloc(NULL, ServicePtrs,
-				     struct loadparm_service *,
-				     num_to_alloc);
-		if (tsp == NULL) {
-			DEBUG(0, ("add_a_service: failed to enlarge "
-				  "ServicePtrs!\n"));
-			return (-1);
-		}
-		ServicePtrs = tsp;
-		iNumServices++;
-	}
-	ServicePtrs[i] = talloc_zero(ServicePtrs, struct loadparm_service);
-	if (!ServicePtrs[i]) {
+	ServicePtrs = tsp;
+	ServicePtrs[iNumServices] = talloc_zero(ServicePtrs, struct loadparm_service);
+	if (!ServicePtrs[iNumServices]) {
 		DEBUG(0,("add_a_service: out of memory!\n"));
 		return (-1);
 	}
+	iNumServices++;
 
 	ServicePtrs[i]->valid = true;
 
@@ -1565,14 +1564,13 @@ static bool lp_add_ipc(const char *ipc_name, bool guest_ok)
 	lpcfg_string_set(ServicePtrs[i], &ServicePtrs[i]->comment, comment);
 	lpcfg_string_set(ServicePtrs[i], &ServicePtrs[i]->fstype, "IPC");
 	ServicePtrs[i]->max_connections = 0;
-	ServicePtrs[i]->available = true;
+	ServicePtrs[i]->bAvailable = true;
 	ServicePtrs[i]->read_only = true;
 	ServicePtrs[i]->guest_only = false;
 	ServicePtrs[i]->administrative_share = true;
 	ServicePtrs[i]->guest_ok = guest_ok;
 	ServicePtrs[i]->printable = false;
 	ServicePtrs[i]->browseable = sDefault.browseable;
-	ServicePtrs[i]->autoloaded = true;
 
 	DEBUG(3, ("adding IPC service\n"));
 
@@ -2438,32 +2436,32 @@ static const char *append_ldap_suffix(TALLOC_CTX *ctx, const char *str )
 
 const char *lp_ldap_machine_suffix(TALLOC_CTX *ctx)
 {
-	if (Globals._ldap_machine_suffix[0])
-		return append_ldap_suffix(ctx, Globals._ldap_machine_suffix);
+	if (Globals.szLdapMachineSuffix[0])
+		return append_ldap_suffix(ctx, Globals.szLdapMachineSuffix);
 
 	return lp_string(ctx, Globals.ldap_suffix);
 }
 
 const char *lp_ldap_user_suffix(TALLOC_CTX *ctx)
 {
-	if (Globals._ldap_user_suffix[0])
-		return append_ldap_suffix(ctx, Globals._ldap_user_suffix);
+	if (Globals.szLdapUserSuffix[0])
+		return append_ldap_suffix(ctx, Globals.szLdapUserSuffix);
 
 	return lp_string(ctx, Globals.ldap_suffix);
 }
 
 const char *lp_ldap_group_suffix(TALLOC_CTX *ctx)
 {
-	if (Globals._ldap_group_suffix[0])
-		return append_ldap_suffix(ctx, Globals._ldap_group_suffix);
+	if (Globals.szLdapGroupSuffix[0])
+		return append_ldap_suffix(ctx, Globals.szLdapGroupSuffix);
 
 	return lp_string(ctx, Globals.ldap_suffix);
 }
 
 const char *lp_ldap_idmap_suffix(TALLOC_CTX *ctx)
 {
-	if (Globals._ldap_idmap_suffix[0])
-		return append_ldap_suffix(ctx, Globals._ldap_idmap_suffix);
+	if (Globals.szLdapIdmapSuffix[0])
+		return append_ldap_suffix(ctx, Globals.szLdapIdmapSuffix);
 
 	return lp_string(ctx, Globals.ldap_suffix);
 }
@@ -2740,7 +2738,7 @@ static void dump_copy_map(bool *pcopymap)
 
 bool lp_snum_ok(int iService)
 {
-	return (LP_SNUM_OK(iService) && ServicePtrs[iService]->available);
+	return (LP_SNUM_OK(iService) && ServicePtrs[iService]->bAvailable);
 }
 
 /***************************************************************************
@@ -3750,7 +3748,7 @@ static bool lp_load_ex(const char *pszFname,
 		apply_lp_set_cmdline();
 	}
 
-	lp_do_parameter(-1, "idmap config * : backend", Globals.idmap_backend);
+	lp_do_parameter(-1, "idmap config * : backend", Globals.szIdmapBackend);
 
 	/* We get sections first, so have to start 'behind' to make up */
 	iServiceIndex = -1;
@@ -4185,12 +4183,10 @@ static bool lp_domain_master_true_or_auto(void)
 
 bool lp_preferred_master(void)
 {
-	int preferred_master = lp__preferred_master();
-
-	if (preferred_master == Auto)
+	if (Globals.iPreferredMaster == Auto)
 		return (lp_local_master() && lp_domain_master());
 
-	return (bool)preferred_master;
+	return (bool)Globals.iPreferredMaster;
 }
 
 /*******************************************************************
@@ -4229,8 +4225,7 @@ void lp_set_logfile(const char *name)
 
 int lp_maxprintjobs(int snum)
 {
-	int maxjobs = lp_max_print_jobs(snum);
-
+	int maxjobs = LP_SNUM_OK(snum) ? ServicePtrs[snum]->iMaxPrintJobs : sDefault.iMaxPrintJobs;
 	if (maxjobs <= 0 || maxjobs >= PRINT_MAX_JOBID)
 		maxjobs = PRINT_MAX_JOBID - 1;
 
@@ -4239,11 +4234,9 @@ int lp_maxprintjobs(int snum)
 
 const char *lp_printcapname(void)
 {
-	const char *printcap_name = lp_printcap_name();
-
-	if ((printcap_name != NULL) &&
-	    (printcap_name[0] != '\0'))
-		return printcap_name;
+	if ((Globals.szPrintcapname != NULL) &&
+	    (Globals.szPrintcapname[0] != '\0'))
+		return Globals.szPrintcapname;
 
 	if (sDefault.printing == PRINT_CUPS) {
 		return "cups";
@@ -4363,12 +4356,10 @@ void lp_set_posix_default_cifsx_readwrite_locktype(enum brl_flavour val)
 
 int lp_min_receive_file_size(void)
 {
-	int min_receivefile_size = lp_min_receivefile_size();
-
-	if (min_receivefile_size < 0) {
+	if (Globals.iminreceivefile < 0) {
 		return 0;
 	}
-	return min_receivefile_size;
+	return Globals.iminreceivefile;
 }
 
 /*******************************************************************
@@ -4377,13 +4368,19 @@ int lp_min_receive_file_size(void)
  even after a configuration file reload.
 ********************************************************************/
 
+static bool lp_widelinks_internal(int snum)
+{
+	return (bool)(LP_SNUM_OK(snum)? ServicePtrs[(snum)]->bWidelinks :
+			sDefault.bWidelinks);
+}
+
 void widelinks_warning(int snum)
 {
 	if (lp_allow_insecure_wide_links()) {
 		return;
 	}
 
-	if (lp_unix_extensions() && lp_wide_links(snum)) {
+	if (lp_unix_extensions() && lp_widelinks_internal(snum)) {
 		DEBUG(0,("Share '%s' has wide links and unix extensions enabled. "
 			"These parameters are incompatible. "
 			"Wide links will be disabled for this share.\n",
@@ -4404,7 +4401,7 @@ bool lp_widelinks(int snum)
 		}
 	}
 
-	return lp_wide_links(snum);
+	return lp_widelinks_internal(snum);
 }
 
 int lp_server_role(void)

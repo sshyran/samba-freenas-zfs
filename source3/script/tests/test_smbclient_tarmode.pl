@@ -1063,12 +1063,8 @@ sub check_tar {
     my $i = Archive::Tar->iter($tar, 1, {md5 => 1});
     while (my $f = $i->()) {
         if ($f->has_content) {
-            my $p = $f->full_path;
-
-	    # we skip pseudo files of Pax format archives
-            next if ($p =~ m/\/PaxHeader/);
-
             $total++;
+            my $p = $f->full_path;
             $p =~ s{^\./+}{};
 
             # file that shouldn't be there

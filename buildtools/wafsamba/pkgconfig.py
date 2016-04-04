@@ -1,13 +1,16 @@
 # handle substitution of variables in pc files
 
-import os, re, sys
-import Build, Logs
-from samba_utils import SUBST_VARS_RECURSIVE, TO_LIST
+import Build, sys, Logs
+from samba_utils import *
 
 def subst_at_vars(task):
     '''substiture @VAR@ style variables in a file'''
+    src = task.inputs[0].srcpath(task.env)
+    tgt = task.outputs[0].bldpath(task.env)
 
-    s = task.inputs[0].read()
+    f = open(src, 'r')
+    s = f.read()
+    f.close()
     # split on the vars
     a = re.split('(@\w+@)', s)
     out = []
@@ -34,7 +37,9 @@ def subst_at_vars(task):
                     break
         out.append(v)
     contents = ''.join(out)
-    task.outputs[0].write(contents)
+    f = open(tgt, 'w')
+    s = f.write(contents)
+    f.close()
     return 0
 
 

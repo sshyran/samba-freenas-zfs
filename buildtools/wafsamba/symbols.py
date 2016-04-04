@@ -1,10 +1,9 @@
 # a waf tool to extract symbols from object files or libraries
 # using nm, producing a set of exposed defined/undefined symbols
 
-import os, re, subprocess
-import Utils, Build, Options, Logs
-from Logs import debug
-from samba_utils import TO_LIST, LOCAL_CACHE, get_tgt_list, os_path_relpath
+import Utils, Build, subprocess, Logs, re
+from samba_wildcard import fake_build_environment
+from samba_utils import *
 
 # these are the data structures used in symbols.py:
 #
@@ -252,7 +251,7 @@ def build_symbol_sets(bld, tgt_list):
             bld.env.public_symbols[name] = t.public_symbols
         if t.samba_type == 'LIBRARY':
             for dep in t.add_objects:
-                t2 = bld.get_tgen_by_name(dep)
+                t2 = bld.name_to_obj(dep, bld.env)
                 bld.ASSERT(t2 is not None, "Library '%s' has unknown dependency '%s'" % (name, dep))
                 bld.env.public_symbols[name] = bld.env.public_symbols[name].union(t2.public_symbols)
 
@@ -265,7 +264,7 @@ def build_symbol_sets(bld, tgt_list):
             bld.env.used_symbols[name] = t.used_symbols
         if t.samba_type == 'LIBRARY':
             for dep in t.add_objects:
-                t2 = bld.get_tgen_by_name(dep)
+                t2 = bld.name_to_obj(dep, bld.env)
                 bld.ASSERT(t2 is not None, "Library '%s' has unknown dependency '%s'" % (name, dep))
                 bld.env.used_symbols[name] = bld.env.used_symbols[name].union(t2.used_symbols)
 
@@ -363,7 +362,7 @@ def build_autodeps(bld, t):
             if targets[depname[0]] in [ 'SYSLIB' ]:
                 deps.add(depname[0])
                 continue
-            t2 = bld.get_tgen_by_name(depname[0])
+            t2 = bld.name_to_obj(depname[0], bld.env)
             if len(t2.in_library) != 1:
                 deps.add(depname[0])
                 continue
@@ -386,7 +385,7 @@ def build_library_names(bld, tgt_list):
     for t in tgt_list:
         if t.samba_type in [ 'LIBRARY' ]:
             for obj in t.samba_deps_extended:
-                t2 = bld.get_tgen_by_name(obj)
+                t2 = bld.name_to_obj(obj, bld.env)
                 if t2 and t2.samba_type in [ 'SUBSYSTEM', 'ASN1' ]:
                     if not t.sname in t2.in_library:
                         t2.in_library.append(t.sname)
@@ -403,7 +402,7 @@ def check_library_deps(bld, t):
         Logs.warn("WARNING: Target '%s' in multiple libraries: %s" % (t.sname, t.in_library))
 
     for dep in t.autodeps:
-        t2 = bld.get_tgen_by_name(dep)
+        t2 = bld.name_to_obj(dep, bld.env)
         if t2 is None:
             continue
         for dep2 in t2.autodeps:
@@ -436,7 +435,7 @@ def check_syslib_collisions(bld, tgt_list):
 def check_dependencies(bld, t):
     '''check for depenencies that should be changed'''
 
-    if bld.get_tgen_by_name(t.sname + ".objlist"):
+    if bld.name_to_obj(t.sname + ".objlist", bld.env):
         return
 
     targets = LOCAL_CACHE(bld, 'TARGET_TYPE')
@@ -476,7 +475,7 @@ def check_dependencies(bld, t):
 def check_syslib_dependencies(bld, t):
     '''check for syslib depenencies'''
 
-    if bld.get_tgen_by_name(t.sname + ".objlist"):
+    if bld.name_to_obj(t.sname + ".objlist", bld.env):
         return
 
     sname = real_name(t.sname)

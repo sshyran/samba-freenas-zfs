@@ -26,9 +26,9 @@
 struct smb1cli_readx_state {
 	uint32_t size;
 	uint16_t vwv[12];
+	NTSTATUS status;
 	uint32_t received;
 	uint8_t *buf;
-	bool out_valid;
 };
 
 static void smb1cli_readx_done(struct tevent_req *subreq);
@@ -131,36 +131,27 @@ static void smb1cli_readx_done(struct tevent_req *subreq)
 	uint8_t *bytes;
 	uint16_t data_offset;
 	uint32_t bytes_offset;
-	NTSTATUS status;
 	static const struct smb1cli_req_expected_response expected[] = {
 	{
 		.status = NT_STATUS_OK,
 		.wct = 0x0C
 	},
-	{
-		.status = STATUS_BUFFER_OVERFLOW,
-		.wct = 0x0C
-	},
 	};
 
-	status = smb1cli_req_recv(subreq, state,
-				  &recv_iov,
-				  NULL, /* phdr */
-				  &wct,
-				  &vwv,
-				  NULL, /* pvwv_offset */
-				  &num_bytes,
-				  &bytes,
-				  &bytes_offset,
-				  NULL, /* inbuf */
-				  expected, ARRAY_SIZE(expected));
+	state->status = smb1cli_req_recv(subreq, state,
+					 &recv_iov,
+					 NULL, /* phdr */
+					 &wct,
+					 &vwv,
+					 NULL, /* pvwv_offset */
+					 &num_bytes,
+					 &bytes,
+					 &bytes_offset,
+					 NULL, /* inbuf */
+					 expected, ARRAY_SIZE(expected));
 	TALLOC_FREE(subreq);
-	if (NT_STATUS_EQUAL(status, STATUS_BUFFER_OVERFLOW)) {
-		/* no error */
-	} else {
-		if (tevent_req_nterror(req, status)) {
-			return;
-		}
+	if (tevent_req_nterror(req, state->status)) {
+		return;
 	}
 
 	/* size is the number of bytes the server returned.
@@ -198,12 +189,6 @@ static void smb1cli_readx_done(struct tevent_req *subreq)
 
 	state->buf = bytes + (data_offset - bytes_offset);
 
-	state->out_valid = true;
-
-	if (tevent_req_nterror(req, status)) {
-		return;
-	}
-
 	tevent_req_done(req);
 }
 
@@ -220,7 +205,7 @@ static void smb1cli_readx_done(struct tevent_req *subreq)
  * @param[out] received The number of bytes received.
  * @param[out] rcvbuf Pointer to the bytes received.
  *
- * @return NT_STATUS_OK or STATUS_BUFFER_OVERFLOW on succsess.
+ * @return NT_STATUS_OK on succsess.
  */
 NTSTATUS smb1cli_readx_recv(struct tevent_req *req,
 			    uint32_t *received,
@@ -228,14 +213,12 @@ NTSTATUS smb1cli_readx_recv(struct tevent_req *req,
 {
 	struct smb1cli_readx_state *state = tevent_req_data(
 		req, struct smb1cli_readx_state);
-	NTSTATUS status = NT_STATUS_OK;
+	NTSTATUS status;
 
-	if (tevent_req_is_nterror(req, &status) && !state->out_valid) {
-		*received = 0;
-		*rcvbuf = NULL;
+	if (tevent_req_is_nterror(req, &status)) {
 		return status;
 	}
 	*received = state->received;
 	*rcvbuf = state->buf;
-	return status;
+	return NT_STATUS_OK;
 }

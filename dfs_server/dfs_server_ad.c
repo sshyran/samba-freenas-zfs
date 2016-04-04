@@ -27,7 +27,6 @@
 #include "lib/tsocket/tsocket.h"
 #include "dfs_server/dfs_server_ad.h"
 #include "lib/util/util_net.h"
-#include "libds/common/roles.h"
 
 #define MAX_DFS_RESPONSE 56*1024 /* 56 Kb */
 

@@ -477,19 +477,12 @@ static bool is_hidden_share(int snum)
 static bool is_enumeration_allowed(struct pipes_struct *p,
                                    int snum)
 {
-	if (!lp_access_based_share_enum(snum)) {
-		return true;
-	}
+    if (!lp_access_based_share_enum(snum))
+        return true;
 
-	if (!user_ok_token(p->session_info->unix_info->unix_name,
-			   p->session_info->info->domain_name,
-			   p->session_info->security_token, snum)) {
-		return false;
-	}
-
-	return share_access_check(p->session_info->security_token,
-				  lp_servicename(talloc_tos(), snum),
-				  FILE_READ_DATA, NULL);
+    return share_access_check(p->session_info->security_token,
+			      lp_servicename(talloc_tos(), snum),
+			      FILE_READ_DATA, NULL);
 }
 
 /****************************************************************************
@@ -2318,7 +2311,6 @@ WERROR _srvsvc_NetGetFileSecurity(struct pipes_struct *p,
 	files_struct *fsp = NULL;
 	int snum;
 	char *oldcwd = NULL;
-	uint32_t ucf_flags = 0;
 
 	ZERO_STRUCT(st);
 
@@ -2354,7 +2346,7 @@ WERROR _srvsvc_NetGetFileSecurity(struct pipes_struct *p,
 					conn,
 					false,
 					r->in.file,
-					ucf_flags,
+					0,
 					NULL,
 					&smb_fname);
 	if (!NT_STATUS_IS_OK(nt_status)) {
@@ -2466,7 +2458,6 @@ WERROR _srvsvc_NetSetFileSecurity(struct pipes_struct *p,
 	char *oldcwd = NULL;
 	struct security_descriptor *psd = NULL;
 	uint32_t security_info_sent = 0;
-	uint32_t ucf_flags = 0;
 
 	ZERO_STRUCT(st);
 
@@ -2504,7 +2495,7 @@ WERROR _srvsvc_NetSetFileSecurity(struct pipes_struct *p,
 					conn,
 					false,
 					r->in.file,
-					ucf_flags,
+					0,
 					NULL,
 					&smb_fname);
 	if (!NT_STATUS_IS_OK(nt_status)) {

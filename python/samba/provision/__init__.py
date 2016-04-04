@@ -276,15 +276,16 @@ def find_provision_key_parameters(samdb, secretsdb, idmapdb, paths, smbconf,
         names.domainlevel = int(res6[0]["msDS-Behavior-Version"][0])
 
     # policy guid
-    res7 = samdb.search(expression="(name={%s})" % DEFAULT_POLICY_GUID,
+    res7 = samdb.search(expression="(displayName=Default Domain Policy)",
                         base="CN=Policies,CN=System," + basedn,
                         scope=ldb.SCOPE_ONELEVEL, attrs=["cn","displayName"])
     names.policyid = str(res7[0]["cn"]).replace("{","").replace("}","")
     # dc policy guid
-    res8 = samdb.search(expression="(name={%s})" % DEFAULT_DC_POLICY_GUID,
-                        base="CN=Policies,CN=System," + basedn,
-                        scope=ldb.SCOPE_ONELEVEL,
-                        attrs=["cn","displayName"])
+    res8 = samdb.search(expression="(displayName=Default Domain Controllers"
+                                   " Policy)",
+                            base="CN=Policies,CN=System," + basedn,
+                            scope=ldb.SCOPE_ONELEVEL,
+                            attrs=["cn","displayName"])
     if len(res8) == 1:
         names.policyid_dc = str(res8[0]["cn"]).replace("{","").replace("}","")
     else:

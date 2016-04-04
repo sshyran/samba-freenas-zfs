@@ -417,14 +417,6 @@ static bool torture_winbind_struct_domain_info(struct torture_context *torture)
 	torture_assert(torture, ok, "failed to get trust list");
 
 	for (i=0; listd && listd[i].netbios_name; i++) {
-		torture_comment(torture, "LIST[%u] '%s' => '%s' [%s]\n",
-				(unsigned)i,
-				listd[i].netbios_name,
-				listd[i].dns_name,
-				dom_sid_string(torture, listd[i].sid));
-	}
-
-	for (i=0; listd && listd[i].netbios_name; i++) {
 		struct winbindd_request req;
 		struct winbindd_response rep;
 		struct dom_sid *sid;
@@ -455,8 +447,7 @@ static bool torture_winbind_struct_domain_info(struct torture_context *torture)
 			flagstr = talloc_strdup_append(flagstr, "NA ");
 		}
 
-		torture_comment(torture, "DOMAIN[%u] '%s' => '%s' [%s] [%s]\n",
-				(unsigned)i,
+		torture_comment(torture, "DOMAIN '%s' => '%s' [%s] [%s]\n",
 				rep.data.domain_info.name,
 				rep.data.domain_info.alt_name,
 				flagstr,
@@ -466,9 +457,7 @@ static bool torture_winbind_struct_domain_info(struct torture_context *torture)
 		torture_assert(torture, sid, "Failed to parse SID");
 
 		ok = dom_sid_equal(listd[i].sid, sid);
-		torture_assert(torture, ok, talloc_asprintf(torture, "SID's doesn't match [%s] != [%s]",
-			       dom_sid_string(torture, listd[i].sid),
-			       dom_sid_string(torture, sid)));
+		torture_assert(torture, ok, "SID's doesn't match");
 
 		torture_assert_str_equal(torture,
 					 rep.data.domain_info.name,

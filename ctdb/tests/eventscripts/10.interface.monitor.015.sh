@@ -10,7 +10,7 @@ iface=$(ctdb_get_1_interface)
 ip link delete "$iface"
 
 required_result 1 <<EOF
-ERROR: Monitored interface dev123 does not exist
+ERROR: Interface dev123 does not exist but it is used by public addresses.
 EOF
 
 simple_test

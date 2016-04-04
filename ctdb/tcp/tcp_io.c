@@ -17,18 +17,12 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
+#include "includes.h"
+#include "lib/util/dlinklist.h"
+#include "tdb.h"
 #include "system/network.h"
 #include "system/filesys.h"
-
-#include "lib/util/dlinklist.h"
-#include "lib/util/debug.h"
-
-#include "ctdb_private.h"
-
-#include "common/common.h"
-#include "common/logging.h"
-
+#include "../include/ctdb_private.h"
 #include "ctdb_tcp.h"
 
 

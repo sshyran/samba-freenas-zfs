@@ -26,27 +26,6 @@
 #include "lib/tevent_wait.h"
 
 /****************************************************************************
- Statics plus accessor functions.
-*****************************************************************************/
-
-static int outstanding_aio_calls;
-
-int get_outstanding_aio_calls(void)
-{
-	return outstanding_aio_calls;
-}
-
-void increment_outstanding_aio_calls(void)
-{
-	outstanding_aio_calls++;
-}
-
-void decrement_outstanding_aio_calls(void)
-{
-	outstanding_aio_calls--;
-}
-
-/****************************************************************************
  The buffer we keep around whilst an aio request is in process.
 *****************************************************************************/
 
@@ -71,7 +50,7 @@ bool aio_write_through_requested(struct aio_extra *aio_ex)
 
 static int aio_extra_destructor(struct aio_extra *aio_ex)
 {
-	decrement_outstanding_aio_calls();
+	outstanding_aio_calls--;
 	return 0;
 }
 
@@ -103,7 +82,7 @@ static struct aio_extra *create_aio_extra(TALLOC_CTX *mem_ctx,
 	}
 	talloc_set_destructor(aio_ex, aio_extra_destructor);
 	aio_ex->fsp = fsp;
-	increment_outstanding_aio_calls();
+	outstanding_aio_calls++;
 	return aio_ex;
 }
 
@@ -204,6 +183,13 @@ NTSTATUS schedule_aio_read_and_X(connection_struct *conn,
 	/* Only do this on non-chained and non-chaining reads not using the
 	 * write cache. */
         if (req_is_in_chain(smbreq) || (lp_write_cache_size(SNUM(conn)) != 0)) {
+		return NT_STATUS_RETRY;
+	}
+
+	if (outstanding_aio_calls >= aio_pending_size) {
+		DEBUG(10,("schedule_aio_read_and_X: Already have %d aio "
+			  "activities outstanding.\n",
+			  outstanding_aio_calls ));
 		return NT_STATUS_RETRY;
 	}
 
@@ -466,6 +452,19 @@ NTSTATUS schedule_aio_write_and_X(connection_struct *conn,
 		return NT_STATUS_RETRY;
 	}
 
+	if (outstanding_aio_calls >= aio_pending_size) {
+		DEBUG(3,("schedule_aio_write_and_X: Already have %d aio "
+			 "activities outstanding.\n",
+			  outstanding_aio_calls ));
+		DEBUG(10,("schedule_aio_write_and_X: failed to schedule "
+			  "aio_write for file %s, offset %.0f, len = %u "
+			  "(mid = %u)\n",
+			  fsp_str_dbg(fsp), (double)startpos,
+			  (unsigned int)numtowrite,
+			  (unsigned int)smbreq->mid ));
+		return NT_STATUS_RETRY;
+	}
+
 	bufsize = smb_size + 6*2;
 
 	if (!(aio_ex = create_aio_extra(NULL, fsp, bufsize))) {
@@ -539,8 +538,7 @@ NTSTATUS schedule_aio_write_and_X(connection_struct *conn,
 		  "%s, offset %.0f, len = %u (mid = %u) "
 		  "outstanding_aio_calls = %d\n",
 		  fsp_str_dbg(fsp), (double)startpos, (unsigned int)numtowrite,
-		  (unsigned int)aio_ex->smbreq->mid,
-		  get_outstanding_aio_calls() ));
+		  (unsigned int)aio_ex->smbreq->mid, outstanding_aio_calls ));
 
 	return NT_STATUS_OK;
 }
@@ -713,6 +711,13 @@ NTSTATUS schedule_smb2_aio_read(connection_struct *conn,
 		return NT_STATUS_RETRY;
 	}
 
+	if (outstanding_aio_calls >= aio_pending_size) {
+		DEBUG(10,("smb2: Already have %d aio "
+			"activities outstanding.\n",
+			outstanding_aio_calls ));
+		return NT_STATUS_RETRY;
+	}
+
 	/* Create the out buffer. */
 	*preadbuf = data_blob_talloc(ctx, NULL, smb_maxcnt);
 	if (preadbuf->data == NULL) {
@@ -862,6 +867,13 @@ NTSTATUS schedule_aio_smb2_write(connection_struct *conn,
 		return NT_STATUS_RETRY;
 	}
 
+	if (outstanding_aio_calls >= aio_pending_size) {
+		DEBUG(3,("smb2: Already have %d aio "
+			"activities outstanding.\n",
+			outstanding_aio_calls ));
+		return NT_STATUS_RETRY;
+	}
+
 	if (smbreq->unread_bytes) {
 		/* Can't do async with recvfile. */
 		return NT_STATUS_RETRY;
@@ -927,7 +939,7 @@ NTSTATUS schedule_aio_smb2_write(connection_struct *conn,
 		(double)in_offset,
 		(unsigned int)in_data.length,
 		(unsigned int)aio_ex->smbreq->mid,
-		get_outstanding_aio_calls() ));
+		outstanding_aio_calls ));
 
 	return NT_STATUS_OK;
 }

@@ -93,19 +93,6 @@ ipv4_host_addr_to_net ()
 
 ######################################################################
 
-ensure_rt_tables ()
-{
-    rt_tables="$CTDB_SYS_ETCDIR/iproute2/rt_tables"
-
-    # This file should always exist.  Even if this didn't exist on the
-    # system, adding a route will have created it.  What if we startup
-    # and immediately shutdown?  Let's be sure.
-    if [ ! -f "$rt_tables" ] ; then
-	mkdir -p "${rt_tables%/*}" # dirname
-	touch "$rt_tables"
-    fi
-}
-
 # Setup a table id to use for the given IP.  We don't need to know it,
 # it just needs to exist in /etc/iproute2/rt_tables.  Fail if no free
 # table id could be found in the configured range.
@@ -113,7 +100,12 @@ ensure_table_id_for_ip ()
 {
     _ip=$1
 
-    ensure_rt_tables
+    _f="$CTDB_ETCDIR/iproute2/rt_tables"
+    # This file should always exist, but...
+    if [ ! -f "$_f" ] ; then
+	mkdir -p $(dirname "$_f")
+	touch "$_f"
+    fi
 
     # Maintain a table id for each IP address we've ever seen in
     # rt_tables.  We use a "ctdb." prefix on the label.
@@ -125,7 +117,7 @@ ensure_table_id_for_ip ()
     (
 	# Note that die() just gets us out of the subshell...
 	flock --timeout 30 0 || \
-	    die "ensure_table_id_for_ip: failed to lock file $rt_tables"
+	    die "ensure_table_id_for_ip: failed to lock file $_f"
 
 	_new=$CTDB_PER_IP_ROUTING_TABLE_ID_LOW
 	while read _t _l ; do
@@ -148,38 +140,44 @@ ensure_table_id_for_ip ()
 	# If the new table id is legal then add it to the file and
 	# print it.
 	if [ $_new -le $CTDB_PER_IP_ROUTING_TABLE_ID_HIGH ] ; then
-	    printf "%d\t%s\n" "$_new" "$_label" >>"$rt_tables"
+	    printf "%d\t%s\n" "$_new" "$_label" >>"$_f"
 	    return 0
 	else
 	    return 1
 	fi
-    ) <"$rt_tables"
+    ) <"$_f"
 }
 
 # Clean up all the table ids that we might own.
 clean_up_table_ids ()
 {
-    ensure_rt_tables
+    _f="$CTDB_ETCDIR/iproute2/rt_tables"
+    # Even if this didn't exist on the system, adding a route will
+    # have created it.  What if we startup and immediately shutdown?
+    if [ ! -f "$_f" ] ; then
+	mkdir -p $(dirname "$_f")
+	touch "$_f"
+    fi
 
     (
 	# Note that die() just gets us out of the subshell...
 	flock --timeout 30 0 || \
-	    die "clean_up_table_ids: failed to lock file $rt_tables"
+	    die "clean_up_table_ids: failed to lock file $_f"
 
 	# Delete any items from the file that have a table id in our
 	# range or a label matching our label.  Preserve comments.
-	_tmp="${rt_tables}.$$.ctdb"
+	_tmp="${_f}.$$.ctdb"
 	awk -v min="$CTDB_PER_IP_ROUTING_TABLE_ID_LOW" \
 	    -v max="$CTDB_PER_IP_ROUTING_TABLE_ID_HIGH" \
 	    -v pre="$table_id_prefix" \
 	    '/^#/ || \
 	     !(min <= $1 && $1 <= max) && \
 	     !(index($2, pre) == 1) \
-	     { print $0 }' "$rt_tables" >"$_tmp"
+	     { print $0 }' "$_f" >"$_tmp"
 
-	mv "$_tmp" "$rt_tables"
+	mv "$_tmp" "$_f"
 	# The lock is gone - don't do anything else here
-    ) <"$rt_tables"
+    ) <"$_f"
 }
 
 ######################################################################

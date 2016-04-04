@@ -773,7 +773,7 @@ void *malloc_array(size_t el_size, unsigned int count)
 
 void *memalign_array(size_t el_size, size_t align, unsigned int count)
 {
-	if (el_size == 0 || count >= MAX_MALLOC_SIZE/el_size) {
+	if (count*el_size >= MAX_MALLOC_SIZE) {
 		return NULL;
 	}
 

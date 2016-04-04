@@ -17,22 +17,11 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "replace.h"
-#include "system/network.h"
-#include "system/time.h"
+#include "includes.h"
+#include <string.h>
+#include "../include/ctdb_private.h"
 
-#include <talloc.h>
-#include <tevent.h>
-
-#include "lib/util/debug.h"
-#include "lib/util/samba_util.h"
-
-#include "ctdb_private.h"
-
-#include "common/logging.h"
-
-static void ctdb_statistics_update(struct tevent_context *ev,
-				   struct tevent_timer *te,
+static void ctdb_statistics_update(struct event_context *ev, struct timed_event *te, 
 				   struct timeval t, void *p)
 {
 	struct ctdb_context *ctdb = talloc_get_type(p, struct ctdb_context);
@@ -45,9 +34,8 @@ static void ctdb_statistics_update(struct tevent_context *ev,
 	bzero(&ctdb->statistics_current, sizeof(struct ctdb_statistics));
 	ctdb->statistics_current.statistics_start_time = timeval_current();
 
-	tevent_add_timer(ctdb->ev, ctdb,
-			 timeval_current_ofs(ctdb->tunable.stat_history_interval, 0),
-			 ctdb_statistics_update, ctdb);
+	
+	event_add_timed(ctdb->ev, ctdb, timeval_current_ofs(ctdb->tunable.stat_history_interval, 0), ctdb_statistics_update, ctdb);
 }
 
 int ctdb_statistics_init(struct ctdb_context *ctdb)
@@ -60,22 +48,19 @@ int ctdb_statistics_init(struct ctdb_context *ctdb)
 
 	bzero(ctdb->statistics_history, sizeof(ctdb->statistics_history));
 
-	tevent_add_timer(ctdb->ev, ctdb,
-			 timeval_current_ofs(ctdb->tunable.stat_history_interval, 0),
-			 ctdb_statistics_update, ctdb);
+	event_add_timed(ctdb->ev, ctdb, timeval_current_ofs(ctdb->tunable.stat_history_interval, 0), ctdb_statistics_update, ctdb);
 	return 0;
 }
 
 
 int32_t ctdb_control_get_stat_history(struct ctdb_context *ctdb, 
-				      struct ctdb_req_control_old *c,
+				      struct ctdb_req_control *c,
 				      TDB_DATA *outdata)
 {
 	int len;
-	struct ctdb_statistics_list_old *s;
+	struct ctdb_statistics_wire *s;
 
-	len = offsetof(struct ctdb_statistics_list_old, stats) +
-		MAX_STAT_HISTORY*sizeof(struct ctdb_statistics);
+	len = offsetof(struct ctdb_statistics_wire, stats) + MAX_STAT_HISTORY*sizeof(struct ctdb_statistics);
 
 	s = talloc_size(outdata, len);
 	if (s == NULL) {

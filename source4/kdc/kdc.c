@@ -35,7 +35,6 @@
 #include "kdc/pac-glue.h"
 #include "dsdb/samdb/samdb.h"
 #include "auth/session.h"
-#include "libds/common/roles.h"
 
 NTSTATUS server_service_kdc_init(void);
 

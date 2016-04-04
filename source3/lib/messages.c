@@ -291,6 +291,7 @@ struct messaging_context *messaging_init(TALLOC_CTX *mem_ctx,
 					 struct tevent_context *ev)
 {
 	struct messaging_context *ctx;
+	NTSTATUS status;
 	int ret;
 	const char *lck_path;
 	const char *priv_path;
@@ -300,10 +301,7 @@ struct messaging_context *messaging_init(TALLOC_CTX *mem_ctx,
 		return NULL;
 	}
 
-	ctx->id = (struct server_id) {
-		.pid = getpid(), .vnn = NONCLUSTER_VNN
-	};
-
+	ctx->id = procid_self();
 	ctx->event_ctx = ev;
 
 	sec_init();
@@ -339,7 +337,7 @@ struct messaging_context *messaging_init(TALLOC_CTX *mem_ctx,
 	}
 
 	ctx->msg_dgm_ref = messaging_dgm_ref(
-		ctx, ctx->event_ctx, &ctx->id.unique_id,
+		ctx, ctx->event_ctx, ctx->id.unique_id,
 		priv_path, lck_path, messaging_recv_cb, ctx, &ret);
 
 	if (ctx->msg_dgm_ref == NULL) {
@@ -351,11 +349,11 @@ struct messaging_context *messaging_init(TALLOC_CTX *mem_ctx,
 	talloc_set_destructor(ctx, messaging_context_destructor);
 
 	if (lp_clustering()) {
-		ret = messaging_ctdbd_init(ctx, ctx, &ctx->remote);
+		status = messaging_ctdbd_init(ctx, ctx, &ctx->remote);
 
-		if (ret != 0) {
+		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(2, ("messaging_ctdbd_init failed: %s\n",
-				  strerror(ret)));
+				  nt_errstr(status)));
 			TALLOC_FREE(ctx);
 			return NULL;
 		}
@@ -392,16 +390,15 @@ struct server_id messaging_server_id(const struct messaging_context *msg_ctx)
  */
 NTSTATUS messaging_reinit(struct messaging_context *msg_ctx)
 {
+	NTSTATUS status;
 	int ret;
 
 	TALLOC_FREE(msg_ctx->msg_dgm_ref);
 
-	msg_ctx->id = (struct server_id) {
-		.pid = getpid(), .vnn = msg_ctx->id.vnn
-	};
+	msg_ctx->id = procid_self();
 
 	msg_ctx->msg_dgm_ref = messaging_dgm_ref(
-		msg_ctx, msg_ctx->event_ctx, &msg_ctx->id.unique_id,
+		msg_ctx, msg_ctx->event_ctx, msg_ctx->id.unique_id,
 		private_path("msg.sock"), lock_path("msg.lock"),
 		messaging_recv_cb, msg_ctx, &ret);
 
@@ -413,13 +410,13 @@ NTSTATUS messaging_reinit(struct messaging_context *msg_ctx)
 	TALLOC_FREE(msg_ctx->remote);
 
 	if (lp_clustering()) {
-		ret = messaging_ctdbd_init(msg_ctx, msg_ctx,
-					   &msg_ctx->remote);
+		status = messaging_ctdbd_init(msg_ctx, msg_ctx,
+					      &msg_ctx->remote);
 
-		if (ret != 0) {
+		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(1, ("messaging_ctdbd_init failed: %s\n",
-				  strerror(ret)));
-			return map_nt_error_from_unix(ret);
+				  nt_errstr(status)));
+			return status;
 		}
 	}
 
@@ -523,34 +520,37 @@ NTSTATUS messaging_send_buf(struct messaging_context *msg_ctx,
 	return messaging_send(msg_ctx, server, msg_type, &blob);
 }
 
-int messaging_send_iov_from(struct messaging_context *msg_ctx,
-			    struct server_id src, struct server_id dst,
-			    uint32_t msg_type,
-			    const struct iovec *iov, int iovlen,
-			    const int *fds, size_t num_fds)
+NTSTATUS messaging_send_iov_from(struct messaging_context *msg_ctx,
+				 struct server_id src, struct server_id dst,
+				 uint32_t msg_type,
+				 const struct iovec *iov, int iovlen,
+				 const int *fds, size_t num_fds)
 {
 	int ret;
 	uint8_t hdr[MESSAGE_HDR_LENGTH];
 	struct iovec iov2[iovlen+1];
 
 	if (server_id_is_disconnected(&dst)) {
-		return EINVAL;
+		return NT_STATUS_INVALID_PARAMETER_MIX;
 	}
 
 	if (num_fds > INT8_MAX) {
-		return EINVAL;
+		return NT_STATUS_INVALID_PARAMETER_MIX;
 	}
 
 	if (!procid_is_local(&dst)) {
 		if (num_fds > 0) {
-			return ENOSYS;
+			return NT_STATUS_NOT_SUPPORTED;
 		}
 
 		ret = msg_ctx->remote->send_fn(src, dst,
 					       msg_type, iov, iovlen,
 					       NULL, 0,
 					       msg_ctx->remote);
-		return ret;
+		if (ret != 0) {
+			return map_nt_error_from_unix(ret);
+		}
+		return NT_STATUS_OK;
 	}
 
 	message_hdr_put(hdr, msg_type, src, dst);
@@ -561,7 +561,10 @@ int messaging_send_iov_from(struct messaging_context *msg_ctx,
 	ret = messaging_dgm_send(dst.pid, iov2, iovlen+1, fds, num_fds);
 	unbecome_root();
 
-	return ret;
+	if (ret != 0) {
+		return map_nt_error_from_unix(ret);
+	}
+	return NT_STATUS_OK;
 }
 
 NTSTATUS messaging_send_iov(struct messaging_context *msg_ctx,
@@ -569,14 +572,8 @@ NTSTATUS messaging_send_iov(struct messaging_context *msg_ctx,
 			    const struct iovec *iov, int iovlen,
 			    const int *fds, size_t num_fds)
 {
-	int ret;
-
-	ret = messaging_send_iov_from(msg_ctx, msg_ctx->id, dst, msg_type,
-				      iov, iovlen, fds, num_fds);
-	if (ret != 0) {
-		return map_nt_error_from_unix(ret);
-	}
-	return NT_STATUS_OK;
+	return messaging_send_iov_from(msg_ctx, msg_ctx->id, dst, msg_type,
+				       iov, iovlen, fds, num_fds);
 }
 
 static struct messaging_rec *messaging_rec_dup(TALLOC_CTX *mem_ctx,
@@ -647,7 +644,7 @@ struct tevent_req *messaging_filtered_read_send(
 
 	state->tevent_handle = messaging_dgm_register_tevent_context(
 		state, ev);
-	if (tevent_req_nomem(state->tevent_handle, req)) {
+	if (tevent_req_nomem(state, req)) {
 		return tevent_req_post(req, ev);
 	}
 

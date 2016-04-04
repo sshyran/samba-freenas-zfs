@@ -17,10 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "replace.h"
-#include "system/network.h"
-#include "system/filesys.h"
-#include <dirent.h>
+#include "includes.h"
 #include "lib/util/data_blob.h"
 #include "lib/util/debug.h"
 #include "lib/unix_msg/unix_msg.h"
@@ -29,7 +26,6 @@
 #include "lib/param/param.h"
 #include "poll_funcs/poll_funcs_tevent.h"
 #include "unix_msg/unix_msg.h"
-#include "lib/util/genrand.h"
 
 struct sun_path_buf {
 	/*
@@ -68,46 +64,25 @@ static int messaging_dgm_context_destructor(struct messaging_dgm_context *c);
 
 static int messaging_dgm_lockfile_create(struct messaging_dgm_context *ctx,
 					 pid_t pid, int *plockfile_fd,
-					 uint64_t *punique)
+					 uint64_t unique)
 {
-	char buf[64];
+	fstring buf;
 	int lockfile_fd;
 	struct sun_path_buf lockfile_name;
 	struct flock lck;
-	uint64_t unique;
 	int unique_len, ret;
 	ssize_t written;
 
 	ret = snprintf(lockfile_name.buf, sizeof(lockfile_name.buf),
-		       "%s/%u", ctx->lockfile_dir.buf, (unsigned)pid);
+		       "%s/%u", ctx->lockfile_dir.buf, (int)pid);
 	if (ret >= sizeof(lockfile_name.buf)) {
 		return ENAMETOOLONG;
 	}
 
 	/* no O_EXCL, existence check is via the fcntl lock */
 
-	lockfile_fd = open(lockfile_name.buf, O_NONBLOCK|O_CREAT|O_RDWR,
+	lockfile_fd = open(lockfile_name.buf, O_NONBLOCK|O_CREAT|O_WRONLY,
 			   0644);
-
-        if ((lockfile_fd == -1) &&
-	    ((errno == ENXIO) /* Linux */ ||
-	     (errno == ENODEV) /* Linux kernel bug */ ||
-	     (errno == EOPNOTSUPP) /* FreeBSD */)) {
-		/*
-                 * Huh -- a socket? This might be a stale socket from
-                 * an upgrade of Samba. Just unlink and retry, nobody
-                 * else is supposed to be here at this time.
-                 *
-                 * Yes, this is racy, but I don't see a way to deal
-                 * with this properly.
-                 */
-		unlink(lockfile_name.buf);
-
-		lockfile_fd = open(lockfile_name.buf,
-				   O_NONBLOCK|O_CREAT|O_WRONLY,
-				   0644);
-	}
-
 	if (lockfile_fd == -1) {
 		ret = errno;
 		DEBUG(1, ("%s: open failed: %s\n", __func__, strerror(errno)));
@@ -125,19 +100,6 @@ static int messaging_dgm_lockfile_create(struct messaging_dgm_context *ctx,
 		DEBUG(1, ("%s: fcntl failed: %s\n", __func__, strerror(ret)));
 		goto fail_close;
 	}
-
-	/*
-	 * Directly using the binary value for
-	 * SERVERID_UNIQUE_ID_NOT_TO_VERIFY is a layering
-	 * violation. But including all of ndr here just for this
-	 * seems to be a bit overkill to me. Also, messages_dgm might
-	 * be replaced sooner or later by something streams-based,
-	 * where unique_id generation will be handled differently.
-	 */
-
-	do {
-		generate_random_buffer((uint8_t *)&unique, sizeof(unique));
-	} while (unique == UINT64_C(0xFFFFFFFFFFFFFFFF));
 
 	unique_len = snprintf(buf, sizeof(buf), "%ju\n", (uintmax_t)unique);
 
@@ -159,7 +121,6 @@ static int messaging_dgm_lockfile_create(struct messaging_dgm_context *ctx,
 	}
 
 	*plockfile_fd = lockfile_fd;
-	*punique = unique;
 	return 0;
 
 fail_unlink:
@@ -170,7 +131,7 @@ fail_close:
 }
 
 int messaging_dgm_init(struct tevent_context *ev,
-		       uint64_t *punique,
+		       uint64_t unique,
 		       const char *socket_dir,
 		       const char *lockfile_dir,
 		       void (*recv_cb)(const uint8_t *msg,
@@ -222,7 +183,7 @@ int messaging_dgm_init(struct tevent_context *ev,
 	}
 
 	ret = messaging_dgm_lockfile_create(ctx, ctx->pid, &ctx->lockfile_fd,
-					    punique);
+					    unique);
 	if (ret != 0) {
 		DEBUG(1, ("%s: messaging_dgm_create_lockfile failed: %s\n",
 			  __func__, strerror(ret)));
@@ -337,66 +298,6 @@ static void messaging_dgm_recv(struct unix_msg_ctx *ctx,
 
 	dgm_ctx->recv_cb(msg, msg_len, fds, num_fds,
 			 dgm_ctx->recv_cb_private_data);
-}
-
-static int messaging_dgm_read_unique(int fd, uint64_t *punique)
-{
-	char buf[25];
-	ssize_t rw_ret;
-	unsigned long long unique;
-	char *endptr;
-
-	rw_ret = pread(fd, buf, sizeof(buf)-1, 0);
-	if (rw_ret == -1) {
-		return errno;
-	}
-	buf[rw_ret] = '\0';
-
-	unique = strtoull(buf, &endptr, 10);
-	if ((unique == 0) && (errno == EINVAL)) {
-		return EINVAL;
-	}
-	if ((unique == ULLONG_MAX) && (errno == ERANGE)) {
-		return ERANGE;
-	}
-	if (endptr[0] != '\n') {
-		return EINVAL;
-	}
-	*punique = unique;
-	return 0;
-}
-
-int messaging_dgm_get_unique(pid_t pid, uint64_t *unique)
-{
-	struct messaging_dgm_context *ctx = global_dgm_context;
-	struct sun_path_buf lockfile_name;
-	int ret, fd;
-
-	if (ctx == NULL) {
-		return EBADF;
-	}
-
-	if (pid == getpid()) {
-		/*
-		 * Protect against losing our own lock
-		 */
-		return messaging_dgm_read_unique(ctx->lockfile_fd, unique);
-	}
-
-	ret = snprintf(lockfile_name.buf, sizeof(lockfile_name.buf),
-		       "%s/%u", ctx->lockfile_dir.buf, (int)pid);
-	if (ret >= sizeof(lockfile_name.buf)) {
-		return ENAMETOOLONG;
-	}
-
-	fd = open(lockfile_name.buf, O_NONBLOCK|O_RDONLY, 0);
-	if (fd == -1) {
-		return errno;
-	}
-
-	ret = messaging_dgm_read_unique(fd, unique);
-	close(fd);
-	return ret;
 }
 
 int messaging_dgm_cleanup(pid_t pid)

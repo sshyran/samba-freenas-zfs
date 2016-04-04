@@ -1,9 +1,8 @@
 <samba:parameter name="server role"
                  context="G"
-                 type="enum"
+				 type="enum"
                  function="_server_role"
-                 enumlist="enum_server_role"
-                 xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
+		 xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
 <description>
     <para>This option determines the basic operating mode of a Samba
     server and is one of the most important settings in the <filename
@@ -25,7 +24,7 @@
     <para><anchor id="AUTO"/><emphasis>SERVER ROLE = AUTO</emphasis></para>
 
     <para>This is the default server role in Samba, and causes Samba to consult
-    the <smbconfoption name="security"/> parameter (if set) to determine the server role, giving compatible behaviours to previous Samba versions.</para>
+    the <smbconfoption name="security"/> parameter (if set) to determine the server role, giving compatable behaviours to previous Samba versions.</para>
 
     <para><anchor id="STANDALONE"/><emphasis>SERVER ROLE = STANDALONE</emphasis></para>
 
@@ -61,7 +60,7 @@
     only one PDC per NetBIOS scope (typcially a broadcast network or
     clients served by a single WINS server).</para>
 
-    <para><anchor id="BDC"/><emphasis>SERVER ROLE = CLASSIC BACKUP DOMAIN CONTROLLER</emphasis></para>
+    <para><anchor id="BDC"/><emphasis>SERVER ROLE = NETBIOS BACKUP DOMAIN CONTROLLER</emphasis></para>
 
     <para>This mode of operation runs a classic Samba backup domain
     controller, providing domain logon services to Windows and Samba
@@ -85,5 +84,5 @@
 <related>encrypt passwords</related>
 
 <value type="default">AUTO</value>
-<value type="example">ACTIVE DIRECTORY DOMAIN CONTROLLER</value>
+<value type="example">DOMAIN CONTROLLER</value>
 </samba:parameter>

@@ -39,7 +39,6 @@
 #include "libcli/composite/composite.h"
 #include "libcli/security/dom_sid.h"
 #include "librpc/gen_ndr/ndr_irpc.h"
-#include "libds/common/roles.h"
 
 NTSTATUS server_service_dnsupdate_init(void);
 

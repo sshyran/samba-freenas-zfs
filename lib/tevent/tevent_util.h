@@ -53,6 +53,10 @@
   This allows us to find the tail of the list by using
   list_head->prev, which means we can add to the end of the list in
   O(1) time
+
+
+  Note that the 'type' arguments below are no longer needed, but
+  are kept for now to prevent an incompatible argument change
  */
 
 
@@ -127,8 +131,9 @@ do { \
 
 /*
    add to the end of a list.
+   Note that 'type' is ignored
 */
-#define DLIST_ADD_END(list, p) \
+#define DLIST_ADD_END(list, p, type)			\
 do { \
 	if (!(list)) { \
 		DLIST_ADD(list, p); \
@@ -146,18 +151,20 @@ do { \
 
 /*
    demote an element to the end of a list.
+   Note that 'type' is ignored
 */
-#define DLIST_DEMOTE(list, p) \
+#define DLIST_DEMOTE(list, p, type)			\
 do { \
 	DLIST_REMOVE(list, p); \
-	DLIST_ADD_END(list, p); \
+	DLIST_ADD_END(list, p, NULL);		\
 } while (0)
 
 /*
    concatenate two lists - putting all elements of the 2nd list at the
    end of the first list.
+   Note that 'type' is ignored
 */
-#define DLIST_CONCATENATE(list1, list2) \
+#define DLIST_CONCATENATE(list1, list2, type)	\
 do { \
 	if (!(list1)) { \
 		(list1) = (list2); \

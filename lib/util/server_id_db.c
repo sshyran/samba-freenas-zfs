@@ -93,7 +93,8 @@ static int server_id_db_destructor(struct server_id_db *db)
 int server_id_db_add(struct server_id_db *db, const char *name)
 {
 	struct tdb_context *tdb = db->tdb->tdb;
-	TDB_DATA key;
+	struct server_id_buf buf;
+	TDB_DATA key, data;
 	char *n;
 	int ret;
 
@@ -109,17 +110,10 @@ int server_id_db_add(struct server_id_db *db, const char *name)
 
 	key = string_term_tdb_data(name);
 
-	{
-		size_t idlen = server_id_str_buf_unique(db->pid, NULL, 0);
-		char idbuf[idlen];
+	server_id_str_buf(db->pid, &buf);
+	data = string_term_tdb_data(buf.buf);
 
-		server_id_str_buf_unique(db->pid, idbuf, idlen);
-
-		ret = tdb_append(
-			tdb, key,
-			(TDB_DATA) { .dptr = (uint8_t *)idbuf, .dsize = idlen });
-	}
-
+	ret = tdb_append(tdb, key, data);
 	if (ret != 0) {
 		enum TDB_ERROR err = tdb_error(tdb);
 		strv_delete(&db->names, strv_find(db->names, name));
@@ -133,15 +127,14 @@ int server_id_db_prune_name(struct server_id_db *db, const char *name,
 			    struct server_id server)
 {
 	struct tdb_context *tdb = db->tdb->tdb;
-	size_t idbuf_len = server_id_str_buf_unique(server, NULL, 0);
-	char idbuf[idbuf_len];
+	struct server_id_buf buf;
 	TDB_DATA key;
 	uint8_t *data;
 	char *ids, *id;
 	int ret;
 
 	key = string_term_tdb_data(name);
-	server_id_str_buf_unique(server, idbuf, idbuf_len);
+	server_id_str_buf(server, &buf);
 
 	ret = tdb_chainlock(tdb, key);
 	if (ret == -1) {
@@ -157,7 +150,7 @@ int server_id_db_prune_name(struct server_id_db *db, const char *name,
 
 	ids = (char *)data;
 
-	id = strv_find(ids, idbuf);
+	id = strv_find(ids, buf.buf);
 	if (id == NULL) {
 		tdb_chainunlock(tdb, key);
 		TALLOC_FREE(data);

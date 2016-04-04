@@ -41,7 +41,7 @@
 #include "util_tdb.h"
 #include "../libcli/smb/read_smb.h"
 #include "../libcli/smb/smbXcli_base.h"
-#include "lib/util/sys_rw_data.h"
+#include "lib/sys_rw_data.h"
 
 extern char *optarg;
 extern int optind;
@@ -3264,7 +3264,8 @@ static bool run_trans2test(int dummy)
 		printf("ERROR: qfilename failed (%s)\n", nt_errstr(status));
 		correct = False;
 	}
-	else if (strcmp(pname, fname)) {
+
+	if (strcmp(pname, fname)) {
 		printf("qfilename gave different name? [%s] [%s]\n",
 		       fname, pname);
 		correct = False;
@@ -9042,7 +9043,7 @@ static bool run_local_sid_to_string(int dummy) {
 
 static bool run_local_binary_to_sid(int dummy) {
 	struct dom_sid *sid = talloc(NULL, struct dom_sid);
-	static const uint8_t good_binary_sid[] = {
+	static const char good_binary_sid[] = {
 		0x1, /* revision number */
 		15, /* num auths */
 		0x1, 0x1, 0x1, 0x1, 0x1, 0x1, /* id_auth */
@@ -9063,7 +9064,7 @@ static bool run_local_binary_to_sid(int dummy) {
 		0x1, 0x1, 0x1, 0x1, /* auth[14] */
 	};
 
-	static const uint8_t long_binary_sid[] = {
+	static const char long_binary_sid[] = {
 		0x1, /* revision number */
 		15, /* num auths */
 		0x1, 0x1, 0x1, 0x1, 0x1, 0x1, /* id_auth */
@@ -9087,7 +9088,7 @@ static bool run_local_binary_to_sid(int dummy) {
 		0x1, 0x1, 0x1, 0x1, /* auth[17] */
 	};
 
-	static const uint8_t long_binary_sid2[] = {
+	static const char long_binary_sid2[] = {
 		0x1, /* revision number */
 		32, /* num auths */
 		0x1, 0x1, 0x1, 0x1, 0x1, 0x1, /* id_auth */
