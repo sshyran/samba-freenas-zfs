@@ -6,7 +6,8 @@ Uploaders: Steve Langasek <vorlon@debian.org>,
            Christian Perrier <bubulle@debian.org>,
            Jelmer Vernooij <jelmer@debian.org>,
            Ivo De Decker <ivodd@debian.org>,
-           Mathieu Parent <sathieu@debian.org>
+           Mathieu Parent <sathieu@debian.org>,
+           Andrew Bartlett <abartlet+debian@catalyst.net.nz>
 Homepage: http://www.samba.org
 Standards-Version: 3.9.7
 Build-Depends: bison,
