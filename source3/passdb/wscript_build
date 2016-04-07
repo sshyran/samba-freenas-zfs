@@ -24,6 +24,14 @@ bld.SAMBA3_MODULE('pdb_smbpasswd',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('pdb_smbpasswd'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('pdb_smbpasswd'))
 
+bld.SAMBA3_MODULE('pdb_freenas',
+                  subsystem='pdb',
+                  source='pdb_freenas.c',
+                  deps='samba-util dispatcherclient jansson',
+                  init_function='',
+                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('pdb_freenas'),
+                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('pdb_freenas'))
+
 bld.SAMBA3_MODULE('pdb_wbc_sam',
                  subsystem='pdb',
                  source='pdb_wbc_sam.c',
