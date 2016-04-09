@@ -1,3 +1,11 @@
+samba (2:4.3.6+dfsg-3) UNRELEASED; urgency=medium
+
+  [ Jelmer Vernooĳ ]
+  * Add patch no_build_system.patch: drop host-specific define that
+    prevents reproducible builds.
+
+ -- Jelmer Vernooĳ <jelmer@debian.org>  Sat, 16 Apr 2016 12:18:36 +0000
+
 samba (2:4.3.7+dfsg-1) unstable; urgency=high
 
   * New upstream release.
