@@ -77,6 +77,7 @@ static bool
 build_sam_account(struct samu *sam_pass, const json_t *user)
 {
 	struct passwd *pwd;
+	struct tm *last_set_time;
 	const char *str;
 	uint8_t nthash[NT_HASH_LEN];
 	uint8_t lmhash[LM_HASH_LEN];
@@ -102,7 +103,7 @@ build_sam_account(struct samu *sam_pass, const json_t *user)
 
 	free(pwd);
 
-	str = json_string_value(json_object_get(user, "lmhash"));
+	str = json_string_value(json_object_get(user, "nthash"));
 	if (str) {
 		for (i = 0; i < NT_HASH_LEN; i++)
 			sscanf(str + 2 * i, "%02X", &nthash[i]);
@@ -111,20 +112,24 @@ build_sam_account(struct samu *sam_pass, const json_t *user)
 			return (false);
 	}
 
-	str = json_string_value(json_object_get(user, "nthash"));
+	str = json_string_value(json_object_get(user, "lmhash"));
 	if (str) {
 		for (i = 0; i < LM_HASH_LEN; i++)
-			sscanf(str + 2 * i, "%02X", &nthash[i]);
+			sscanf(str + 2 * i, "%02X", &lmhash[i]);
 
 		if (!pdb_set_lanman_passwd(sam_pass, lmhash, PDB_SET))
 			return (false);
 	}
 
-#if 0
-	pdb_set_acct_ctrl(sam_pass, pw_buf->acct_ctrl, PDB_SET);
-	pdb_set_pass_last_set_time(sam_pass, pw_buf->pass_last_set_time, PDB_SET);
-	pdb_set_pass_can_change_time(sam_pass, pw_buf->pass_last_set_time, PDB_SET);
-#endif
+	last_set_time = rpc_json_to_timestamp(json_object_get(user,
+	    "password_changed_at"));
+	if (last_set_time != NULL) {
+		pdb_set_pass_last_set_time(sam_pass, mktime(last_set_time),
+		    PDB_SET);
+		free(last_set_time);
+	}
+
+	pdb_set_acct_ctrl(sam_pass, ACB_NORMAL, PDB_SET);
 	return (true);
 }
 
@@ -205,8 +210,11 @@ freenas_getsampwsid(struct pdb_methods *methods, struct samu *sam_acct,
 	if (!build_sam_account(sam_acct, result))
 		return (nt_status);
 
-	/* build_sam_account might change the SID on us, if the name was for the guest account */
-	if (NT_STATUS_IS_OK(nt_status) && !dom_sid_equal(pdb_get_user_sid(sam_acct), sid)) {
+	/* build_sam_account might change the SID on us, if the name was for
+	 * the guest account
+	 */
+	if (NT_STATUS_IS_OK(nt_status) &&
+	    !dom_sid_equal(pdb_get_user_sid(sam_acct), sid)) {
 		DEBUG(1, ("looking for user with sid %s instead returned %s "
 		    "for account %s!?!\n", sid_string_dbg(sid),
 		    sid_string_dbg(pdb_get_user_sid(sam_acct)),
@@ -248,9 +256,9 @@ freenas_search_next_entry(struct pdb_search *search,
 	user = json_array_get(state->users, state->position);
 
 	entry->idx = state->position;
-	entry->rid = json_integer_value(json_object_get(user, "uid"));
-	//entry->acct_flags = state->entries[state->current].acct_flags;
-
+	entry->rid = algorithmic_pdb_uid_to_user_rid(json_integer_value(
+	    json_object_get(user, "uid")));
+	entry->acct_flags = ACB_NORMAL;
 	entry->account_name = talloc_strdup(search, json_string_value(
 	    json_object_get(user, "username")));
 	entry->fullname = talloc_strdup(search, json_string_value(
