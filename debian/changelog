@@ -1,4 +1,4 @@
-samba (2:4.3.7+dfsg-1) UNRELEASED; urgency=medium
+samba (2:4.3.7+dfsg-1) unstable; urgency=high
 
   * New upstream release.
    + Fixes (Patches by Stefan Metzmacher of SerNet and others on the Samba Team):
@@ -12,7 +12,7 @@ samba (2:4.3.7+dfsg-1) UNRELEASED; urgency=medium
     - CVE-2016-2118 (SAMR and LSA man in the middle attacks possible)
   * Additional regression fix for 'net ads join' to a Windows 2003 domain by metze
 
- -- Andrew Bartlett <abartlet+debian@catalyst.net.nz>  Wed, 06 Apr 2016 14:25:42 +1200
+ -- Andrew Bartlett <abartlet+debian@catalyst.net.nz>  Wed, 13 Apr 2016 10:24:17 +1200
 
 samba (2:4.3.6+dfsg-2) unstable; urgency=low
 
