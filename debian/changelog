@@ -10,6 +10,7 @@ samba (2:4.4.1+dfsg-1) UNRELEASED; urgency=medium
     - CVE-2016-2114 ("server signing = mandatory" not enforced)
     - CVE-2016-2115 (SMB IPC traffic is not integrity protected)
     - CVE-2016-2118 (SAMR and LSA man in the middle attacks possible)
+  * Additional regression fix for 'net ads join' to a Windows 2003 domain by metze
 
  -- Andrew Bartlett <abartlet+debian@catalyst.net.nz>  Wed, 06 Apr 2016 17:51:36 +1200
 
