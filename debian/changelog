@@ -1,4 +1,4 @@
-samba (2:4.3.8+dfsg-1) UNRELEASED; urgency=medium
+samba (2:4.3.8+dfsg-1) unstable; urgency=low
 
   [ Jelmer Vernooĳ ]
   * Add patch no_build_system.patch: drop host-specific define that
@@ -10,7 +10,7 @@ samba (2:4.3.8+dfsg-1) UNRELEASED; urgency=medium
   * Bump version in Replaces: samba-libs for samba-vfs-modules to
     4.3.2+dfsg-1, to fix jessie->stretch upgrades. Closes: #821070
 
- -- Jelmer Vernooĳ <jelmer@debian.org>  Sat, 16 Apr 2016 12:18:36 +0000
+ -- Jelmer Vernooĳ <jelmer@debian.org>  Sat, 16 Apr 2016 01:18:36 +0000
 
 samba (2:4.3.7+dfsg-1) unstable; urgency=high
 
