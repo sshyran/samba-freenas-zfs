@@ -9,7 +9,7 @@ Uploaders: Steve Langasek <vorlon@debian.org>,
            Mathieu Parent <sathieu@debian.org>,
            Andrew Bartlett <abartlet+debian@catalyst.net.nz>
 Homepage: http://www.samba.org
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Build-Depends: bison,
                debhelper (>> 9),
                dh-systemd (>= 1.5),
