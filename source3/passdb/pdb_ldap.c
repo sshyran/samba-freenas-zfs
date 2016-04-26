@@ -1013,7 +1013,7 @@ static bool init_sam_from_ldap(struct ldapsam_privates *ldap_state,
 				entry,
 				"homeDirectory",
 				ctx);
-		if (unix_pw.pw_dir = NULL) {
+		if (unix_pw.pw_dir == NULL) {
 			unix_pw.pw_dir = discard_const_p(char, "");
 		}
 		unix_pw.pw_shell = smbldap_talloc_single_attribute(
@@ -1021,7 +1021,7 @@ static bool init_sam_from_ldap(struct ldapsam_privates *ldap_state,
 				entry,
 				"loginShell",
 				ctx);
-		if (unix_pw.pw_shell = NULL) {
+		if (unix_pw.pw_shell == NULL) {
 			unix_pw.pw_shell = discard_const_p(char, "");
 		}
 
