@@ -7,16 +7,6 @@ LIBS='ICONV'
 
 config_h = "../include/config.h"
 
-bld.SAMBA_BLDOPTIONS('smbd/build_options.c')
-
-t = bld.SAMBA_GENERATOR('build_env.h',
-                        source='script/build_env.sh',
-                        target='include/build_env.h',
-                        rule='${SRC} ${SRCDIR} ${BUILDDIR} ${CC} > ${TGT}')
-# todo: work out what is really wanted here
-t.env.SRCDIR = bld.path.abspath()
-t.env.BUILDDIR = bld.path.abspath()
-
 bld.SETUP_BUILD_GROUPS()
 
 ######################## SUBSYSTEMS #################################
@@ -209,7 +199,7 @@ bld.SAMBA3_LIBRARY('smbregistry',
                    registry/reg_init_basic.c''',
                    deps='''smbd_shim tdb-wrap3 NDR_SECURITY util_tdb talloc
                    replace util_reg samba-util samba-security
-                   errors3 dbwrap samba3-util''',
+                   errors3 dbwrap samba3-util samba3util''',
                    allow_undefined_symbols=True,
                    private_library=True)
 
@@ -601,7 +591,7 @@ bld.SAMBA3_LIBRARY('smbd_base',
                    smbd/oplock_linux.c
                    smbd/notify.c
                    smbd/notify_msg.c
-                   smbd/build_options.c''' + NOTIFY_SOURCES,
+                   ''' + NOTIFY_SOURCES,
                    deps='''
                    talloc
                    tevent
