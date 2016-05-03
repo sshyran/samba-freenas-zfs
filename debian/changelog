@@ -1,3 +1,11 @@
+samba (2:4.4.3+dfsg-3) unstable; urgency=medium
+
+  * Enable LFS via LFS_LDFLAGS and LFS_CFLAGS
+    - Fixes FTBFS due to test failing on offset 2^32
+    - Changes API on 32 bit systems
+
+ -- Mathieu Parent <sathieu@debian.org>  Tue, 03 May 2016 22:16:58 +0200
+
 samba (2:4.4.3+dfsg-2) unstable; urgency=medium
 
   * Run quicktest during build
