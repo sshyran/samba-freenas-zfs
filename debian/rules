@@ -3,8 +3,7 @@
 #
 DESTDIR = $(CURDIR)/debian/tmp
 
-export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed $(shell getconf LFS_LDFLAGS)
-export DEB_CFLAGS_MAINT_APPEND = $(shell getconf LFS_CFLAGS)
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 
 PYVERS=$(shell pyversions -vr)
 
