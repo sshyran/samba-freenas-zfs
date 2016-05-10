@@ -385,7 +385,6 @@ Description: Samba Virtual FileSystem plugins
 
 Package: libsmbclient
 Section: libs
-Priority: optional
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~), ${misc:Pre-Depends}
@@ -434,7 +433,6 @@ Description: service to resolve user and group information from Windows NT serve
 
 Package: libpam-winbind
 Section: net
-Priority: optional
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~), ${misc:Pre-Depends}
@@ -463,7 +461,6 @@ Description: Windows domain authentication integration plugin
 
 Package: libnss-winbind
 Section: net
-Priority: optional
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~)
@@ -506,7 +503,6 @@ Description: Samba debugging symbols
 
 Package: libwbclient0
 Section: libs
-Priority: optional
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~), ${misc:Pre-Depends}
@@ -530,7 +526,6 @@ Description: Samba winbind client library
 
 Package: libwbclient-dev
 Section: libdevel
-Priority: optional
 Architecture: any
 Multi-Arch: same
 Depends: libwbclient0 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
