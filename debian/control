@@ -56,8 +56,8 @@ Build-Depends: bison,
                libsocket-wrapper,
                libuid-wrapper,
                python-crypto
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-samba/samba.git
-Vcs-Git: git://anonscm.debian.org/pkg-samba/samba.git -b master
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-samba/samba.git
+Vcs-Git: https://anonscm.debian.org/git/pkg-samba/samba.git
 
 Package: samba
 Architecture: any
