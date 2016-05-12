@@ -1,3 +1,22 @@
+samba (2:4.4.3+dfsg-5) UNRELEASED; urgency=medium
+
+  * The "Thanks lintian" release
+  * Fixes:
+    - Ensure that dpkg-buildflags are passed, and enable all hardening
+    - Enable systemd (sd_notify) on Linux, and install systemd files
+    - Use secure Vcs-* URLs
+    - Fix copyright file
+    - samba.postinst: command-with-path-in-maintainer-script update-inetd
+    - samba-common-bin: package-contains-empty-directory usr/lib/samba/
+    - winbind: package-contains-empty-directory usr/lib/samba/nss_info/
+  * No-op fixes:
+    - d/control: Drop XS-Testsuite field
+    - Drop redundant "Priority: optional" fields
+    - Drop redundant "Section: net" fields
+    - Describe non-standard-dir-perm var/spool/samba/
+
+ -- Mathieu Parent <math.parent@gmail.com>  Thu, 12 May 2016 06:32:48 +0200
+
 samba (2:4.4.3+dfsg-4) unstable; urgency=medium
 
   * Fix build with DEB_BUILD_OPTIONS=nocheck
