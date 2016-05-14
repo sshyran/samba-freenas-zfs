@@ -3,12 +3,17 @@ samba (2:4.4.3+dfsg-5) UNRELEASED; urgency=medium
   * The "Thanks lintian" release
   * Fixes:
     - Ensure that dpkg-buildflags are passed, and enable all hardening
-    - Enable systemd (sd_notify) on Linux, and install systemd files
+    - systemd
+      + Enable systemd (sd_notify) on Linux, and install systemd files
+      + Remove obsolete syslog.target from service files
+      + Add documentation field to unit files
+    - Drop fix-cluster-build.diff: no more needed
     - Use secure Vcs-* URLs
     - Fix copyright file
     - samba.postinst: command-with-path-in-maintainer-script update-inetd
     - samba-common-bin: package-contains-empty-directory usr/lib/samba/
     - winbind: package-contains-empty-directory usr/lib/samba/nss_info/
+    - Add Description to init files
   * No-op fixes:
     - d/control: Drop XS-Testsuite field
     - Drop redundant "Priority: optional" fields
