@@ -183,7 +183,12 @@ override_dh_install:
 	mv $(DESTDIR)/lib/systemd/system/nmb.service $(DESTDIR)/lib/systemd/system/nmbd.service
 	mv $(DESTDIR)/lib/systemd/system/smb.service $(DESTDIR)/lib/systemd/system/smbd.service
 	mv $(DESTDIR)/lib/systemd/system/samba.service $(DESTDIR)/lib/systemd/system/samba-ad-dc.service
-	sed -i 's|/etc/sysconfig/|/etc/default/|' $(DESTDIR)/lib/systemd/system/*.service
+	sed -i \
+	  -e 's|/etc/sysconfig/|/etc/default/|' \
+	  -e 's|/nmb\.service|nmbd.service|' \
+	  -e 's|/smb\.service|smbd.service|' \
+	  -e 's|/samba\.service|samba-ad-dc.service|' \
+	  $(DESTDIR)/lib/systemd/system/*.service
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
 	#install -m 0644 packaging/systemd/samba.sysconfig $(DESTDIR)/etc/default/samba
