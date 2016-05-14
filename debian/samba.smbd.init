@@ -9,6 +9,7 @@
 # Should-Start:      slapd cups
 # Should-Stop:       slapd cups
 # Short-Description: start Samba SMB/CIFS daemon (smbd)
+# Description: server to provide SMB/CIFS services to clients
 ### END INIT INFO
 
 
