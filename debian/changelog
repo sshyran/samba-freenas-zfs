@@ -19,6 +19,10 @@ samba (2:4.4.3+dfsg-5) UNRELEASED; urgency=medium
     - Drop redundant "Priority: optional" fields
     - Drop redundant "Section: net" fields
     - Describe non-standard-dir-perm var/spool/samba/
+    - Describe no_build_system.patch
+    - Remove README.build-upstream, as packaging/Debian/ is now empty
+    - Verify upstream tarball from uscan
+    - Update README.source and remove build-orig.sh
 
  -- Mathieu Parent <math.parent@gmail.com>  Thu, 12 May 2016 06:32:48 +0200
 
