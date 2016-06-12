@@ -14,12 +14,19 @@ Merging upstream releases
 
 Importing a new upstream version can be done like this:
 
+# set target version
+upstream_version=4.4.4
 # go to git repo
 cd $GIT_DIR
-# make sure to be on the right branch
+# Import upstream
+git checkout upstream_4.4
+git remote add upstream https://git.samba.org/samba.git
+git fetch upstream
+git merge "samba-${upstream_version}"
+# got to the Debian branch
 git checkout master
 # Import latest version
-gbp import-orig --uscan
+gbp import-orig --uscan -u "${upstream_version}"
 # all done :)
 
 
