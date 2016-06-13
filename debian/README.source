@@ -26,7 +26,7 @@ git merge "samba-${upstream_version}"
 # got to the Debian branch
 git checkout master
 # Import latest version
-gbp import-orig --uscan -u "${upstream_version}"
+gbp import-orig --uscan -u "${upstream_version}+dfsg"
 # all done :)
 
 
