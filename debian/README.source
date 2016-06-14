@@ -19,14 +19,14 @@ upstream_version=4.4.4
 # go to git repo
 cd $GIT_DIR
 # Import upstream
-git checkout upstream_4.4
 git remote add upstream https://git.samba.org/samba.git
 git fetch upstream
-git merge "samba-${upstream_version}"
-# got to the Debian branch
+# go to the Debian branch
 git checkout master
 # Import latest version
-gbp import-orig --uscan -u "${upstream_version}+dfsg"
+gbp import-orig --uscan \
+  -u "${upstream_version}+dfsg" \
+  --upstream-vcs-tag "samba-${upstream_version}"
 # all done :)
 
 
