@@ -95,6 +95,7 @@ enum protocol_types {
 #define PROTOCOL_LATEST PROTOCOL_SMB3_11
 
 enum smb_signing_setting {
+	SMB_SIGNING_IPC_DEFAULT = -2, /* Only used in C code */
 	SMB_SIGNING_DEFAULT = -1,
 	SMB_SIGNING_OFF = 0,
 	SMB_SIGNING_IF_REQUIRED = 1,
@@ -276,6 +277,12 @@ enum smb_signing_setting {
 	CAP_LARGE_READX | \
 	CAP_LARGE_WRITEX | \
 	0)
+
+/*
+ * The action flags in the SMB session setup response
+ */
+#define SMB_SETUP_GUEST          0x0001
+#define SMB_SETUP_USE_LANMAN_KEY 0x0002
 
 /* Client-side offline caching policy types */
 enum csc_policy {

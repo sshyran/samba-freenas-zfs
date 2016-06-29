@@ -37,6 +37,7 @@
 #include "../libcli/security/security.h"
 #include "auth/gensec/gensec.h"
 #include "lib/conn_tdb.h"
+#include "../libcli/smb/smb_signing.h"
 
 /****************************************************************************
  Add the standard 'Samba' signature to the end of the session setup.
@@ -134,6 +135,7 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 	struct smbXsrv_connection *xconn = req->xconn;
 	struct smbd_server_connection *sconn = req->sconn;
 	uint16_t action = 0;
+	bool is_authenticated = false;
 	NTTIME now = timeval_to_nttime(&req->request_time);
 	struct smbXsrv_session *session = NULL;
 	uint16_t smb_bufsize = SVAL(req->vwv+2, 0);
@@ -284,8 +286,8 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 			return;
 		}
 
-		if (security_session_user_level(session_info, NULL) < SECURITY_USER) {
-			action = 1;
+		if (security_session_user_level(session_info, NULL) == SECURITY_GUEST) {
+			action |= SMB_SETUP_GUEST;
 		}
 
 		if (session_info->session_key.length > 0) {
@@ -327,12 +329,13 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 		sconn->num_users++;
 
 		if (security_session_user_level(session_info, NULL) >= SECURITY_USER) {
+			is_authenticated = true;
 			session->compat->homes_snum =
 				register_homes_share(session_info->unix_info->unix_name);
 		}
 
 		if (srv_is_signing_negotiated(xconn) &&
-		    action == 0 &&
+		    is_authenticated &&
 		    session->global->signing_key.length > 0)
 		{
 			/*
@@ -410,8 +413,8 @@ static void reply_sesssetup_and_X_spnego(struct smb_request *req)
 			return;
 		}
 
-		if (security_session_user_level(session_info, NULL) < SECURITY_USER) {
-			action = 1;
+		if (security_session_user_level(session_info, NULL) == SECURITY_GUEST) {
+			action |= SMB_SETUP_GUEST;
 		}
 
 		/*
@@ -592,6 +595,7 @@ void reply_sesssetup_and_X(struct smb_request *req)
 	struct auth_session_info *session_info = NULL;
 	uint16_t smb_flag2 = req->flags2;
 	uint16_t action = 0;
+	bool is_authenticated = false;
 	NTTIME now = timeval_to_nttime(&req->request_time);
 	struct smbXsrv_session *session = NULL;
 	NTSTATUS nt_status;
@@ -599,7 +603,8 @@ void reply_sesssetup_and_X(struct smb_request *req)
 	struct smbd_server_connection *sconn = req->sconn;
 	bool doencrypt = xconn->smb1.negprot.encrypted_passwords;
 	bool signing_allowed = false;
-	bool signing_mandatory = false;
+	bool signing_mandatory = smb_signing_is_mandatory(
+		xconn->smb1.signing_state);
 
 	START_PROFILE(SMBsesssetupX);
 
@@ -938,8 +943,8 @@ void reply_sesssetup_and_X(struct smb_request *req)
 		/* perhaps grab OS version here?? */
 	}
 
-	if (security_session_user_level(session_info, NULL) < SECURITY_USER) {
-		action = 1;
+	if (security_session_user_level(session_info, NULL) == SECURITY_GUEST) {
+		action |= SMB_SETUP_GUEST;
 	}
 
 	/* register the name and uid as being validated, so further connections
@@ -1028,12 +1033,13 @@ void reply_sesssetup_and_X(struct smb_request *req)
 	sconn->num_users++;
 
 	if (security_session_user_level(session_info, NULL) >= SECURITY_USER) {
+		is_authenticated = true;
 		session->compat->homes_snum =
 			register_homes_share(session_info->unix_info->unix_name);
 	}
 
 	if (srv_is_signing_negotiated(xconn) &&
-	    action == 0 &&
+	    is_authenticated &&
 	    session->global->signing_key.length > 0)
 	{
 		/*

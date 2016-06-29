@@ -94,7 +94,7 @@ def configure(conf):
     conf.CHECK_FUNCS('getpwnam', headers='sys/types.h pwd.h')
     conf.CHECK_FUNCS('fdopendir')
     conf.CHECK_FUNCS('fstatat')
-    conf.CHECK_FUNCS('getpwent_r setenv strcasecmp fcvt fcvtl')
+    conf.CHECK_FUNCS('getpwent_r setenv clearenv strcasecmp fcvt fcvtl')
     conf.CHECK_FUNCS('syslog vsyslog timegm setlocale')
     conf.CHECK_FUNCS_IN('nanosleep', 'rt')
     conf.CHECK_FUNCS('lutimes futimes utimensat futimens')
@@ -119,10 +119,13 @@ long ret = splice(0,0,1,0,400,SPLICE_F_MOVE);
         headers='fcntl.h'):
         conf.CHECK_DECLS('splice', reverse=True, headers='fcntl.h')
 
-    # Check for inotify support
-    conf.CHECK_HEADERS('sys/inotify.h')
-    if "HAVE_SYS_INOTIFY_H" in conf.env:
-        conf.DEFINE('HAVE_INOTIFY', 1)
+    # Check for inotify support (Skip if we are SunOS)
+    #NOTE: illumos provides sys/inotify.h but is not an exact match for linux
+    host_os = sys.platform
+    if host_os.rfind('sunos') == -1:
+        conf.CHECK_HEADERS('sys/inotify.h')
+        if "HAVE_SYS_INOTIFY_H" in conf.env:
+           conf.DEFINE('HAVE_INOTIFY', 1)
 
     # Check for kernel change notify support
     conf.CHECK_CODE('''
@@ -1390,6 +1393,7 @@ main() {
     conf.CHECK_FUNCS_IN('getspnam', 'security')
     conf.CHECK_FUNCS_IN('getspnam', 'sec')
 
+    legacy_quota_libs = ''
     if Options.options.with_quotas:
         # For quotas on Veritas VxFS filesystems
         conf.CHECK_HEADERS('sys/fs/vx_quota.h')
@@ -1469,6 +1473,29 @@ main() {
            conf.CONFIG_SET('HAVE_XFS_QUOTAS'):
             conf.DEFINE('HAVE_SYS_QUOTAS', '1')
             conf.DEFINE('WITH_QUOTAS', '1')
+
+        #
+        # check if Legacy quota code can be brought in
+        # if standard interfaces are not supported
+        #
+        if not conf.CONFIG_SET('WITH_QUOTAS'):
+            if host_os.rfind('sunos5') > -1:
+                conf.DEFINE('SUNOS5', '1')
+                legacy_quota_libs = 'nsl'
+            conf.CHECK_CODE('''
+            #define WITH_QUOTAS 1
+            #define AUTOCONF_TEST 1
+            #include "../tests/oldquotas.c"
+            ''',
+                            cflags=conf.env['WERROR_CFLAGS'],
+                            define='WITH_QUOTAS',
+                            lib=legacy_quota_libs,
+                            msg='Checking whether legacy quota code can be used',
+                            execute=False,
+                            addmain=False)
+            if not conf.CONFIG_SET('WITH_QUOTAS'):
+                legacy_quota_libs = ''
+    conf.env['legacy_quota_libs'] = legacy_quota_libs
 
     #
     # cluster support (CTDB)

@@ -3182,7 +3182,7 @@ static bool check_pw_with_krb5(struct torture_context *tctx,
 	const char *old_password = cli_credentials_get_old_password(credentials);
 	int kvno = cli_credentials_get_kvno(credentials);
 	int expected_kvno = 0;
-	krb5uint32 t_kvno = 0;
+	krb5int32 t_kvno = 0;
 	const char *host = torture_setting_string(tctx, "host", NULL);
 	krb5_error_code k5ret;
 	krb5_boolean k5ok;
@@ -4134,7 +4134,8 @@ static bool check_dom_trust_pw(struct dcerpc_pipe *p,
 	struct netr_Authenticator req_auth;
 	struct netr_Authenticator rep_auth;
 	struct netr_ServerPasswordSet2 s;
-	struct dcerpc_pipe *p2;
+	struct dcerpc_pipe *p1 = NULL;
+	struct dcerpc_pipe *p2 = NULL;
 	NTSTATUS status;
 	bool ok;
 	int rc;
@@ -4223,18 +4224,25 @@ static bool check_dom_trust_pw(struct dcerpc_pipe *p,
 	status = dcerpc_parse_binding(tctx, binding, &b2);
 	torture_assert_ntstatus_ok(tctx, status, "Bad binding string");
 
-	status = dcerpc_pipe_connect_b(tctx, &p2, b2,
+	status = dcerpc_pipe_connect_b(tctx, &p1, b2,
 				       &ndr_table_netlogon,
 				       cli_credentials_init_anon(tctx),
 				       tctx->ev, tctx->lp_ctx);
 	torture_assert_ntstatus_ok(tctx, status, "dcerpc_pipe_connect_b");
 
-	ok = check_pw_with_ServerAuthenticate3(p2, tctx,
+	ok = check_pw_with_ServerAuthenticate3(p1, tctx,
 					       NETLOGON_NEG_AUTH2_ADS_FLAGS,
 					       server_name,
 					       incoming_creds, &creds);
 	torture_assert_int_equal(tctx, ok, expected_result,
 				 "check_pw_with_ServerAuthenticate3");
+	if (expected_result == true) {
+		ok = test_SetupCredentialsPipe(p1, tctx, incoming_creds, creds,
+					       DCERPC_SIGN | DCERPC_SEAL, &p2);
+		torture_assert_int_equal(tctx, ok, true,
+					 "test_SetupCredentialsPipe");
+	}
+	TALLOC_FREE(p1);
 
 	if (trusted->trust_type != LSA_TRUST_TYPE_DOWNLEVEL) {
 #ifdef SAMBA4_USES_HEIMDAL

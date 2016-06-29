@@ -29,6 +29,7 @@
 #include "../libds/common/flags.h"
 #include "smbldap.h"
 #include "../libcli/security/security.h"
+#include "../librpc/gen_ndr/netlogon.h"
 #include "lib/param/loadparm.h"
 
 #ifdef HAVE_LDAP
@@ -552,140 +553,6 @@ static NTSTATUS ads_find_dc(ADS_STRUCT *ads)
 		  c_realm, c_domain, nt_errstr(status)));
 	return status;
 }
-
-/*********************************************************************
- *********************************************************************/
-
-static NTSTATUS ads_lookup_site(void)
-{
-	ADS_STRUCT *ads = NULL;
-	ADS_STATUS ads_status;
-	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
-
-	ads = ads_init(lp_realm(), NULL, NULL);
-	if (!ads) {
-		return NT_STATUS_NO_MEMORY;
-	}
-
-	/* The NO_BIND here will find a DC and set the client site
-	   but not establish the TCP connection */
-
-	ads->auth.flags = ADS_AUTH_NO_BIND;
-	ads_status = ads_connect(ads);
-	if (!ADS_ERR_OK(ads_status)) {
-		DEBUG(4, ("ads_lookup_site: ads_connect to our realm failed! (%s)\n",
-			  ads_errstr(ads_status)));
-	}
-	nt_status = ads_ntstatus(ads_status);
-
-	if (ads) {
-		ads_destroy(&ads);
-	}
-
-	return nt_status;
-}
-
-/*********************************************************************
- *********************************************************************/
-
-static const char* host_dns_domain(const char *fqdn)
-{
-	const char *p = fqdn;
-
-	/* go to next char following '.' */
-
-	if ((p = strchr_m(fqdn, '.')) != NULL) {
-		p++;
-	}
-
-	return p;
-}
-
-
-/**
- * Connect to the Global Catalog server
- * @param ads Pointer to an existing ADS_STRUCT
- * @return status of connection
- *
- * Simple wrapper around ads_connect() that fills in the
- * GC ldap server information
- **/
-
-ADS_STATUS ads_connect_gc(ADS_STRUCT *ads)
-{
-	TALLOC_CTX *frame = talloc_stackframe();
-	struct dns_rr_srv *gcs_list;
-	int num_gcs;
-	const char *realm = ads->server.realm;
-	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
-	ADS_STATUS ads_status = ADS_ERROR_NT(NT_STATUS_UNSUCCESSFUL);
-	int i;
-	bool done = false;
-	char *sitename = NULL;
-
-	if (!realm)
-		realm = lp_realm();
-
-	if ((sitename = sitename_fetch(frame, realm)) == NULL) {
-		ads_lookup_site();
-		sitename = sitename_fetch(frame, realm);
-	}
-
-	do {
-		/* We try once with a sitename and once without
-		   (unless we don't have a sitename and then we're
-		   done */
-
-		if (sitename == NULL)
-			done = true;
-
-		nt_status = ads_dns_query_gcs(frame,
-					      realm,
-					      sitename,
-					      &gcs_list,
-					      &num_gcs);
-
-		if (!NT_STATUS_IS_OK(nt_status)) {
-			ads_status = ADS_ERROR_NT(nt_status);
-			goto done;
-		}
-
-		/* Loop until we get a successful connection or have gone
-		   through them all.  When connecting a GC server, make sure that
-		   the realm is the server's DNS name and not the forest root */
-
-		for (i=0; i<num_gcs; i++) {
-			ads->server.gc = true;
-			ads->server.ldap_server = SMB_STRDUP(gcs_list[i].hostname);
-			ads->server.realm = SMB_STRDUP(host_dns_domain(ads->server.ldap_server));
-			ads_status = ads_connect(ads);
-			if (ADS_ERR_OK(ads_status)) {
-				/* Reset the bind_dn to "".  A Global Catalog server
-				   may host  multiple domain trees in a forest.
-				   Windows 2003 GC server will accept "" as the search
-				   path to imply search all domain trees in the forest */
-
-				SAFE_FREE(ads->config.bind_path);
-				ads->config.bind_path = SMB_STRDUP("");
-
-
-				goto done;
-			}
-			SAFE_FREE(ads->server.ldap_server);
-			SAFE_FREE(ads->server.realm);
-		}
-
-	        TALLOC_FREE(gcs_list);
-		num_gcs = 0;
-	} while (!done);
-
-done:
-	talloc_destroy(frame);
-
-	return ads_status;
-}
-
-
 /**
  * Connect to the LDAP server
  * @param ads Pointer to an existing ADS_STRUCT
@@ -2211,6 +2078,12 @@ ADS_STATUS ads_create_machine_acct(ADS_STRUCT *ads, const char *machine_name,
 	uint32_t acct_control = ( UF_WORKSTATION_TRUST_ACCOUNT |\
 	                        UF_DONT_EXPIRE_PASSWD |\
 			        UF_ACCOUNTDISABLE );
+	uint32_t func_level = 0;
+
+	ret = ads_domain_func_level(ads, &func_level);
+	if (!ADS_ERR_OK(ret)) {
+		return ret;
+	}
 
 	if (!(ctx = talloc_init("ads_add_machine_acct")))
 		return ADS_ERROR(LDAP_NO_MEMORY);
@@ -2245,6 +2118,25 @@ ADS_STATUS ads_create_machine_acct(ADS_STRUCT *ads, const char *machine_name,
 	ads_mod_str(ctx, &mods, "sAMAccountName", samAccountName);
 	ads_mod_strlist(ctx, &mods, "objectClass", objectClass);
 	ads_mod_str(ctx, &mods, "userAccountControl", controlstr);
+
+	if (func_level >= DS_DOMAIN_FUNCTION_2008) {
+		uint32_t etype_list = ENC_CRC32 | ENC_RSA_MD5 | ENC_RC4_HMAC_MD5;
+		const char *etype_list_str;
+
+#ifdef HAVE_ENCTYPE_AES128_CTS_HMAC_SHA1_96
+		etype_list |= ENC_HMAC_SHA1_96_AES128;
+#endif
+#ifdef HAVE_ENCTYPE_AES256_CTS_HMAC_SHA1_96
+		etype_list |= ENC_HMAC_SHA1_96_AES256;
+#endif
+
+		etype_list_str = talloc_asprintf(ctx, "%d", (int)etype_list);
+		if (etype_list_str == NULL) {
+			goto done;
+		}
+		ads_mod_str(ctx, &mods, "msDS-SupportedEncryptionTypes",
+			    etype_list_str);
+	}
 
 	ret = ads_gen_add(ads, new_dn, mods);
 
