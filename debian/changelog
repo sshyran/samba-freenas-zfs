@@ -1,4 +1,4 @@
-samba (2:4.4.4+dfsg-3) UNRELEASED; urgency=medium
+samba (2:4.4.4+dfsg-3) unstable; urgency=medium
 
   * Add patch gcc_6.patch, fixing compatibility with gcc 6.
     Closes: #812264
