@@ -1,4 +1,4 @@
-samba (2:4.4.5+dfsg-2) UNRELEASED; urgency=medium
+samba (2:4.4.5+dfsg-2) unstable; urgency=medium
 
   * Disable running of 'make quicktest' during build, as it takes very
     long to run on x32 and enables building non-production NTVFS server.
