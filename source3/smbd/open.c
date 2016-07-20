@@ -4495,7 +4495,6 @@ static NTSTATUS create_file_unixpath(connection_struct *conn,
 
 	if ((conn->fs_capabilities & FILE_NAMED_STREAMS)
 	    && (access_mask & DELETE_ACCESS)
-	    && !(file_attributes & FILE_FLAG_POSIX_SEMANTICS)
 	    && !is_ntfs_stream_smb_fname(smb_fname)) {
 		/*
 		 * We can't open a file with DELETE access if any of the
