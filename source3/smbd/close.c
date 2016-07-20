@@ -169,6 +169,7 @@ NTSTATUS delete_all_streams(connection_struct *conn,
 	unsigned int num_streams = 0;
 	TALLOC_CTX *frame = talloc_stackframe();
 	NTSTATUS status;
+	bool saved_posix_pathnames;
 
 	status = vfs_streaminfo(conn, NULL, smb_fname, talloc_tos(),
 				&num_streams, &stream_info);
@@ -192,6 +193,13 @@ NTSTATUS delete_all_streams(connection_struct *conn,
 		TALLOC_FREE(frame);
 		return NT_STATUS_OK;
 	}
+
+	/*
+	 * Any stream names *must* be treated as Windows
+	 * pathnames, even if we're using UNIX extensions.
+	 */
+
+	saved_posix_pathnames = lp_set_posix_pathnames(false);
 
 	for (i=0; i<num_streams; i++) {
 		int res;
@@ -228,6 +236,8 @@ NTSTATUS delete_all_streams(connection_struct *conn,
 	}
 
  fail:
+
+	(void)lp_set_posix_pathnames(saved_posix_pathnames);
 	TALLOC_FREE(frame);
 	return status;
 }
