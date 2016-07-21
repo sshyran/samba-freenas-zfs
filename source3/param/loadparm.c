@@ -724,6 +724,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.create_krb5_conf = true;
 	Globals.include_system_krb5_conf = true;
 	Globals._winbind_max_domain_connections = 1;
+	Globals.ads_dns_update = 1;
 
 	/* hostname lookups can be very expensive and are broken on
 	   a large number of sites (tridge) */
