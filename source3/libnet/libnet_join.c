@@ -394,6 +394,7 @@ static ADS_STATUS libnet_join_set_machine_spn(TALLOC_CTX *mem_ctx,
 	size_t num_spns = 0;
 	char *spn = NULL;
 	bool ok;
+	const char **netbios_aliases = NULL;
 
 	/* Find our DN */
 
@@ -452,6 +453,65 @@ static ADS_STATUS libnet_join_set_machine_spn(TALLOC_CTX *mem_ctx,
 			if (!ok) {
 				return ADS_ERROR_LDAP(LDAP_NO_MEMORY);
 			}
+		}
+	}
+
+	netbios_aliases = lp_netbios_aliases();
+	if (netbios_aliases != NULL) {
+		for (; *netbios_aliases != NULL; netbios_aliases++) {
+			/*
+			 * Add HOST/NETBIOSNAME
+			 */
+			spn = talloc_asprintf(mem_ctx, "HOST/%s", *netbios_aliases);
+			if (spn == NULL) {
+				TALLOC_FREE(spn);
+				return ADS_ERROR_LDAP(LDAP_NO_MEMORY);
+			}
+			if (!strupper_m(spn)) {
+				TALLOC_FREE(spn);
+				return ADS_ERROR_LDAP(LDAP_NO_MEMORY);
+			}
+
+			ok = ads_element_in_array(spn_array, num_spns, spn);
+			if (ok) {
+				TALLOC_FREE(spn);
+				continue;
+			}
+			ok = add_string_to_array(spn_array, spn,
+						 &spn_array, &num_spns);
+			if (!ok) {
+				TALLOC_FREE(spn);
+				return ADS_ERROR_LDAP(LDAP_NO_MEMORY);
+			}
+			TALLOC_FREE(spn);
+
+			/*
+			 * Add HOST/netbiosname.domainname
+			 */
+			if (r->out.dns_domain_name == NULL) {
+				continue;
+			}
+			fstr_sprintf(my_fqdn, "%s.%s",
+				     *netbios_aliases,
+				     r->out.dns_domain_name);
+
+			spn = talloc_asprintf(mem_ctx, "HOST/%s", my_fqdn);
+			if (spn == NULL) {
+				return ADS_ERROR_LDAP(LDAP_NO_MEMORY);
+			}
+
+			ok = ads_element_in_array(spn_array, num_spns, spn);
+			if (ok) {
+				TALLOC_FREE(spn);
+				continue;
+			}
+			ok = add_string_to_array(spn_array, spn,
+						 &spn_array, &num_spns);
+			if (!ok) {
+				TALLOC_FREE(spn);
+				return ADS_ERROR_LDAP(LDAP_NO_MEMORY);
+			}
+			TALLOC_FREE(spn);
 		}
 	}
 
@@ -616,52 +676,6 @@ static ADS_STATUS libnet_join_set_os_attributes(TALLOC_CTX *mem_ctx,
 /****************************************************************
 ****************************************************************/
 
-static ADS_STATUS libnet_join_set_etypes(TALLOC_CTX *mem_ctx,
-					 struct libnet_JoinCtx *r)
-{
-	ADS_STATUS status;
-	ADS_MODLIST mods;
-	uint32_t etype_list = ENC_CRC32 | ENC_RSA_MD5 | ENC_RC4_HMAC_MD5;
-	const char *etype_list_str;
-
-#ifdef HAVE_ENCTYPE_AES128_CTS_HMAC_SHA1_96
-	etype_list |= ENC_HMAC_SHA1_96_AES128;
-#endif
-#ifdef HAVE_ENCTYPE_AES256_CTS_HMAC_SHA1_96
-	etype_list |= ENC_HMAC_SHA1_96_AES256;
-#endif
-
-	etype_list_str = talloc_asprintf(mem_ctx, "%d", etype_list);
-	if (!etype_list_str) {
-		return ADS_ERROR(LDAP_NO_MEMORY);
-	}
-
-	/* Find our DN */
-
-	status = libnet_join_find_machine_acct(mem_ctx, r);
-	if (!ADS_ERR_OK(status)) {
-		return status;
-	}
-
-	/* now do the mods */
-
-	mods = ads_init_mods(mem_ctx);
-	if (!mods) {
-		return ADS_ERROR(LDAP_NO_MEMORY);
-	}
-
-	status = ads_mod_str(mem_ctx, &mods, "msDS-SupportedEncryptionTypes",
-			     etype_list_str);
-	if (!ADS_ERR_OK(status)) {
-		return status;
-	}
-
-	return ads_gen_mod(r->in.ads, r->out.dn, mods);
-}
-
-/****************************************************************
-****************************************************************/
-
 static bool libnet_join_create_keytab(TALLOC_CTX *mem_ctx,
 				      struct libnet_JoinCtx *r)
 {
@@ -736,7 +750,6 @@ static ADS_STATUS libnet_join_post_processing_ads(TALLOC_CTX *mem_ctx,
 						  struct libnet_JoinCtx *r)
 {
 	ADS_STATUS status;
-	uint32_t func_level = 0;
 
 	if (!r->in.ads) {
 		status = libnet_join_connect_ads(mem_ctx, r);
@@ -769,24 +782,6 @@ static ADS_STATUS libnet_join_post_processing_ads(TALLOC_CTX *mem_ctx,
 			"failed to set machine upn: %s",
 			ads_errstr(status));
 		return status;
-	}
-
-	status = ads_domain_func_level(r->in.ads, &func_level);
-	if (!ADS_ERR_OK(status)) {
-		libnet_join_set_error_string(mem_ctx, r,
-			"failed to query domain controller functional level: %s",
-			ads_errstr(status));
-		return status;
-	}
-
-	if (func_level >= DS_DOMAIN_FUNCTION_2008) {
-		status = libnet_join_set_etypes(mem_ctx, r);
-		if (!ADS_ERR_OK(status)) {
-			libnet_join_set_error_string(mem_ctx, r,
-				"failed to set machine kerberos encryption types: %s",
-				ads_errstr(status));
-			return status;
-		}
 	}
 
 	if (!libnet_join_derive_salting_principal(mem_ctx, r)) {
@@ -857,7 +852,7 @@ static NTSTATUS libnet_join_connect_dc_ipc(const char *dc,
 				   domain,
 				   pass,
 				   flags,
-				   SMB_SIGNING_DEFAULT);
+				   SMB_SIGNING_IPC_DEFAULT);
 }
 
 /****************************************************************
@@ -1412,7 +1407,7 @@ NTSTATUS libnet_join_ok(struct messaging_context *msg_ctx,
 				     machine_domain,
 				     machine_password,
 				     flags,
-				     SMB_SIGNING_DEFAULT);
+				     SMB_SIGNING_IPC_DEFAULT);
 
 	if (!NT_STATUS_IS_OK(status)) {
 		status = cli_full_connection(&cli, NULL,
@@ -1423,7 +1418,7 @@ NTSTATUS libnet_join_ok(struct messaging_context *msg_ctx,
 					     NULL,
 					     "",
 					     0,
-					     SMB_SIGNING_DEFAULT);
+					     SMB_SIGNING_IPC_DEFAULT);
 	}
 
 	if (!NT_STATUS_IS_OK(status)) {

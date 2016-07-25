@@ -70,6 +70,7 @@
 #include "dbwrap/dbwrap_rbt.h"
 #include "../lib/util/bitmap.h"
 #include "librpc/gen_ndr/nbt.h"
+#include "source4/lib/tls/tls.h"
 
 #ifdef HAVE_SYS_SYSCTL_H
 #include <sys/sysctl.h>
@@ -97,8 +98,11 @@ static struct smbconf_csn conf_last_csn;
 static int config_backend = CONFIG_BACKEND_FILE;
 
 /* some helpful bits */
-#define LP_SNUM_OK(i) (((i) >= 0) && ((i) < iNumServices) && (ServicePtrs != NULL) && ServicePtrs[(i)]->valid)
-#define VALID(i) (ServicePtrs != NULL && ServicePtrs[i]->valid)
+#define LP_SNUM_OK(i) (((i) >= 0) && ((i) < iNumServices) && \
+                       (ServicePtrs != NULL) && \
+		       (ServicePtrs[(i)] != NULL) && ServicePtrs[(i)]->valid)
+#define VALID(i) ((ServicePtrs != NULL) && (ServicePtrs[i]!= NULL) && \
+                  ServicePtrs[i]->valid)
 
 #define USERSHARE_VALID 1
 #define USERSHARE_PENDING_DELETE 2
@@ -639,6 +643,8 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.server_min_protocol = PROTOCOL_LANMAN1;
 	Globals._client_max_protocol = PROTOCOL_DEFAULT;
 	Globals.client_min_protocol = PROTOCOL_CORE;
+	Globals._client_ipc_max_protocol = PROTOCOL_DEFAULT;
+	Globals._client_ipc_min_protocol = PROTOCOL_DEFAULT;
 	Globals._security = SEC_AUTO;
 	Globals.encrypt_passwords = true;
 	Globals.client_schannel = Auto;
@@ -691,8 +697,11 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.client_plaintext_auth = false;	/* Do NOT use a plaintext password even if is requested by the server */
 	Globals.lanman_auth = false;	/* Do NOT use the LanMan hash, even if it is supplied */
 	Globals.ntlm_auth = true;	/* Do use NTLMv1 if it is supplied by the client (otherwise NTLMv2) */
+	Globals.raw_ntlmv2_auth = false; /* Reject NTLMv2 without NTLMSSP */
 	Globals.client_ntlmv2_auth = true; /* Client should always use use NTLMv2, as we can't tell that the server supports it, but most modern servers do */
 	/* Note, that we will also use NTLM2 session security (which is different), if it is available */
+
+	Globals.allow_dcerpc_auth_level_connect = false; /* we don't allow this by default */
 
 	Globals.map_to_guest = 0;	/* By Default, "Never" */
 	Globals.oplock_break_wait_time = 0;	/* By Default, 0 msecs. */
@@ -741,6 +750,9 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.ldap_debug_threshold = 10;
 
 	Globals.client_ldap_sasl_wrapping = ADS_AUTH_SASL_SIGN;
+
+	Globals.ldap_server_require_strong_auth =
+		LDAP_SERVER_REQUIRE_STRONG_AUTH_YES;
 
 	/* This is what we tell the afs client. in reality we set the token 
 	 * to never expire, though, when this runs out the afs client will 
@@ -817,6 +829,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.client_use_spnego = true;
 
 	Globals.client_signing = SMB_SIGNING_DEFAULT;
+	Globals._client_ipc_signing = SMB_SIGNING_DEFAULT;
 	Globals.server_signing = SMB_SIGNING_DEFAULT;
 
 	Globals.defer_sharing_violations = true;
@@ -864,6 +877,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	Globals.dcerpc_endpoint_servers = str_list_make_v3_const(NULL, "epmapper wkssvc rpcecho samr netlogon lsarpc spoolss drsuapi dssetup unixinfo browser eventlog6 backupkey dnsserver", NULL);
 
 	Globals.tls_enabled = true;
+	Globals.tls_verify_peer = TLS_VERIFY_PEER_AS_STRICT_AS_POSSIBLE;
 
 	lpcfg_string_set(Globals.ctx, &Globals._tls_keyfile, "tls/key.pem");
 	lpcfg_string_set(Globals.ctx, &Globals._tls_certfile, "tls/cert.pem");
@@ -1371,7 +1385,7 @@ static void free_service_byindex(int idx)
 	}
 
 	free_service(ServicePtrs[idx]);
-	talloc_free_children(ServicePtrs[idx]);
+	TALLOC_FREE(ServicePtrs[idx]);
 }
 
 /***************************************************************************
@@ -1393,20 +1407,30 @@ static int add_a_service(const struct loadparm_service *pservice, const char *na
 		}
 	}
 
-	/* if not, then create one */
-	i = iNumServices;
-	tsp = talloc_realloc(NULL, ServicePtrs, struct loadparm_service *, num_to_alloc);
-	if (tsp == NULL) {
-		DEBUG(0,("add_a_service: failed to enlarge ServicePtrs!\n"));
-		return (-1);
+	/* Re use empty slots if any before allocating new one.*/
+	for (i=0; i < iNumServices; i++) {
+		if (ServicePtrs[i] == NULL) {
+			break;
+		}
 	}
-	ServicePtrs = tsp;
-	ServicePtrs[iNumServices] = talloc_zero(ServicePtrs, struct loadparm_service);
-	if (!ServicePtrs[iNumServices]) {
+	if (i == iNumServices) {
+		/* if not, then create one */
+		tsp = talloc_realloc(NULL, ServicePtrs,
+				     struct loadparm_service *,
+				     num_to_alloc);
+		if (tsp == NULL) {
+			DEBUG(0, ("add_a_service: failed to enlarge "
+				  "ServicePtrs!\n"));
+			return (-1);
+		}
+		ServicePtrs = tsp;
+		iNumServices++;
+	}
+	ServicePtrs[i] = talloc_zero(ServicePtrs, struct loadparm_service);
+	if (!ServicePtrs[i]) {
 		DEBUG(0,("add_a_service: out of memory!\n"));
 		return (-1);
 	}
-	iNumServices++;
 
 	ServicePtrs[i]->valid = true;
 
@@ -1572,6 +1596,7 @@ static bool lp_add_ipc(const char *ipc_name, bool guest_ok)
 	ServicePtrs[i]->guest_ok = guest_ok;
 	ServicePtrs[i]->printable = false;
 	ServicePtrs[i]->browseable = sDefault.browseable;
+	ServicePtrs[i]->autoloaded = true;
 
 	DEBUG(3, ("adding IPC service\n"));
 
@@ -4429,13 +4454,37 @@ int lp_client_max_protocol(void)
 	return client_max_protocol;
 }
 
-int lp_winbindd_max_protocol(void)
+int lp_client_ipc_min_protocol(void)
 {
-	int client_max_protocol = lp__client_max_protocol();
-	if (client_max_protocol == PROTOCOL_DEFAULT) {
+	int client_ipc_min_protocol = lp__client_ipc_min_protocol();
+	if (client_ipc_min_protocol == PROTOCOL_DEFAULT) {
+		client_ipc_min_protocol = lp_client_min_protocol();
+	}
+	if (client_ipc_min_protocol < PROTOCOL_NT1) {
+		return PROTOCOL_NT1;
+	}
+	return client_ipc_min_protocol;
+}
+
+int lp_client_ipc_max_protocol(void)
+{
+	int client_ipc_max_protocol = lp__client_ipc_max_protocol();
+	if (client_ipc_max_protocol == PROTOCOL_DEFAULT) {
 		return PROTOCOL_LATEST;
 	}
-	return client_max_protocol;
+	if (client_ipc_max_protocol < PROTOCOL_NT1) {
+		return PROTOCOL_NT1;
+	}
+	return client_ipc_max_protocol;
+}
+
+int lp_client_ipc_signing(void)
+{
+	int client_ipc_signing = lp__client_ipc_signing();
+	if (client_ipc_signing == SMB_SIGNING_DEFAULT) {
+		return SMB_SIGNING_REQUIRED;
+	}
+	return client_ipc_signing;
 }
 
 struct loadparm_global * get_globals(void)
