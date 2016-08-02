@@ -1,3 +1,10 @@
+samba (2:4.4.5+dfsg-3) UNRELEASED; urgency=medium
+
+  * Add strict dependencies on samba-libs, because of use of private
+    libraries without stable ABI across Samba binary packages.
+
+ -- Jelmer Vernooĳ <jelmer@debian.org>  Tue, 02 Aug 2016 02:19:37 +0000
+
 samba (2:4.4.5+dfsg-2) unstable; urgency=medium
 
   * Disable running of 'make quicktest' during build, as it takes very
