@@ -353,6 +353,7 @@ Package: samba-dsdb-modules
 Architecture: any
 Replaces: libgensec0 (<< 4.0.0~alpha17~git20110724.dfsg1-1),
           samba-libs (<< 2:4.1.9+dfsg-2)
+Breaks: samba-libs (<< 2:4.1.9+dfsg-2)
 Section: libs
 Depends: ${misc:Depends}, ${shlibs:Depends}, ${ldb:Depends}, samba-libs (= ${binary:Version})
 Enhances: libldb1
@@ -367,6 +368,7 @@ Description: Samba Directory Services Database
 
 Package: samba-vfs-modules
 Architecture: any
+Breaks: samba-libs (<< 4.3.2+dfsg-1), samba (<< 4.3.2+dfsg-1)
 Replaces: samba-libs (<< 4.3.2+dfsg-1), samba (<< 4.3.2+dfsg-1)
 Depends: ${misc:Depends}, ${shlibs:Depends}, samba-libs (= ${binary:Version})
 Enhances: samba
