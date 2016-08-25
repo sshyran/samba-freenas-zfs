@@ -1,10 +1,15 @@
 samba (2:4.4.5+dfsg-3) UNRELEASED; urgency=medium
 
+  [ Jelmer Vernooĳ ]
   * Add strict dependencies on samba-libs, because of use of private
     libraries without stable ABI across Samba binary packages.
   * Add Breaks clauses for older versions of samba-libs and samba to
     samba-vfs-modules, as some files have moved. Closes: #833614,
     #832880
+
+  [ Mathieu Parent ]
+  * Remove /etc/systemd/system/samba-ad-dc.service (from postinst) on purge.
+    Closes: #832352
 
  -- Jelmer Vernooĳ <jelmer@debian.org>  Tue, 02 Aug 2016 02:19:37 +0000
 
