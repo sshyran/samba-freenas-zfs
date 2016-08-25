@@ -10,6 +10,7 @@ samba (2:4.4.5+dfsg-3) UNRELEASED; urgency=medium
   [ Mathieu Parent ]
   * Remove /etc/systemd/system/samba-ad-dc.service (from postinst) on purge.
     Closes: #832352
+  * Fix PIDFile in systemd service files. Closes: #830909
 
  -- Jelmer Vernooĳ <jelmer@debian.org>  Tue, 02 Aug 2016 02:19:37 +0000
 
