@@ -783,7 +783,7 @@ msg.msg_accrightslen = sizeof(fd);
         conf.env['HAVE_ADS'] = '1'
         Logs.info("Building with Active Directory support.")
         # these have broken dependencies
-        forced_shared_modules.extend(TO_LIST('idmap_ad idmap_rfc2307'))
+        forced_shared_modules.extend(TO_LIST('idmap_ad idmap_fruit idmap_rfc2307'))
     elif Options.options.with_ads == False:
         Logs.info("Building without Active Directory support (--without-ads).")
     else:
