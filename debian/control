@@ -481,21 +481,6 @@ Description: Samba nameservice integration plugins
  system; and nss_wins, which provides hostname lookups via both the NBNS and
  NetBIOS broadcast protocols.
 
-Package: samba-dbg
-Section: debug
-Priority: extra
-Architecture: any
-Depends: samba (= ${binary:Version}), ${misc:Depends}
-Pre-Depends: dpkg (>= 1.15.6~)
-Description: Samba debugging symbols
- Samba is an implementation of the SMB/CIFS protocol for Unix systems,
- providing support for cross-platform file and printer sharing with
- Microsoft Windows, OS X, and other Unix systems.
- .
- This package provides debugging information for the software in the
- Samba suite. Install it to get a better backtrace in the event of a
- crash.
-
 Package: libwbclient0
 Section: libs
 Architecture: any
