@@ -13,6 +13,8 @@ samba (2:4.4.5+dfsg-3) UNRELEASED; urgency=medium
   * Fix PIDFile in systemd service files. Closes: #830909
   * Remove unused lintian overrides
   * Use automatic debug packages (-dbgsym) (Closes: #819776)
+  * Remove Christian Perrier from uploaders (Closes: #836715). Thanks for all
+    you work, and thanks for bringing me in the team and as a DD.
 
  -- Mathieu Parent <sathieu@debian.org>  Sat, 03 Sep 2016 10:15:18 +0200
 
