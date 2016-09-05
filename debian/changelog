@@ -15,6 +15,7 @@ samba (2:4.4.5+dfsg-3) UNRELEASED; urgency=medium
   * Use automatic debug packages (-dbgsym) (Closes: #819776)
   * Remove Christian Perrier from uploaders (Closes: #836715). Thanks for all
     you work, and thanks for bringing me in the team and as a DD.
+  * Update Turkish translation. Thanks Atila KOÇ. Closes: #791903
 
  -- Mathieu Parent <sathieu@debian.org>  Sat, 03 Sep 2016 10:15:18 +0200
 
