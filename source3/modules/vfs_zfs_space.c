@@ -33,7 +33,7 @@
 
 
 static uint64_t vfs_zfs_space_disk_free(vfs_handle_struct *handle, const char *path,
-	bool small_query, uint64_t *bsize, uint64_t *dfree, uint64_t *dsize)
+    uint64_t *bsize, uint64_t *dfree, uint64_t *dsize)
 {
 	uint64_t res;
 	char rp[PATH_MAX] = { 0 };
