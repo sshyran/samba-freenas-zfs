@@ -485,7 +485,7 @@ Section: libs
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~), ${misc:Pre-Depends}
-Depends: ${misc:Depends}, ${shlibs:Depends}, samba-libs (= ${binary:Version})
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Breaks: libpam-smbpass (<< 2:3.4.1),
         libsmbclient (<< 2:3.4.1),
         samba (<< 2:3.4.1),
