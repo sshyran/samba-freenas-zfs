@@ -303,7 +303,6 @@ def configure(conf):
 
     conf.CHECK_COMMAND(['uname', '-a'],
                        msg='Checking build system',
-                       define='BUILD_SYSTEM',
                        on_target=False)
     conf.CHECK_UNAME()
 
