@@ -79,6 +79,11 @@
 static void libnet_join_set_error_string(TALLOC_CTX *mem_ctx,
 					 struct libnet_JoinCtx *r,
 					 const char *format, ...)
+					 PRINTF_ATTRIBUTE(3,4);
+
+static void libnet_join_set_error_string(TALLOC_CTX *mem_ctx,
+					 struct libnet_JoinCtx *r,
+					 const char *format, ...)
 {
 	va_list args;
 
@@ -93,6 +98,11 @@ static void libnet_join_set_error_string(TALLOC_CTX *mem_ctx,
 
 /****************************************************************
 ****************************************************************/
+
+static void libnet_unjoin_set_error_string(TALLOC_CTX *mem_ctx,
+					   struct libnet_UnjoinCtx *r,
+					   const char *format, ...)
+					   PRINTF_ATTRIBUTE(3,4);
 
 static void libnet_unjoin_set_error_string(TALLOC_CTX *mem_ctx,
 					   struct libnet_UnjoinCtx *r,
@@ -2303,6 +2313,7 @@ static WERROR libnet_join_check_config(TALLOC_CTX *mem_ctx,
 	bool valid_security = false;
 	bool valid_workgroup = false;
 	bool valid_realm = false;
+	bool ignored_realm = false;
 
 	/* check if configuration is already set correctly */
 
@@ -2322,11 +2333,27 @@ static WERROR libnet_join_check_config(TALLOC_CTX *mem_ctx,
 			valid_realm = strequal(lp_realm(), r->out.dns_domain_name);
 			switch (lp_security()) {
 			case SEC_DOMAIN:
+				if (!valid_realm && lp_winbind_rpc_only()) {
+					valid_realm = true;
+					ignored_realm = true;
+				}
+				/* FALL THROUGH */
 			case SEC_ADS:
 				valid_security = true;
 			}
 
 			if (valid_workgroup && valid_realm && valid_security) {
+				if (ignored_realm && !r->in.modify_config)
+				{
+					libnet_join_set_error_string(mem_ctx, r,
+						"Warning: ignoring realm when "
+						"joining AD domain with "
+						"'security=domain' and "
+						"'winbind rpc only = yes'. "
+						"(realm set to '%s', "
+						"should be '%s').", lp_realm(),
+						r->out.dns_domain_name);
+				}
 				/* nothing to be done */
 				return WERR_OK;
 			}
@@ -2431,7 +2458,7 @@ static WERROR libnet_DomainJoin(TALLOC_CTX *mem_ctx,
 				     &info);
 		if (!NT_STATUS_IS_OK(status)) {
 			libnet_join_set_error_string(mem_ctx, r,
-				"failed to find DC for domain %s",
+				"failed to find DC for domain %s - %s",
 				r->in.domain_name,
 				get_friendly_nt_error_msg(status));
 			return WERR_DCNOTFOUND;
@@ -2498,9 +2525,11 @@ static WERROR libnet_DomainJoin(TALLOC_CTX *mem_ctx,
 
 #ifdef HAVE_ADS
 
-	create_local_private_krb5_conf_for_domain(
-		r->out.dns_domain_name, r->out.netbios_domain_name,
-		NULL, smbXcli_conn_remote_sockaddr(cli->conn));
+	if (r->out.domain_is_ad) {
+		create_local_private_krb5_conf_for_domain(
+			r->out.dns_domain_name, r->out.netbios_domain_name,
+			sitename, smbXcli_conn_remote_sockaddr(cli->conn));
+	}
 
 	if (r->out.domain_is_ad &&
 	    !(r->in.join_flags & WKSSVC_JOIN_FLAGS_JOIN_UNSECURE)) {
@@ -2693,7 +2722,7 @@ static WERROR libnet_DomainUnjoin(TALLOC_CTX *mem_ctx,
 				     &info);
 		if (!NT_STATUS_IS_OK(status)) {
 			libnet_unjoin_set_error_string(mem_ctx, r,
-				"failed to find DC for domain %s",
+				"failed to find DC for domain %s - %s",
 				r->in.domain_name,
 				get_friendly_nt_error_msg(status));
 			return WERR_DCNOTFOUND;

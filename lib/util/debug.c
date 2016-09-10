@@ -102,7 +102,7 @@ static struct {
 	.fd = 2 /* stderr by default */
 };
 
-#if defined(WITH_SYSLOG) || defined(HAVE_LIBSYSTEMD_JOURNAL)
+#if defined(WITH_SYSLOG) || defined(HAVE_LIBSYSTEMD_JOURNAL) || defined(HAVE_LIBSYSTEMD)
 static int debug_level_to_priority(int level)
 {
 	/*
@@ -139,8 +139,12 @@ static int debug_level_to_priority(int level)
 static void debug_file_log(int msg_level,
 			   const char *msg, const char *msg_no_nl)
 {
+	ssize_t ret;
+
 	check_log_size();
-	write(state.fd, msg, strlen(msg));
+	do {
+		ret = write(state.fd, msg, strlen(msg));
+	} while (ret == -1 && errno == EINTR);
 }
 
 #ifdef WITH_SYSLOG
@@ -179,7 +183,7 @@ static void debug_syslog_log(int msg_level,
 }
 #endif /* WITH_SYSLOG */
 
-#ifdef HAVE_LIBSYSTEMD_JOURNAL
+#if defined(HAVE_LIBSYSTEMD_JOURNAL) || defined(HAVE_LIBSYSTEMD)
 #include <systemd/sd-journal.h>
 static void debug_systemd_log(int msg_level,
 			      const char *msg, const char *msg_no_nl)
@@ -251,7 +255,7 @@ static struct debug_backend {
 	},
 #endif
 
-#ifdef HAVE_LIBSYSTEMD_JOURNAL
+#if defined(HAVE_LIBSYSTEMD_JOURNAL) || defined(HAVE_LIBSYSTEMD)
 	{
 		.name = "systemd",
 		.log = debug_systemd_log,
@@ -1114,7 +1118,10 @@ static void Debug1(const char *msg)
 	case DEBUG_DEFAULT_STDOUT:
 	case DEBUG_DEFAULT_STDERR:
 		if (state.fd > 0) {
-			write(state.fd, msg, strlen(msg));
+			ssize_t ret;
+			do {
+				ret = write(state.fd, msg, strlen(msg));
+			} while (ret == -1 && errno == EINTR);
 		}
 		break;
 	case DEBUG_FILE:

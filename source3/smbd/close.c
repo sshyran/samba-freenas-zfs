@@ -161,7 +161,8 @@ static NTSTATUS close_filestruct(files_struct *fsp)
  Delete all streams
 ****************************************************************************/
 
-NTSTATUS delete_all_streams(connection_struct *conn, const char *fname)
+NTSTATUS delete_all_streams(connection_struct *conn,
+			const struct smb_filename *smb_fname)
 {
 	struct stream_struct *stream_info = NULL;
 	int i;
@@ -169,7 +170,7 @@ NTSTATUS delete_all_streams(connection_struct *conn, const char *fname)
 	TALLOC_CTX *frame = talloc_stackframe();
 	NTSTATUS status;
 
-	status = vfs_streaminfo(conn, NULL, fname, talloc_tos(),
+	status = vfs_streaminfo(conn, NULL, smb_fname, talloc_tos(),
 				&num_streams, &stream_info);
 
 	if (NT_STATUS_EQUAL(status, NT_STATUS_NOT_IMPLEMENTED)) {
@@ -200,8 +201,12 @@ NTSTATUS delete_all_streams(connection_struct *conn, const char *fname)
 			continue;
 		}
 
-		smb_fname_stream = synthetic_smb_fname(
-			talloc_tos(), fname, stream_info[i].name, NULL);
+		smb_fname_stream = synthetic_smb_fname(talloc_tos(),
+					smb_fname->base_name,
+					stream_info[i].name,
+					NULL,
+					(smb_fname->flags &
+						~SMB_FILENAME_POSIX_PATH));
 
 		if (smb_fname_stream == NULL) {
 			DEBUG(0, ("talloc_aprintf failed\n"));
@@ -266,6 +271,11 @@ static NTSTATUS close_remove_share_mode(files_struct *fsp,
 		DEBUG(0, ("close_remove_share_mode: Could not get share mode "
 			  "lock for file %s\n", fsp_str_dbg(fsp)));
 		return NT_STATUS_INVALID_PARAMETER;
+	}
+
+	/* Remove the oplock before potentially deleting the file. */
+	if(fsp->oplock_type) {
+		remove_oplock_under_lock(fsp, lck);
 	}
 
 	if (fsp->write_time_forced) {
@@ -426,7 +436,7 @@ static NTSTATUS close_remove_share_mode(files_struct *fsp,
 	if ((conn->fs_capabilities & FILE_NAMED_STREAMS)
 	    && !is_ntfs_stream_smb_fname(fsp->fsp_name)) {
 
-		status = delete_all_streams(conn, fsp->fsp_name->base_name);
+		status = delete_all_streams(conn, fsp->fsp_name);
 
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(5, ("delete_all_streams failed: %s\n",
@@ -736,11 +746,6 @@ static NTSTATUS close_normal_file(struct smb_request *req, files_struct *fsp,
 		return NT_STATUS_OK;
 	}
 
-	/* Remove the oplock before potentially deleting the file. */
-	if(fsp->oplock_type) {
-		remove_oplock(fsp);
-	}
-
 	/* If this is an old DOS or FCB open and we have multiple opens on
 	   the same handle we only have one share mode. Ensure we only remove
 	   the share mode on the last close. */
@@ -803,7 +808,7 @@ bool recursive_rmdir(TALLOC_CTX *ctx,
 
 	SMB_ASSERT(!is_ntfs_stream_smb_fname(smb_dname));
 
-	dir_hnd = OpenDir(talloc_tos(), conn, smb_dname->base_name, NULL, 0);
+	dir_hnd = OpenDir(talloc_tos(), conn, smb_dname, NULL, 0);
 	if(dir_hnd == NULL)
 		return False;
 
@@ -833,8 +838,11 @@ bool recursive_rmdir(TALLOC_CTX *ctx,
 			goto err_break;
 		}
 
-		smb_dname_full = synthetic_smb_fname(talloc_tos(), fullname,
-						     NULL, NULL);
+		smb_dname_full = synthetic_smb_fname(talloc_tos(),
+						fullname,
+						NULL,
+						NULL,
+						smb_dname->flags);
 		if (smb_dname_full == NULL) {
 			errno = ENOMEM;
 			goto err_break;
@@ -848,8 +856,7 @@ bool recursive_rmdir(TALLOC_CTX *ctx,
 			if(!recursive_rmdir(ctx, conn, smb_dname_full)) {
 				goto err_break;
 			}
-			if(SMB_VFS_RMDIR(conn,
-					 smb_dname_full->base_name) != 0) {
+			if(SMB_VFS_RMDIR(conn, smb_dname_full) != 0) {
 				goto err_break;
 			}
 		} else if(SMB_VFS_UNLINK(conn, smb_dname_full) != 0) {
@@ -899,7 +906,7 @@ static NTSTATUS rmdir_internals(TALLOC_CTX *ctx, files_struct *fsp)
 		}
 		ret = SMB_VFS_UNLINK(conn, smb_dname);
 	} else {
-		ret = SMB_VFS_RMDIR(conn, smb_dname->base_name);
+		ret = SMB_VFS_RMDIR(conn, smb_dname);
 	}
 	if (ret == 0) {
 		notify_fname(conn, NOTIFY_ACTION_REMOVED,
@@ -920,7 +927,7 @@ static NTSTATUS rmdir_internals(TALLOC_CTX *ctx, files_struct *fsp)
 		char *talloced = NULL;
 		long dirpos = 0;
 		struct smb_Dir *dir_hnd = OpenDir(talloc_tos(), conn,
-						  smb_dname->base_name, NULL,
+						  smb_dname, NULL,
 						  0);
 
 		if(dir_hnd == NULL) {
@@ -985,8 +992,11 @@ static NTSTATUS rmdir_internals(TALLOC_CTX *ctx, files_struct *fsp)
 				goto err_break;
 			}
 
-			smb_dname_full = synthetic_smb_fname(
-				talloc_tos(), fullname, NULL, NULL);
+			smb_dname_full = synthetic_smb_fname(talloc_tos(),
+							fullname,
+							NULL,
+							NULL,
+							smb_dname->flags);
 			if (smb_dname_full == NULL) {
 				errno = ENOMEM;
 				goto err_break;
@@ -1001,7 +1011,7 @@ static NTSTATUS rmdir_internals(TALLOC_CTX *ctx, files_struct *fsp)
 					goto err_break;
 				}
 				if(SMB_VFS_RMDIR(conn,
-					smb_dname_full->base_name) != 0) {
+					smb_dname_full) != 0) {
 					goto err_break;
 				}
 			} else if(SMB_VFS_UNLINK(conn, smb_dname_full) != 0) {
@@ -1020,7 +1030,7 @@ static NTSTATUS rmdir_internals(TALLOC_CTX *ctx, files_struct *fsp)
 		}
 		TALLOC_FREE(dir_hnd);
 		/* Retry the rmdir */
-		ret = SMB_VFS_RMDIR(conn, smb_dname->base_name);
+		ret = SMB_VFS_RMDIR(conn, smb_dname);
 	}
 
   err:
@@ -1149,7 +1159,7 @@ static NTSTATUS close_directory(struct smb_request *req, files_struct *fsp,
 		if ((fsp->conn->fs_capabilities & FILE_NAMED_STREAMS)
 		    && !is_ntfs_stream_smb_fname(fsp->fsp_name)) {
 
-			status = delete_all_streams(fsp->conn, fsp->fsp_name->base_name);
+			status = delete_all_streams(fsp->conn, fsp->fsp_name);
 			if (!NT_STATUS_IS_OK(status)) {
 				DEBUG(5, ("delete_all_streams failed: %s\n",
 					  nt_errstr(status)));

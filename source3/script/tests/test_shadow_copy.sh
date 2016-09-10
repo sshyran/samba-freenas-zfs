@@ -5,7 +5,7 @@
 
 if [ $# -lt 7 ]; then
 cat <<EOF
-Usage: test_shadow_copy SERVER SERVER_IP DOMAIN USERNAME PASSWORD WORKDIR SMBCLIENT
+Usage: test_shadow_copy SERVER SERVER_IP DOMAIN USERNAME PASSWORD WORKDIR SMBCLIENT PARAMS
 EOF
 exit 1;
 fi
@@ -18,8 +18,8 @@ PASSWORD=${5}
 WORKDIR=${6}
 SMBCLIENT=${7}
 shift 7
-SMBCLIENT="$VALGRIND ${SMBCLIENT}"
 ADDARGS="$*"
+SMBCLIENT="$VALGRIND ${SMBCLIENT} ${ADDARGS}"
 
 incdir=`dirname $0`/../../../testprogs/blackbox
 . $incdir/subunit.sh
@@ -34,6 +34,16 @@ SNAPSHOTS[6]='@GMT-2021.10.31-19.40.30'
 SNAPSHOTS[7]='@GMT-2022.10.31-19.40.30'
 SNAPSHOTS[8]='@GMT-2023.10.31-19.40.30'
 SNAPSHOTS[9]='@GMT-2024.10.31-19.40.30'
+SNAPSHOTS[10]='@GMT-2010-11-11'
+SNAPSHOTS[11]='@GMT-2011.11.11-11.40.30'
+SNAPSHOTS[12]='snap@GMT-2012.11.11-11.40.30'
+SNAPSHOTS[13]='@GMT-2013.11.11-11_40_33-snap'
+SNAPSHOTS[14]='@GMT-2014.11.11-11.40.30'
+SNAPSHOTS[15]='daily@GMT-2015.11.11-11.40.30'
+SNAPSHOTS[16]='snap_GMT-2016.11.11-11.40.30'
+SNAPSHOTS[17]='sysp_GMT-2017.11.11-11.40.30'
+SNAPSHOTS[18]='monthly@GMT-2018.11.11-11.40.30'
+SNAPSHOTS[19]='straps_GMT-2019.11.11-11.40.33'
 
 # build a hierarchy of files, symlinks, and directories
 build_files()
@@ -42,9 +52,11 @@ build_files()
     local prefix
     local version
     local destdir
+    local content
     rootdir=$1
     prefix=$2
     version=$3
+    content=$4
     if [ -n "$prefix" ] ; then
         destdir=$rootdir/$prefix
     else
@@ -56,27 +68,27 @@ build_files()
         #non-snapshot files
         # for non-snapshot version, create legit files
         # so that wide-link checks focus on snapshot files
-        touch $destdir/foo
+        echo "$content" > $destdir/foo
         mkdir -p $destdir/bar
-        touch $destdir/bar/baz
-        touch $destdir/bar/lfoo
-        touch $destdir/bar/letcpasswd
-        touch $destdir/bar/loutside
+        echo "$content" > $destdir/bar/baz
+        echo "$content" > $destdir/bar/lfoo
+        echo "$content" > $destdir/bar/letcpasswd
+        echo "$content" > $destdir/bar/loutside
     elif [ "$version" = "fullsnap" ] ; then
         #snapshot files
-        touch $destdir/foo
+        echo "$content" > $destdir/foo
         mkdir -p $destdir/bar
-        touch $destdir/bar/baz
+        echo "$content" > $destdir/bar/baz
         ln -fs ../foo $destdir/bar/lfoo
         ln -fs /etc/passwd $destdir/bar/letcpasswd
         ln -fs ../../outside $destdir/bar/loutside
-        touch `dirname $destdir`/outside
+        echo "$content" > `dirname $destdir`/outside
     else #subshare snapshot - at bar
-        touch $destdir/baz
+        echo "$content" > $destdir/baz
         ln -fs ../foo $destdir/lfoo
         ln -fs /etc/passwd $destdir/letcpasswd
         ln -fs ../../outside $destdir/loutside
-        touch `dirname $destdir`/../outside
+        echo "$content" > `dirname $destdir`/../outside
     fi
 
 }
@@ -117,7 +129,7 @@ build_snapshots()
     for i in `seq $start $end` ; do
         snapname=${SNAPSHOTS[$i]}
         mkdir $snapdir/$snapname
-        build_files $snapdir/$snapname "$prefix" $version
+        build_files $snapdir/$snapname "$prefix" $version "$snapname"
     done
 }
 
@@ -127,18 +139,72 @@ test_count_versions()
     local share
     local path
     local expected_count
+    local skip_content
     local versions
+    local tstamps
+    local tstamp
+    local content
+    local is_dir
 
     share=$1
     path=$2
     expected_count=$3
+    skip_content=$4
     versions=`$SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "allinfo $path" | grep "^create_time:" | wc -l`
-    if [ "$versions" = "$expected_count" ] ; then
-        true
-    else
+    if [ "$versions" != "$expected_count" ] ; then
         echo "expected $expected_count versions of $path, got $versions"
-        false
+        return 1
     fi
+
+    is_dir=0
+    $SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "allinfo $path" | grep "^attributes:.*D" && is_dir=1
+    if [ $is_dir = 1 ] ; then
+        skip_content=1
+    fi
+
+    #readable snapshots
+    tstamps=`$SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "allinfo $path" | awk '/^@GMT-/ {snapshot=$1} /^create_time:/ {printf "%s\n", snapshot}'`
+    for tstamp in $tstamps ; do
+        if [ $is_dir = 0 ] ;
+        then
+            if ! $SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "get $tstamp\\$path $WORKDIR/foo" ; then
+                echo "Failed getting \\\\$SERVER\\$share\\$tstamp\\$path"
+                return 1
+            fi
+        else
+            if ! $SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "ls $tstamp\\$path\\*" ; then
+                echo "Failed listing \\\\$SERVER\\$share\\$tstamp\\$path"
+                return 1
+            fi
+        fi
+
+        #also check the content, but not for wide links
+        if [ "x$skip_content" != "x1" ] ; then
+            content=`cat $WORKDIR/foo`
+            if [ "$content" != "$tstamp" ] ; then
+                echo "incorrect content of \\\\$SERVER\\$share\\$tstamp\\$path expected [$tstamp]  got [$content]"
+                return 1
+            fi
+        fi
+    done
+
+    #non-readable snapshots
+    tstamps=`$SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "allinfo $path" | \
+        awk '/^@GMT-/ {if (snapshot!=""){printf "%s\n", snapshot} ; snapshot=$1} /^create_time:/ {snapshot=""} END {if (snapshot!=""){printf "%s\n", snapshot}}'`
+    for tstamp in $tstamps ; do
+        if [ $is_dir = 0 ] ;
+        then
+            if $SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "get $tstamp\\$path $WORKDIR/foo" ; then
+                echo "Unexpected success getting \\\\$SERVER\\$share\\$tstamp\\$path"
+                return 1
+            fi
+        else
+            if $SMBCLIENT -U$USERNAME%$PASSWORD "//$SERVER/$share" -I $SERVER_IP -c "ls $tstamp\\$path\\*" ; then
+                echo "Unexpected success listing \\\\$SERVER\\$share\\$tstamp\\$path"
+                return 1
+            fi
+        fi
+    done
 }
 
 # Test fetching a previous version of a file
@@ -194,11 +260,15 @@ test_shadow_copy_fixed()
         failed=`expr $failed + 1`
 
     testit "$msg - abs symlink outside" \
-        test_count_versions $share bar/letcpasswd $ncopies_blocked || \
+        test_count_versions $share bar/letcpasswd $ncopies_blocked  1 || \
         failed=`expr $failed + 1`
 
     testit "$msg - rel symlink outside" \
-        test_count_versions $share bar/loutside $ncopies_blocked || \
+        test_count_versions $share bar/loutside $ncopies_blocked 1 || \
+        failed=`expr $failed + 1`
+
+    testit "$msg - list directory" \
+        test_count_versions $share bar $ncopies_allowed || \
         failed=`expr $failed + 1`
 }
 
@@ -261,8 +331,31 @@ test_shadow_copy_everywhere()
 
 }
 
+test_shadow_copy_format()
+{
+    local share     #share to contact
+    local where     #where to place snapshots
+    local prefix    #prefix to files inside snapshot
+    local ncopies_allowd
+    local msg
+
+    share=$1
+    where=$2
+    prefix=$3
+    ncopies_allowed=$4
+    msg=$5
+
+    #delete snapshots from previous tests
+    find $WORKDIR -name ".snapshots" -exec rm -rf {} \; 1>/dev/null 2>&1
+    build_snapshots $WORKDIR/$where "$prefix" 10 19
+
+    testit "$msg - regular file" \
+        test_count_versions $share foo $ncopies_allowed 1 || \
+        failed=`expr $failed + 1`
+}
+
 #build "latest" files
-build_files $WORKDIR/mount base/share "latest"
+build_files $WORKDIR/mount base/share "latest" "latest"
 
 failed=0
 
@@ -287,5 +380,13 @@ test_shadow_copy_fixed shadow7 mount/base/share "" "'everywhere' share snapshots
 
 # a test for snapshots everywhere - multiple snapshot locations
 test_shadow_copy_everywhere shadow7
+
+# tests for testing snapshot selection via shadow:format
+test_shadow_copy_format shadow_fmt0 mount/base share 3 "basic shadow:format test"
+test_shadow_copy_format shadow_fmt1 mount/base share 2 "shadow:format with only date"
+test_shadow_copy_format shadow_fmt2 mount/base share 2 "shadow:format with some prefix"
+test_shadow_copy_format shadow_fmt3 mount/base share 2 "shadow:format with modified format"
+test_shadow_copy_format shadow_fmt4 mount/base share 3 "shadow:format with snapprefix"
+test_shadow_copy_format shadow_fmt5 mount/base share 6 "shadow:format with delimiter"
 
 exit $failed

@@ -156,7 +156,7 @@ NTSTATUS gpo_fetch_files(TALLOC_CTX *mem_ctx,
 	NTSTATUS result;
 	char *server, *service, *nt_path, *unix_path;
 	char *nt_ini_path, *unix_ini_path;
-	struct cli_state *cli;
+	struct cli_state *cli = NULL;
 
 
 	result = gpo_explode_filesyspath(mem_ctx, cache_dir, gpo->file_sys_path,
@@ -166,7 +166,7 @@ NTSTATUS gpo_fetch_files(TALLOC_CTX *mem_ctx,
 
 	/* for now reuse the existing ds connection */
 
-	result = gpo_connect_server(ads, ads->server.ldap_server, service, &cli);
+	result = gpo_connect_server(ads, server, service, &cli);
 	NT_STATUS_NOT_OK_RETURN(result);
 
 	result = gpo_prepare_local_store(mem_ctx, cache_dir, unix_path);

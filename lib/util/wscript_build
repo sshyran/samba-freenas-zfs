@@ -64,21 +64,38 @@ bld.SAMBA_LIBRARY('talloc_report',
 bld.SAMBA_SUBSYSTEM('samba-util-core',
                     source='''xfile.c data_blob.c util_file.c time.c
                               signal.c util.c idtree.c fault.c
-                              substitute.c util_process.c''',
+                              substitute.c util_process.c util_strlist.c
+                              strv_util.c''',
                     deps='''time-basic samba-debug socket-blocking talloc
-                            tevent execinfo pthread''',
+                            tevent execinfo pthread strv''',
                     local_include=False)
 
-bld.SAMBA_LIBRARY('tevent-unix-util',
-                  source='tevent_unix.c',
+bld.SAMBA_LIBRARY('iov_buf',
+                  source='iov_buf.c',
                   local_include=False,
-                  deps='tevent',
-                  public_headers='tevent_unix.h',
-                  header_path=[ ('*', 'util') ],
-                  pc_files=[],
-                  vnum='0.0.1')
+                  private_library=True)
 
-if not bld.env.SAMBA_UTIL_CORE_ONLY:
+bld.SAMBA_LIBRARY('msghdr',
+                  source='msghdr.c',
+                  deps='replace iov_buf',
+                  local_include=False,
+                  private_library=True)
+
+bld.SAMBA_LIBRARY('sys_rw',
+                  source='sys_rw.c sys_rw_data.c',
+                  deps='replace iov_buf',
+                  local_include=False,
+                  private_library=True)
+
+if bld.env.SAMBA_UTIL_CORE_ONLY:
+
+    bld.SAMBA_LIBRARY('tevent-util',
+                      source='tevent_unix.c',
+                      local_include=False,
+                      deps='tevent',
+                      private_library=True)
+
+else:
 
     bld.env.public_headers_skip.append('charset_compat.h')
 
@@ -99,7 +116,8 @@ if not bld.env.SAMBA_UTIL_CORE_ONLY:
                     rbtree.c rfc1738.c become_daemon.c system.c select.c getpass.c
                     genrand_util.c fsusage.c
                     params.c util_id.c util_net.c
-                    util_strlist.c util_paths.c idtree_random.c base64.c
+                    util_strlist_v3.c util_paths.c
+                    idtree_random.c base64.c
                     util_str.c util_str_common.c ms_fnmatch.c
                     server_id.c dprintf.c bitmap.c pidfile.c
                     tevent_debug.c memcache.c''',
@@ -141,10 +159,10 @@ if not bld.env.SAMBA_UTIL_CORE_ONLY:
                       )
 
     bld.SAMBA_LIBRARY('tevent-util',
-                      source='tevent_ntstatus.c tevent_werror.c',
+                      source='tevent_unix.c tevent_ntstatus.c tevent_werror.c',
                       local_include=False,
-                      public_deps='tevent samba-errors tevent-unix-util',
-                      public_headers='tevent_ntstatus.h tevent_werror.h',
+                      public_deps='tevent samba-errors',
+                      public_headers='tevent_ntstatus.h tevent_unix.h tevent_werror.h',
                       header_path=[ ('*', 'util') ],
                       pc_files=[],
                       vnum='0.0.1'
@@ -181,14 +199,3 @@ if not bld.env.SAMBA_UTIL_CORE_ONLY:
                       deps='talloc tdb strv util_tdb tdb-wrap samba-util',
                       local_include=False,
                       private_library=True)
-
-    bld.SAMBA_LIBRARY('iov_buf',
-                      source='iov_buf.c',
-                      local_include=False,
-                      private_library=True)
-
-    bld.SAMBA3_LIBRARY('sys_rw',
-                       source='sys_rw.c sys_rw_data.c',
-                       deps='replace iov_buf',
-                       local_include=False,
-                       private_library=True)

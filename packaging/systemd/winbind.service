@@ -1,7 +1,6 @@
 [Unit]
 Description=Samba Winbind Daemon
-Documentation=man:winbindd(8) man:samba(7) man:smb.conf(5)
-After=network.target nmb.service
+After=syslog.target network.target nmb.service
 
 [Service]
 Type=notify
@@ -9,7 +8,7 @@ NotifyAccess=all
 PIDFile=/run/winbindd.pid
 EnvironmentFile=-/etc/sysconfig/samba
 ExecStart=/usr/sbin/winbindd "$WINBINDOPTIONS"
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/usr/bin/kill -HUP $MAINPID
 LimitCORE=infinity
 
 [Install]

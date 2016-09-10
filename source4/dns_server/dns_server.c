@@ -123,7 +123,7 @@ static struct tevent_req *dns_process_send(TALLOC_CTX *mem_ctx,
 	struct dns_process_state *state;
 	enum ndr_err_code ndr_err;
 	WERROR ret;
-	const char *forwarder = lpcfg_dns_forwarder(dns->task->lp_ctx);
+	const char **forwarder = lpcfg_dns_forwarder(dns->task->lp_ctx);
 	req = tevent_req_create(mem_ctx, &state, struct dns_process_state);
 	if (req == NULL) {
 		return NULL;
@@ -152,14 +152,6 @@ static struct tevent_req *dns_process_send(TALLOC_CTX *mem_ctx,
 		NDR_PRINT_DEBUGC(DBGC_DNS, dns_name_packet, &state->in_packet);
 	}
 
-	ret = dns_verify_tsig(dns, state, &state->state, &state->in_packet, in);
-	if (!W_ERROR_IS_OK(ret)) {
-		DEBUG(1, ("Failed to verify TSIG!\n"));
-		state->dns_err = werr_to_dns_err(ret);
-		tevent_req_done(req);
-		return tevent_req_post(req, ev);
-	}
-
 	if (state->in_packet.operation & DNS_FLAG_REPLY) {
 		DEBUG(1, ("Won't reply to replies.\n"));
 		tevent_req_werror(req, WERR_INVALID_PARAM);
@@ -169,12 +161,19 @@ static struct tevent_req *dns_process_send(TALLOC_CTX *mem_ctx,
 	state->state.flags = state->in_packet.operation;
 	state->state.flags |= DNS_FLAG_REPLY;
 
-	
-	if (forwarder && *forwarder) {
+
+	if (forwarder && *forwarder && **forwarder) {
 		state->state.flags |= DNS_FLAG_RECURSION_AVAIL;
 	}
 
 	state->out_packet = state->in_packet;
+
+	ret = dns_verify_tsig(dns, state, &state->state, &state->out_packet, in);
+	if (!W_ERROR_IS_OK(ret)) {
+		state->dns_err = werr_to_dns_err(ret);
+		tevent_req_done(req);
+		return tevent_req_post(req, ev);
+	}
 
 	switch (state->in_packet.operation & DNS_OPCODE) {
 	case DNS_OPCODE_QUERY:
@@ -236,7 +235,9 @@ static WERROR dns_process_recv(struct tevent_req *req, TALLOC_CTX *mem_ctx,
 		return ret;
 	}
 	if ((state->dns_err != DNS_RCODE_OK) &&
-	    (state->dns_err != DNS_RCODE_NXDOMAIN)) {
+	    (state->dns_err != DNS_RCODE_NXDOMAIN) &&
+	    (state->dns_err != DNS_RCODE_NOTAUTH))
+	{
 		goto drop;
 	}
 	if (state->dns_err != DNS_RCODE_OK) {

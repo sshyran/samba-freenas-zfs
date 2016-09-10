@@ -112,12 +112,10 @@ NTSTATUS gssapi_obtain_pac_blob(TALLOC_CTX *mem_ctx,
 		&pac_buffer, &pac_display_buffer, &more);
 
 	if (gss_maj != 0) {
-		DEBUG(0, ("obtaining PAC via GSSAPI gss_get_name_attribute failed: %s\n",
-			  gssapi_error_string(mem_ctx,
-					      gss_maj,
-					      gss_min,
-					      discard_const_p(struct gss_OID_desc_struct,
-							      gss_mech_krb5))));
+		DBG_NOTICE("obtaining PAC via GSSAPI gss_get_name_attribute "
+			   "failed: %s\n", gssapi_error_string(mem_ctx,
+							       gss_maj, gss_min,
+							       gss_mech_krb5));
 		return NT_STATUS_ACCESS_DENIED;
 	} else if (authenticated && complete) {
 		/* The PAC blob is returned directly */
@@ -246,6 +244,7 @@ NTSTATUS gssapi_get_session_key(TALLOC_CTX *mem_ctx,
 		int diflen, i;
 		const uint8_t *p;
 
+		*keytype = 0;
 		if (set->count < 2) {
 
 #ifdef HAVE_GSSKRB5_GET_SUBKEY
@@ -256,10 +255,6 @@ NTSTATUS gssapi_get_session_key(TALLOC_CTX *mem_ctx,
 			if (gss_maj == 0) {
 				*keytype = KRB5_KEY_TYPE(subkey);
 				krb5_free_keyblock(NULL /* should be krb5_context */, subkey);
-			} else
-#else
-			{
-				*keytype = 0;
 			}
 #endif
 			gss_maj = gss_release_buffer_set(&gss_min, &set);
@@ -270,7 +265,6 @@ NTSTATUS gssapi_get_session_key(TALLOC_CTX *mem_ctx,
 				  gse_sesskeytype_oid.elements,
 				  gse_sesskeytype_oid.length) != 0) {
 			/* Perhaps a non-krb5 session key */
-			*keytype = 0;
 			gss_maj = gss_release_buffer_set(&gss_min, &set);
 			return NT_STATUS_OK;
 		}
@@ -280,7 +274,6 @@ NTSTATUS gssapi_get_session_key(TALLOC_CTX *mem_ctx,
 			gss_maj = gss_release_buffer_set(&gss_min, &set);
 			return NT_STATUS_INVALID_PARAMETER;
 		}
-		*keytype = 0;
 		for (i = 0; i < diflen; i++) {
 			*keytype = (*keytype << 7) | (p[i] & 0x7f);
 			if (i + 1 != diflen && (p[i] & 0x80) == 0) {

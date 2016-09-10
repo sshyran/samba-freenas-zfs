@@ -1,7 +1,6 @@
 [Unit]
 Description=Samba NMB Daemon
-Documentation=man:nmbd(8) man:samba(7) man:smb.conf(5)
-After=network.target
+After=syslog.target network.target
 
 [Service]
 Type=notify
@@ -9,7 +8,7 @@ NotifyAccess=all
 PIDFile=/run/nmbd.pid
 EnvironmentFile=-/etc/sysconfig/samba
 ExecStart=/usr/sbin/nmbd $NMBDOPTIONS
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/usr/bin/kill -HUP $MAINPID
 LimitCORE=infinity
 
 [Install]
