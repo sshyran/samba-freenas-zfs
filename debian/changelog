@@ -1,3 +1,17 @@
+samba (2:4.5.0+dfsg-1) UNRELEASED; urgency=medium
+
+  * Upload to experimental
+  * New upstream version
+    + Remove patches:
+      - bug_601406_fix-perl-path-in-example.patch, similar applied
+      - waf_smbpasswd_location, applied
+      - Fix-privacy-breach-on-google.com.patch, doc moved out of source
+      - ctdb-Fix-detection-of-gnukfreebsd.patch, applied
+      - gcc_6.patch, applied
+
+
+ -- Mathieu Parent <sathieu@debian.org>  Sat, 10 Sep 2016 21:18:20 +0200
+
 samba (2:4.4.5+dfsg-3) unstable; urgency=medium
 
   [ Jelmer Vernooĳ ]
