@@ -30,8 +30,8 @@ samba (2:4.4.5+dfsg-3) unstable; urgency=medium
   * Remove Christian Perrier from uploaders (Closes: #836715). Thanks for all
     you work, and thanks for bringing me in the team and as a DD.
   * Update Turkish translation. Thanks Atila KOÇ. Closes: #791903
-  * Don't use strict dependency for libwbclient0 to samba-libs to avoid
-    circular dependency
+  * Drop dependency on samba-libs in libwbclient0 to avoid
+    circular dependency.
 
  -- Mathieu Parent <sathieu@debian.org>  Fri, 09 Sep 2016 13:00:54 +0200
 
