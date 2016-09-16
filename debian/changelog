@@ -18,7 +18,7 @@ samba (2:4.4.5+dfsg-3) unstable; urgency=medium
   * Add strict dependencies on samba-libs, because of use of private
     libraries without stable ABI across Samba binary packages.
   * Add Breaks clauses for older versions of samba-libs and samba to
-    samba-vfs-modules, as some files have moved. Closes: #833614,
+    samba-vfs-modules, as some files have moved. Closes: #833164,
     #832880
 
   [ Mathieu Parent ]
