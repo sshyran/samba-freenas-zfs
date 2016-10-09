@@ -1,3 +1,13 @@
+samba (2:4.4.5+dfsg-4) UNRELEASED; urgency=medium
+
+  * Use epoch in samba-vfs-modules Breaks and Replaces (Closes: #833164)
+  * Only fix PIDFile in {nmbd,samba-ad-dc,smbd,winbind}.service (i.e. not
+    ctdb.service) Closes: #838000.
+  * logrotate: Only reload smbd when needed. Thanks Roland Hieber.
+    Closes: #838796.
+
+ -- Mathieu Parent <math.parent@gmail.com>  Sun, 09 Oct 2016 22:08:53 +0200
+
 samba (2:4.4.5+dfsg-3) unstable; urgency=medium
 
   [ Jelmer Vernooĳ ]
