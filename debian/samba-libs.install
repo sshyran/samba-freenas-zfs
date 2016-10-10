@@ -21,7 +21,6 @@ usr/lib/*/samba/libsmbclient-raw.so.0*
 usr/lib/*/libsmbconf.so.0
 usr/lib/*/libsmbldap.so.0
 usr/lib/*/libtevent-util.so.*
-usr/lib/*/libtevent-unix-util.so.*
 usr/lib/*/samba/auth/
 usr/lib/*/samba/bind9/dlz_bind9.so
 usr/lib/*/samba/bind9/dlz_bind9_*.so
