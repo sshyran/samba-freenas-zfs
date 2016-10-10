@@ -844,7 +844,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 	lpcfg_string_set(Globals.ctx, &Globals.usershare_path, s);
 	TALLOC_FREE(s);
 	lpcfg_string_set(Globals.ctx, &Globals.usershare_template_share, "");
-	Globals.usershare_max_shares = 100;
+	Globals.usershare_max_shares = 0;
 	/* By default disallow sharing of directories not owned by the sharer. */
 	Globals.usershare_owner_only = true;
 	/* By default disallow guest access to usershares. */
@@ -871,7 +871,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 
 	Globals.server_services = str_list_make_v3_const(NULL, "s3fs rpc nbt wrepl ldap cldap kdc drepl winbindd ntp_signd kcc dnsupdate dns", NULL);
 
-	Globals.dcerpc_endpoint_servers = str_list_make_v3_const(NULL, "epmapper wkssvc rpcecho samr netlogon lsarpc spoolss drsuapi dssetup unixinfo browser eventlog6 backupkey dnsserver", NULL);
+	Globals.dcerpc_endpoint_servers = str_list_make_v3_const(NULL, "epmapper wkssvc rpcecho samr netlogon lsarpc drsuapi dssetup unixinfo browser eventlog6 backupkey dnsserver", NULL);
 
 	Globals.tls_enabled = true;
 	Globals.tls_verify_peer = TLS_VERIFY_PEER_AS_STRICT_AS_POSSIBLE;
@@ -4337,13 +4337,14 @@ bool lp_posix_pathnames(void)
 }
 
 /*******************************************************************
- Change everything needed to ensure POSIX pathname processing (currently
- not much).
+ Set posix pathnames to new value. Returns old value.
 ********************************************************************/
 
-void lp_set_posix_pathnames(void)
+bool lp_set_posix_pathnames(bool newval)
 {
-	posix_pathnames = true;
+	bool oldval = posix_pathnames;
+	posix_pathnames = newval;
+	return oldval;
 }
 
 /*******************************************************************
