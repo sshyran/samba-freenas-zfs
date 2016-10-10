@@ -1588,6 +1588,9 @@ static void cli_session_setup_gensec_remote_done(struct tevent_req *subreq)
 			 * have a negotiated session key.
 			 *
 			 * So just pretend we are completely done.
+			 *
+			 * Note that smbXcli_session_is_guest()
+			 * always returns false if we require signing.
 			 */
 			state->blob_in = data_blob_null;
 			state->local_ready = true;
@@ -3105,11 +3108,15 @@ static struct tevent_req *cli_connect_nb_send(
 		}
 
 		state->desthost = host;
-	} else {
+	} else if (dest_ss != NULL) {
 		state->desthost = print_canonical_sockaddr(state, dest_ss);
 		if (tevent_req_nomem(state->desthost, req)) {
 			return tevent_req_post(req, ev);
 		}
+	} else {
+		/* No host or dest_ss given. Error out. */
+		tevent_req_error(req, EINVAL);
+		return tevent_req_post(req, ev);
 	}
 
 	subreq = cli_connect_sock_send(state, ev, host, name_type, dest_ss,

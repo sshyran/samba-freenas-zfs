@@ -155,6 +155,7 @@ static struct dcecli_connection *dcerpc_connection_init(TALLOC_CTX *mem_ctx,
 	 */
 	c->srv_max_xmit_frag = 5840;
 	c->srv_max_recv_frag = 5840;
+	c->max_total_response_size = DCERPC_NCACN_RESPONSE_DEFAULT_MAX_SIZE;
 	c->pending = NULL;
 
 	c->io_trigger = tevent_create_immediate(c);
@@ -1414,12 +1415,10 @@ static void dcerpc_bind_recv_handler(struct rpc_request *subreq,
 
 	/* the bind_ack might contain a reply set of credentials */
 	if (pkt->auth_length != 0 && sec->tmp_auth_info.in != NULL) {
-		uint32_t auth_length;
-
 		status = dcerpc_pull_auth_trailer(pkt, sec->tmp_auth_info.mem,
 						  &pkt->u.bind_ack.auth_info,
 						  sec->tmp_auth_info.in,
-						  &auth_length, true);
+						  NULL, true);
 		if (tevent_req_nterror(req, status)) {
 			return;
 		}
@@ -1577,10 +1576,10 @@ static void dcerpc_request_recv_data(struct dcecli_connection *c,
 
 	length = pkt->u.response.stub_and_verifier.length;
 
-	if (req->payload.length + length > DCERPC_NCACN_PAYLOAD_MAX_SIZE) {
+	if (req->payload.length + length > c->max_total_response_size) {
 		DEBUG(2,("Unexpected total payload 0x%X > 0x%X dcerpc response\n",
 			 (unsigned)req->payload.length + length,
-			 DCERPC_NCACN_PAYLOAD_MAX_SIZE));
+			 (unsigned)c->max_total_response_size));
 		dcerpc_connection_dead(c, NT_STATUS_RPC_PROTOCOL_ERROR);
 		return;
 	}
@@ -2434,12 +2433,10 @@ static void dcerpc_alter_context_recv_handler(struct rpc_request *subreq,
 
 	/* the alter_resp might contain a reply set of credentials */
 	if (pkt->auth_length != 0 && sec->tmp_auth_info.in != NULL) {
-		uint32_t auth_length;
-
 		status = dcerpc_pull_auth_trailer(pkt, sec->tmp_auth_info.mem,
 						  &pkt->u.alter_resp.auth_info,
 						  sec->tmp_auth_info.in,
-						  &auth_length, true);
+						  NULL, true);
 		if (tevent_req_nterror(req, status)) {
 			return;
 		}

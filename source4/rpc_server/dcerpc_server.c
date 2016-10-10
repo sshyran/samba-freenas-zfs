@@ -408,6 +408,7 @@ _PUBLIC_ NTSTATUS dcesrv_endpoint_connect(struct dcesrv_context *dce_ctx,
 	p->allow_bind = true;
 	p->max_recv_frag = 5840;
 	p->max_xmit_frag = 5840;
+	p->max_total_request_size = DCERPC_NCACN_REQUEST_DEFAULT_MAX_SIZE;
 
 	*_p = p;
 	return NT_STATUS_OK;
@@ -803,6 +804,11 @@ static NTSTATUS dcesrv_bind(struct dcesrv_call_state *call)
 
 		TALLOC_FREE(call->context);
 
+		if (call->fault_code == DCERPC_NCA_S_PROTO_ERROR) {
+			return dcesrv_bind_nak(call,
+			DCERPC_BIND_NAK_REASON_PROTOCOL_VERSION_NOT_SUPPORTED);
+		}
+
 		if (auth->auth_level != DCERPC_AUTH_LEVEL_NONE) {
 			/*
 			 * We only give INVALID_AUTH_TYPE if the auth_level was
@@ -935,6 +941,9 @@ static NTSTATUS dcesrv_auth3(struct dcesrv_call_state *call)
 	/* handle the auth3 in the auth code */
 	if (!dcesrv_auth_auth3(call)) {
 		call->conn->auth_state.auth_invalid = true;
+		if (call->fault_code != 0) {
+			return dcesrv_fault_disconnect(call, call->fault_code);
+		}
 	}
 
 	talloc_free(call);
@@ -1104,9 +1113,8 @@ static NTSTATUS dcesrv_alter(struct dcesrv_call_state *call)
 
 	auth_ok = dcesrv_auth_alter(call);
 	if (!auth_ok) {
-		if (call->in_auth_info.auth_type == DCERPC_AUTH_TYPE_NONE) {
-			return dcesrv_fault_disconnect(call,
-					DCERPC_FAULT_ACCESS_DENIED);
+		if (call->fault_code != 0) {
+			return dcesrv_fault_disconnect(call, call->fault_code);
 		}
 	}
 
@@ -1532,7 +1540,7 @@ static NTSTATUS dcesrv_process_ncacn_packet(struct dcesrv_connection *dce_conn,
 		/*
 		 * Up to 4 MByte are allowed by all fragments
 		 */
-		available = DCERPC_NCACN_PAYLOAD_MAX_SIZE;
+		available = dce_conn->max_total_request_size;
 		if (er->stub_and_verifier.length > available) {
 			dcesrv_call_disconnect_after(existing,
 				"dcesrv_auth_request - existing payload too large");
@@ -1585,7 +1593,7 @@ static NTSTATUS dcesrv_process_ncacn_packet(struct dcesrv_connection *dce_conn,
 		/*
 		 * Up to 4 MByte are allowed by all fragments
 		 */
-		if (call->pkt.u.request.alloc_hint > DCERPC_NCACN_PAYLOAD_MAX_SIZE) {
+		if (call->pkt.u.request.alloc_hint > dce_conn->max_total_request_size) {
 			dcesrv_call_disconnect_after(call,
 				"dcesrv_auth_request - initial alloc hint too large");
 			return dcesrv_fault(call, DCERPC_FAULT_ACCESS_DENIED);
