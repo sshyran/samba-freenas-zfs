@@ -1677,6 +1677,10 @@ main() {
     if Options.options.with_freenas:
         conf.CHECK_LIB('dispatcherclient', shlib=True)
         conf.CHECK_LIB('jansson', shlib=True)
+        conf.CHECK_LIB('geom', shlib=True)
+        conf.CHECK_LIB('uutil', shlib=True)
+        conf.CHECK_LIB('zfs_core', shlib=True)
+        conf.CHECK_LIB('zfs', shlib=True)
         default_shared_modules.extend(TO_LIST('pdb_freenas'))
 
     default_static_modules.extend(TO_LIST('''pdb_smbpasswd pdb_tdbsam pdb_wbc_sam
