@@ -236,7 +236,7 @@ static char *convert_shadow_zfs_name(vfs_handle_struct *handle,
 	    return NULL);
 
 	/* get the snapshot info */
-	snapshots = shadow_copy_zfs_list_snapshots(config, config->dataset_path, config->inclusions, config->exclusions);
+	snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx, config->dataset_path, config->inclusions, config->exclusions);
 	if (snapshots == NULL) {
 		talloc_free(tmp_ctx);
 		return NULL;
@@ -313,6 +313,7 @@ static char *convert_shadow_zfs_name(vfs_handle_struct *handle,
 			      *relpath ? "/" : "",
 			      incl_rel ? relpath : "");
 	DEBUG(6,("convert_shadow_zfs_name: '%s' -> '%s'\n", fname, ret));
+
 	talloc_free(tmp_ctx);
 	return ret;
 }
@@ -713,12 +714,15 @@ static int shadow_copy_zfs_get_shadow_copy_zfs_data(vfs_handle_struct *handle,
 						    *shadow_copy_zfs_data,
 						    bool labels)
 {
+	TALLOC_CTX *tmp_ctx;
 	struct shadow_copy_zfs_config *config;
 	struct snapshot_list *snapshots;
 	unsigned idx;
 
 	SMB_VFS_HANDLE_GET_DATA(handle, config, struct shadow_copy_zfs_config,
 	    return -1);
+
+	tmp_ctx = talloc_new(config);
 
 	/* Get the list of snapshots.
 
@@ -731,14 +735,14 @@ static int shadow_copy_zfs_get_shadow_copy_zfs_data(vfs_handle_struct *handle,
 	   But just to be safe, in case a client always requests labels, we
 	   also limit the max time before we force a reload.
 	 */
-	snapshots = shadow_copy_zfs_list_snapshots(config, config->dataset_path, config->inclusions, config->exclusions);
+	snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx, config->dataset_path, config->inclusions, config->exclusions);
 	if (snapshots == NULL) {
 		return -1;
 	}
 
 	if (labels &&
 	    difftime(time(NULL), snapshots->timestamp) > MAX_CACHE_TIME) {
-		snapshots = shadow_copy_zfs_list_snapshots(config, config->dataset_path, config->inclusions, config->exclusions);
+		snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx, config->dataset_path, config->inclusions, config->exclusions);
 		if (snapshots == NULL) {
 			return -1;
 		}
@@ -768,6 +772,7 @@ static int shadow_copy_zfs_get_shadow_copy_zfs_data(vfs_handle_struct *handle,
 		}
 	}
 
+	talloc_free(tmp_ctx);
 	return 0;
 }
 
