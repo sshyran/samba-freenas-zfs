@@ -79,6 +79,7 @@ static int shadow_copy_zfs_add_snapshot(zfs_handle_t *snap, void *data)
 	snap_name = strchr(zfs_get_name(snap), '@') + 1;
 
 	if (!shadow_copy_zfs_is_snapshot_included(info, snap_name)) {
+		zfs_close(snap);
 		return 0;
 	}
 
@@ -88,6 +89,8 @@ static int shadow_copy_zfs_add_snapshot(zfs_handle_t *snap, void *data)
 	if (rc != 0) {
 		DEBUG(0,("shadow_copy_zfs_add_snapshot: error getting "
 		    "creation date: %s\n", strerror(errno)));
+
+		zfs_close(snap);
 		return -2;
 	}
 
@@ -106,6 +109,8 @@ static int shadow_copy_zfs_add_snapshot(zfs_handle_t *snap, void *data)
 		if (info->snapshots == NULL) {
 			DEBUG(0,("shadow_copy_zfs_add_snapshot: out of memory "
 			    "(requested %zu bytes)\n", req_mem));
+
+			zfs_close(snap);
 			return -2;
 		}
 	}
@@ -117,6 +122,8 @@ static int shadow_copy_zfs_add_snapshot(zfs_handle_t *snap, void *data)
 	if (entry == NULL) {
 		DEBUG(0,("shadow_copy_zfs_add_snapshot: out of memory "
 		    "(requested %lu bytes)\n", sizeof(*entry) + name_len));
+
+		zfs_close(snap);
 		return -2;
 	}
 
@@ -128,6 +135,7 @@ static int shadow_copy_zfs_add_snapshot(zfs_handle_t *snap, void *data)
 
 	strlcpy(entry->name, snap_name, name_len + 1);
 
+	zfs_close(snap);
 	return 0;
 }
 
@@ -223,10 +231,10 @@ struct snapshot_list *shadow_copy_zfs_list_snapshots(TALLOC_CTX *mem_ctx,
 
 	goto done;
 
-	error:
+error:
 	TALLOC_FREE(snapshots);
 
-	done:
+done:
 	if (zfs)
 		zfs_close(zfs);
 	if (libzfs)
