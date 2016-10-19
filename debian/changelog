@@ -14,6 +14,7 @@ samba (2:4.5.0+dfsg-1) UNRELEASED; urgency=medium
       - libtdb-dev (>= 1.3.10~)
       - libtevent-dev (>= 0.9.29~)
       - python-talloc-dev (>= 2.1.8~)
+  * Add patch for https://bugzilla.samba.org/show_bug.cgi?id=12045
 
  -- Mathieu Parent <sathieu@debian.org>  Sat, 10 Sep 2016 21:18:20 +0200
 
