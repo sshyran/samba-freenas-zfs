@@ -1072,7 +1072,7 @@ static const char *shadow_copy_zfs_connectpath(struct vfs_handle_struct *handle,
 			return NULL;
 		}
 
-		ret = SMB_VFS_NEXT_CONNECTPATH(handle, conv);
+		ret = SMB_VFS_NEXT_REALPATH(handle, conv);
 		saved_errno = errno;
 		TALLOC_FREE(conv);
 		errno = saved_errno;
