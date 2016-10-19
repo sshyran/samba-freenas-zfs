@@ -236,7 +236,11 @@ static char *convert_shadow_zfs_name(vfs_handle_struct *handle,
 	    return NULL);
 
 	/* get the snapshot info */
-	snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx, config->dataset_path, config->inclusions, config->exclusions);
+	snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx,
+						   config->dataset_path,
+						   config->inclusions,
+						   config->exclusions);
+
 	if (snapshots == NULL) {
 		talloc_free(tmp_ctx);
 		return NULL;
@@ -523,8 +527,9 @@ static int shadow_copy_zfs_unlink(vfs_handle_struct *handle,
 			return -1;
 		}
 
-		conv->base_name = convert_shadow_zfs_name(handle, smb_fname->base_name,
-					       gmt_start, True);
+		conv->base_name = convert_shadow_zfs_name(handle,
+							  smb_fname->base_name,
+							  gmt_start, True);
 		if (conv == NULL) {
 			return -1;
 		}
@@ -723,34 +728,17 @@ static int shadow_copy_zfs_get_shadow_copy_zfs_data(vfs_handle_struct *handle,
 	    return -1);
 
 	tmp_ctx = talloc_new(config);
+	snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx,
+						   config->dataset_path,
+						   config->inclusions,
+						   config->exclusions);
 
-	/* Get the list of snapshots.
-
-	   The client usually sends two requests for the shadow data, the first
-	   one with labels == False in order to get the number of shadow copies
-	   available, and the second with labels == True. Since we really just
-	   want to serve the same list on the second request we only invalidate
-	   the cache when labels == False.
-
-	   But just to be safe, in case a client always requests labels, we
-	   also limit the max time before we force a reload.
-	 */
-	snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx, config->dataset_path, config->inclusions, config->exclusions);
 	if (snapshots == NULL) {
+		talloc_free(tmp_ctx);
 		return -1;
 	}
 
-	if (labels &&
-	    difftime(time(NULL), snapshots->timestamp) > MAX_CACHE_TIME) {
-		snapshots = shadow_copy_zfs_list_snapshots(tmp_ctx, config->dataset_path, config->inclusions, config->exclusions);
-		if (snapshots == NULL) {
-			return -1;
-		}
-	}
-
 	shadow_copy_zfs_sort_data(handle, snapshots);
-
-	/* copy the info to the output data. Note: data is already sorted */
 	shadow_copy_zfs_data->num_volumes = snapshots->num_entries;
 	shadow_copy_zfs_data->labels = NULL;
 
@@ -1048,13 +1036,15 @@ static int shadow_copy_zfs_get_real_filename(struct vfs_handle_struct *handle,
 			return -1;
 		}
 
-		ret = SMB_VFS_NEXT_GET_REAL_FILENAME(handle, conv, name, mem_ctx, found_name);
+		ret = SMB_VFS_NEXT_GET_REAL_FILENAME(handle, conv, name,
+						     mem_ctx, found_name);
 		saved_errno = errno;
 		TALLOC_FREE(conv);
 		errno = saved_errno;
 		return ret;
 	} else {
-		return SMB_VFS_NEXT_GET_REAL_FILENAME(handle, path, name, mem_ctx, found_name);
+		return SMB_VFS_NEXT_GET_REAL_FILENAME(handle, path, name,
+						      mem_ctx, found_name);
 	}
 }
 
@@ -1177,8 +1167,10 @@ static int shadow_copy_zfs_connect(struct vfs_handle_struct *handle,
 		return -1;
 	}
 
-	config->inclusions =lp_parm_string_list(SNUM(handle->conn), "shadow", "include", empty_list);
-	config->exclusions = lp_parm_string_list(SNUM(handle->conn), "shadow", "exclude", empty_list);
+	config->inclusions = lp_parm_string_list(SNUM(handle->conn), "shadow",
+						"include", empty_list);
+	config->exclusions = lp_parm_string_list(SNUM(handle->conn), "shadow",
+						 "exclude", empty_list);
 
 	DEBUG(10, ("shadow_copy_zfs_connect: configuration:\n"
 		   "  share root: '%s'\n"
