@@ -217,9 +217,7 @@ ifneq (,$(filter winbind, $(shell dh_listpackages)))
 	dh_installinit -pwinbind
 endif
 ifneq (,$(filter ctdb, $(shell dh_listpackages)))
-	# Install /etc/default/ctdb
-	mkdir -p $(CURDIR)/debian/ctdb/etc/default
-	install -m644 ctdb/config/ctdb.sysconfig $(CURDIR)/debian/ctdb/etc/default/ctdb
+	install -m644 ctdb/config/ctdbd.conf $(CURDIR)/debian/ctdb/etc/ctdb/ctdbd.conf
 	# Install /etc/init.d/ctdb
 	mkdir -p $(CURDIR)/debian/ctdb/etc/init.d
 	install -m755 ctdb/config/ctdb.init $(CURDIR)/debian/ctdb/etc/init.d/ctdb
