@@ -118,8 +118,6 @@ endif
 ifeq ($(DEB_HOST_ARCH_OS), kfreebsd)
 	dh_installdocs -pctdb debian/ctdb.README.kfreebsd
 endif
-	#patch doc
-	sed -i 's|/etc/sysconfig/|/etc/default/|' $(CURDIR)/debian/ctdb/usr/share/doc/ctdb/web/*.html
 
 override_dh_install:
 	# get list of files in build log
