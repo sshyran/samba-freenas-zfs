@@ -408,7 +408,7 @@ Description: development files for libsmbclient
 Package: winbind
 Pre-Depends: ${misc:Pre-Depends}
 Architecture: any
-Depends: samba-common (= ${source:Version}), samba-common-bin (=${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Depends: lsb-base (>= 3.0-6), samba-common (= ${source:Version}), samba-common-bin (=${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
 Enhances: libkrb5-26-heimdal
 Replaces: samba-doc (<< 2:4.0.5~), winbind4
 Conflicts: samba-doc (<< 2:4.0.5~)
@@ -523,7 +523,7 @@ Package: ctdb
 Architecture: any
 Multi-Arch: foreign
 Depends: iproute2 [linux-any],
-         lsb-base,
+         lsb-base (>= 3.0-6),
          psmisc,
          sudo,
          tdb-tools,
