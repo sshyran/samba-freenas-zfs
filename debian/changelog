@@ -5,8 +5,9 @@ samba (2:4.4.7+dfsg-1) unstable; urgency=medium
   * CTDB: Fix samba eventscript (upstream #12371).
   * nmbd requires a working network (Closes: #698056, #842056, #840608,
     LP: #1635491).
+  * Be more verbose about masking samba-ad-dc.service (Closes: #841147)
 
- -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 20:49:57 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 21:06:30 +0100
 
 samba (2:4.4.6+dfsg-2) unstable; urgency=high
 
