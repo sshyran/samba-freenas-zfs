@@ -1,9 +1,12 @@
-samba (2:4.4.7+dfsg-1) UNRELEASED; urgency=medium
+samba (2:4.4.7+dfsg-1) unstable; urgency=medium
 
   * New upstream release.
-    - Remove bug_12283_segfault_tevent_internals.patch: included
+    - Remove bug_12283_segfault_tevent_internals.patch: included.
+  * CTDB: Fix samba eventscript (upstream #12371).
+  * nmbd requires a working network (Closes: #698056, #842056, #840608,
+    LP: #1635491).
 
- -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 14:13:17 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 20:49:57 +0100
 
 samba (2:4.4.6+dfsg-2) unstable; urgency=high
 
