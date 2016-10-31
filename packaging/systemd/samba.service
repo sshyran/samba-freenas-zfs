@@ -1,6 +1,7 @@
 [Unit]
 Description=Samba AD Daemon
-After=syslog.target network.target
+Documentation=man:samba(8) man:samba(7) man:smb.conf(5)
+After=network.target
 
 [Service]
 Type=notify
@@ -9,7 +10,7 @@ PIDFile=/run/samba.pid
 LimitNOFILE=16384
 EnvironmentFile=-/etc/sysconfig/samba
 ExecStart=/usr/sbin/samba $SAMBAOPTIONS
-ExecReload=/usr/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=multi-user.target

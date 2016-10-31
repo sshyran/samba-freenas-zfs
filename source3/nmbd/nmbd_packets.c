@@ -1683,8 +1683,6 @@ on subnet %s\n", rrec->response_id, inet_ntoa(rrec->packet->ip), subrec->subnet_
 struct socket_attributes {
 	enum packet_type type;
 	bool broadcast;
-	int fd;
-	bool triggered;
 };
 
 static bool create_listen_array(struct socket_attributes **pattrs,
@@ -1716,7 +1714,7 @@ static bool create_listen_array(struct socket_attributes **pattrs,
 		}
 	}
 
-	attrs = talloc_zero_array(NULL, struct socket_attributes, count);
+	attrs = talloc_array(NULL, struct socket_attributes, count);
 	if (attrs == NULL) {
 		DEBUG(1, ("talloc fail for attrs. "
 			  "size %d\n", count));
@@ -1850,6 +1848,32 @@ static void free_processed_packet_list(struct processed_packet **pp_processed_pa
 		DLIST_REMOVE(*pp_processed_packet_list, p);
 		SAFE_FREE(p);
 	}
+}
+
+/****************************************************************************
+ Timeout callback - just notice we timed out.
+***************************************************************************/
+
+static void nmbd_timeout_handler(struct tevent_context *ev,
+			struct tevent_timer *te,
+			struct timeval current_time,
+			void *private_data)
+{
+	bool *got_timeout = private_data;
+	*got_timeout = true;
+}
+
+/****************************************************************************
+ fd callback - remember the fd that triggered.
+***************************************************************************/
+
+static void nmbd_fd_handler(struct tevent_context *ev,
+				struct tevent_fd *fde,
+				uint16_t flags,
+				void *private_data)
+{
+	struct socket_attributes *attr = private_data;
+	attr->triggered = true;
 }
 
 /****************************************************************************
