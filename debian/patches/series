@@ -16,4 +16,3 @@ Add-documentation-to-systemd-Unit-files.patch
 fix_kill_path_in_units.patch
 CTDB-Fix-samba-eventscript.patch
 nmbd-requires-a-working-network.patch
-Fix_parallel_build.patch
