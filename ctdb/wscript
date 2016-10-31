@@ -230,7 +230,6 @@ def configure(conf):
         conf.DEFINE('SAMBA_UTIL_CORE_ONLY', 1, add_to_cflags=True)
         conf.SAMBA_CONFIG_H()
 
-    conf.CHECK_XSLTPROC_MANPAGES()
     if 'XSLTPROC_MANPAGES' in conf.env and conf.env['XSLTPROC_MANPAGES']:
         conf.env.ctdb_generate_manpages = True
     else:
