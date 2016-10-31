@@ -1,11 +1,15 @@
-samba (2:4.5.1+dfsg-1) UNRELEASED; urgency=medium
+samba (2:4.5.1+dfsg-1) experimental; urgency=medium
 
   * New upstream version
     - Refresh patches
     - Remove bug_12283_segfault_tevent_internals.patch
     - Remove gencache-Bail-out-of-stabilize-if-we-can-not-get-the.patch
+  * CTDB: Fix samba eventscript
+  * nmbd requires a working network (Closes: #698056, #842056, #840608, LP: #1635491)
+  * Be more verbose about masking samba-ad-dc.service (Closes: #841147)
+  * Remove Fix_parallel_build.patch, not working
 
- -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 15:04:27 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 21:25:14 +0100
 
 samba (2:4.5.0+dfsg-1) experimental; urgency=medium
 
