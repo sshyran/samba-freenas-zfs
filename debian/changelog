@@ -1,3 +1,12 @@
+samba (2:4.5.1+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream version
+    - Refresh patches
+    - Remove bug_12283_segfault_tevent_internals.patch
+    - Remove gencache-Bail-out-of-stabilize-if-we-can-not-get-the.patch
+
+ -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 15:04:27 +0100
+
 samba (2:4.5.0+dfsg-1) experimental; urgency=medium
 
   * Upload to experimental
