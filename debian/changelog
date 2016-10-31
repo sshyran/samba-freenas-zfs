@@ -1,3 +1,9 @@
+samba (2:4.4.7+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 14:13:17 +0100
+
 samba (2:4.4.6+dfsg-2) unstable; urgency=high
 
   * Remove uses of tevent internals. This fixes segfault.
