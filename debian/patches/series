@@ -14,4 +14,5 @@ Skip-raw.write-tests.patch
 systemd-syslog.target-is-obsolete.patch
 Add-documentation-to-systemd-Unit-files.patch
 fix_kill_path_in_units.patch
+CTDB-Fix-samba-eventscript.patch
 Fix_parallel_build.patch
