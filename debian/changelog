@@ -9,7 +9,7 @@ samba (2:4.5.1+dfsg-1) experimental; urgency=medium
   * Be more verbose about masking samba-ad-dc.service (Closes: #841147)
   * Remove Fix_parallel_build.patch, not working
 
- -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 21:25:14 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Mon, 31 Oct 2016 21:40:56 +0100
 
 samba (2:4.5.0+dfsg-1) experimental; urgency=medium
 
