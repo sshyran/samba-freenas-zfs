@@ -140,6 +140,7 @@ struct fruit_config_data {
 	bool posix_rename;
 	bool aapl_zero_file_id;
 	const char *model;
+	bool time_machine;
 
 	/*
 	 * Additional options, all enabled by default,
@@ -1889,6 +1890,9 @@ static int init_fruit_config(vfs_handle_struct *handle)
 	config->use_aapl = lp_parm_bool(
 		-1, FRUIT_PARAM_TYPE_NAME, "aapl", true);
 
+	config->time_machine = lp_parm_bool(
+		SNUM(handle->conn), FRUIT_PARAM_TYPE_NAME, "time machine", false);
+
 	config->unix_info_enabled = lp_parm_bool(
 		-1, FRUIT_PARAM_TYPE_NAME, "nfs_aces", true);
 
@@ -2546,6 +2550,10 @@ static NTSTATUS check_aapl(vfs_handle_struct *handle,
 			break;
 		}
 
+		if (config->time_machine) {
+			caps |= SMB2_CRTCTX_AAPL_FULL_SYNC;
+		}
+
 		SBVAL(p, 0, caps);
 
 		ok = data_blob_append(req, &blob, p, 8);
@@ -2964,6 +2972,19 @@ static int fruit_connect(vfs_handle_struct *handle,
 		lp_do_parameter(SNUM(handle->conn),
 				"catia:mappings",
 				fruit_catia_maps);
+	}
+
+	if (config->time_machine) {
+		DBG_NOTICE("Enabling durable handles for Time Machine "
+			   "support on [%s]\n", service);
+		lp_do_parameter(SNUM(handle->conn), "durable handles", "yes");
+		lp_do_parameter(SNUM(handle->conn), "kernel oplocks", "no");
+		lp_do_parameter(SNUM(handle->conn), "kernel share modes", "no");
+		if (!lp_strict_sync(SNUM(handle->conn))) {
+			DBG_WARNING("Time Machine without strict sync is not "
+				    "recommended!\n");
+		}
+		lp_do_parameter(SNUM(handle->conn), "posix locking", "no");
 	}
 
 	return rc;
