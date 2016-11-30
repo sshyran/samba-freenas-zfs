@@ -1694,6 +1694,7 @@ main() {
 
     if conf.CONFIG_SET('HAVE_FREEBSD_SUNACL_H'):
         default_shared_modules.extend(TO_LIST('vfs_zfsacl'))
+        default_shared_modules.extend(TO_LIST('vfs_winmsa'))
 
     if conf.CONFIG_SET('HAVE_DIRFD_DECL'):
         default_shared_modules.extend(TO_LIST('vfs_syncops vfs_dirsort'))
