@@ -170,6 +170,24 @@ build_sam_account(struct samu *sam_pass, const json_t *user)
 	return (true);
 }
 
+static bool
+build_group(GROUP_MAP *map, const json_t *group)
+{
+	if (group == NULL) {
+		DEBUG(5,("build_group: group is NULL\n"));
+		return (false);
+	}
+
+	map->gid = json_integer_value(json_object_get(group, "gid"));
+	map->nt_name = talloc_strdup(map, json_string_value,
+	    json_object_get(group, "name")));
+	map->sid_name_use = SID_NAME_DOM_GRP;
+	sid_compose(&map->sid, get_global_sam_sid(),
+	    algorithmic_pdb_gid_to_group_rid(map->gid));
+
+	return (true);
+}
+
 static NTSTATUS
 freenas_getsampwnam(struct pdb_methods *methods, struct samu *sam_acct,
     const char *username)
@@ -263,6 +281,79 @@ freenas_getsampwsid(struct pdb_methods *methods, struct samu *sam_acct,
 	return (NT_STATUS_OK);
 }
 
+static NTSTATUS
+freenas_getgrnam(struct pdb_methods *methods, GROUP_MAP *map, const char *name)
+{
+	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
+	struct smb_passwd *smb_pw;
+	json_t *result;
+	int ret;
+
+	DEBUG(10, ("getgrnam (freenas): search by name: %s\n", name));
+
+	ret = call_dispatcher("dscached.group.getgrnam", json_pack("[s]", name),
+	    &result);
+
+	if (ret != 0) {
+		DEBUG(0, ("Unable to connect to dscached service.\n"));
+		return (nt_status);
+	}
+
+	if (json_is_null(result))
+		return (nt_status);
+
+	DEBUG(10, ("getgrnam (freenas): found by name: %s\n", name));
+
+	map->methods = methods;
+	if (!build_group(map, result))
+		return (nt_status);
+
+	/* success */
+	return (NT_STATUS_OK);
+}
+
+static NTSTATUS
+freenas_getgrgid(struct pdb_methods *methods, GROUP_MAP *map, gid_t gid)
+{
+	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
+	struct smb_passwd *smb_pw;
+	json_t *result;
+	int ret;
+
+	DEBUG(10, ("getgrgid (freenas): search by gid: %d\n", gid));
+
+	ret = call_dispatcher("dscached.group.getgrgid", json_pack("[i]", gid),
+	    &result);
+
+	if (ret != 0) {
+		DEBUG(0, ("Unable to connect to dscached service.\n"));
+		return (nt_status);
+	}
+
+	if (json_is_null(result))
+		return (nt_status);
+
+	DEBUG(10, ("getgrgid (freenas): found by gid: %d\n", gid));
+
+	map->methods = methods;
+	if (!build_group(map, result))
+		return (nt_status);
+
+	/* success */
+	return (NT_STATUS_OK);
+}
+
+static NTSTATUS
+freenas_getgrsid(struct pdb_methods *methods, GROUP_MAP *map,
+    struct dom_sid sid)
+{
+	uint32_t rid;
+
+	if (!sid_peek_check_rid(get_global_sam_sid(), &sid, &rid))
+		return (NT_STATUS_UNSUCCESSFUL);
+
+	return freenas_getgrgid(methods, map, pdb_group_rid_to_gid(rid));
+}
 
 static uint32_t
 freenas_capabilities(struct pdb_methods *methods)
@@ -419,6 +510,9 @@ pdb_init_freenas(struct pdb_methods **pdb_method, const char *location)
 	(*pdb_method)->name = "freenas";
 	(*pdb_method)->getsampwnam = freenas_getsampwnam;
 	(*pdb_method)->getsampwsid = freenas_getsampwsid;
+	(*pdb_method)->getgrnam = freenas_getgrnam;
+	(*pdb_method)->getgrgid = freenas_getgrgid;
+	(*pdb_method)->getgrsid = freenas_getgrsid;
 	(*pdb_method)->search_users = freenas_search_users;
 	(*pdb_method)->search_groups = freenas_search_groups;
 	(*pdb_method)->capabilities = freenas_capabilities;
