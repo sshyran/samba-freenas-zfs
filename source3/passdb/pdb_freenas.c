@@ -179,7 +179,7 @@ build_group(GROUP_MAP *map, const json_t *group)
 	}
 
 	map->gid = json_integer_value(json_object_get(group, "gid"));
-	map->nt_name = talloc_strdup(map, json_string_value,
+	map->nt_name = talloc_strdup(map, json_string_value(
 	    json_object_get(group, "name")));
 	map->sid_name_use = SID_NAME_DOM_GRP;
 	sid_compose(&map->sid, get_global_sam_sid(),
