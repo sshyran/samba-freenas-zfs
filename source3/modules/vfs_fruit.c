@@ -110,7 +110,7 @@ static struct global_fruit_config {
  * This is hokey, but what else can we do?
  */
 #define NETATALK_META_XATTR "org.netatalk.Metadata"
-#if defined(HAVE_ATTROPEN) || defined(FREEBSD)
+#ifdef HAVE_ATTROPEN
 #define AFPINFO_EA_NETATALK NETATALK_META_XATTR
 #define AFPRESOURCE_EA_NETATALK "org.netatalk.ResourceFork"
 #else
