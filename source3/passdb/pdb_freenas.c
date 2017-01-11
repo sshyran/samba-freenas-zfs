@@ -200,7 +200,7 @@ freenas_getsampwnam(struct pdb_methods *methods, struct samu *sam_acct,
 	DEBUG(10, ("getsampwnam (freenas): search by name: %s\n", username));
 
 	ret = call_dispatcher("dscached.account.getpwnam",
-	    json_pack("[s]", username), &result);
+	    json_pack("[sb]", username, true), &result);
 
 	if (ret != 0) {
 		DEBUG(0, ("Unable to connect to dscached service.\n"));
@@ -248,7 +248,8 @@ freenas_getsampwsid(struct pdb_methods *methods, struct samu *sam_acct,
 	}
 
 	ret = call_dispatcher("dscached.account.getpwuid",
-	    json_pack("[i]", algorithmic_pdb_user_rid_to_uid(rid)), &result);
+	    json_pack("[ib]", algorithmic_pdb_user_rid_to_uid(rid), true),
+	    &result);
 
 	if (ret != 0) {
 		DEBUG(0, ("Unable to connect to dscached service.\n"));
@@ -291,7 +292,8 @@ freenas_getgrnam(struct pdb_methods *methods, GROUP_MAP *map, const char *name)
 
 	DEBUG(10, ("getgrnam (freenas): search by name: %s\n", name));
 
-	ret = call_dispatcher("dscached.group.getgrnam", json_pack("[s]", name),
+	ret = call_dispatcher("dscached.group.getgrnam",
+	    json_pack("[sb]", name, true),
 	    &result);
 
 	if (ret != 0) {
@@ -322,7 +324,8 @@ freenas_getgrgid(struct pdb_methods *methods, GROUP_MAP *map, gid_t gid)
 
 	DEBUG(10, ("getgrgid (freenas): search by gid: %d\n", gid));
 
-	ret = call_dispatcher("dscached.group.getgrgid", json_pack("[i]", gid),
+	ret = call_dispatcher("dscached.group.getgrgid",
+	    json_pack("[ib]", gid, true),
 	    &result);
 
 	if (ret != 0) {
@@ -442,8 +445,10 @@ freenas_search_users(struct pdb_methods *methods, struct pdb_search *search,
 	connection_t *conn;
 	int ret;
 
-	call = call_dispatcher_stream("dscached.account.query", json_array(),
+	call = call_dispatcher_stream("dscached.account.query",
+	    json_pack("[[][]b]", true),
 	    &result, &conn);
+
 	if (call == NULL) {
 		DEBUG(10, ("Unable to contact dscached service.\n"));
 		return (false);
@@ -475,8 +480,10 @@ freenas_search_groups(struct pdb_methods *methods, struct pdb_search *search)
 	connection_t *conn;
 	int ret;
 
-	call = call_dispatcher_stream("dscached.group.query", json_array(),
+	call = call_dispatcher_stream("dscached.group.query",
+	    json_pack("[[][]b]", true),
 	    &result, &conn);
+
 	if (call == NULL) {
 		DEBUG(10, ("Unable to contact dscached service.\n"));
 		return (false);
