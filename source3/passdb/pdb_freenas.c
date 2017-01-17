@@ -49,7 +49,7 @@ static int
 call_dispatcher(const char *method, json_t *args, json_t **result)
 {
 	connection_t *conn;
-	int err, rpc_err;
+	int err;
 
 	conn = dispatcher_open("unix:///var/run/dscached.sock");
 	if (conn == NULL) {
@@ -58,20 +58,6 @@ call_dispatcher(const char *method, json_t *args, json_t **result)
 	}
 
 	err = dispatcher_call_sync(conn, method, args, result);
-
-	if (err == RPC_CALL_ERROR) {
-		/* Handle the ENOENT case gracefully */
-		rpc_err = json_integer_value(json_object_get(*result, "code"));
-		if (rpc_err == ENOENT) {
-			*result = json_null();
-			dispatcher_close(conn);
-			return (0);
-		}
-
-		DEBUG(0, ("RPC %s error: <%d> %s\n", method, rpc_err,
-		    json_string_value(json_object_get(*result, "message"))));
-	}
-
 	if (err != RPC_CALL_DONE) {
 		DEBUG(0, ("Cannot call %s: %d.\n", method, err));
 		dispatcher_close(conn);
