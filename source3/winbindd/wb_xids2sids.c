@@ -117,11 +117,6 @@ static void wb_xids2sids_init_dom_maps(void)
 	}
 
 	/*
-	 * No, don't put the passdb domain first. It makes winbind query
-	 * pdb_freenas for AD xids which creates a dependency loop.
-	 */
-#if 0
-	/*
 	 * Put the passdb idmap domain first. We always need to try
 	 * there first.
 	 */
@@ -137,7 +132,6 @@ static void wb_xids2sids_init_dom_maps(void)
 		TALLOC_FREE(dom_maps);
 		return;
 	}
-#endif
 
 	lp_scan_idmap_domains(wb_xids2sids_add_dom, NULL);
 }
