@@ -49,9 +49,15 @@ call_dispatcher(const char *method, json_t *args, json_t **result)
 	connection_t *conn;
 	int err;
 
-	conn = dispatcher_open("unix:///var/run/dscached.sock");
+	conn = dispatcher_open("unix");
 	if (conn == NULL) {
 		DEBUG(0, ("Cannot open unix domain socket connection.\n"));
+		return (-1);
+	}
+
+	if (dispatcher_login_service(conn, "pdb-freenas") < 0) {
+		DEBUG(0, ("Cannot log in as pdb-freenas.\n"));
+		dispatcher_close(conn);
 		return (-1);
 	}
 
