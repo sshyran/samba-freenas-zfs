@@ -1,13 +1,11 @@
 /*
- * shadow_copy_zfs: a shadow copy module for ZFS
+ * shadow_copy_zfs: a shadow copy module (second implementation)
  *
  * Copyright (C) Andrew Tridgell   2007 (portions taken from shadow_copy_zfs)
  * Copyright (C) Ed Plese          2009
  * Copyright (C) Volker Lendecke   2011
  * Copyright (C) Christian Ambach  2011
  * Copyright (C) Michael Adam      2013
- * Copyright (C) XStor Systems Inc 2011
- * Copyright (C) iXsystems Inc     2016
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +20,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
+/*
+ * This is a second implemetation of a shadow copy module for exposing
+ * file system snapshots to windows clients as shadow copies.
+ *
+ * See the manual page for documentation.
  */
 
 #include "includes.h"
