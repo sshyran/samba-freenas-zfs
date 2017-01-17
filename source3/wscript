@@ -77,7 +77,6 @@ def set_options(opt):
                   action="store_true", dest='enable_vxfs', default=False)
 
     opt.SAMBA3_ADD_OPTION('spotlight', with_name="enable", without_name="disable", default=False)
-    opt.SAMBA3_ADD_OPTION('freenas')
 
 def configure(conf):
     from samba_utils import TO_LIST
@@ -1673,12 +1672,6 @@ main() {
         default_static_modules.extend(TO_LIST('rpc_mdssvc_module'))
 
     forced_static_modules.extend(TO_LIST('auth_domain auth_builtin auth_sam auth_winbind'))
-
-    if Options.options.with_freenas:
-        conf.CHECK_LIB('dispatcherclient', shlib=True)
-        conf.CHECK_LIB('jansson', shlib=True)
-        default_shared_modules.extend(TO_LIST('pdb_freenas'))
-
     default_static_modules.extend(TO_LIST('''pdb_smbpasswd pdb_tdbsam pdb_wbc_sam
                                       auth_unix auth_wbc
                                       nss_info_template idmap_tdb idmap_passdb
