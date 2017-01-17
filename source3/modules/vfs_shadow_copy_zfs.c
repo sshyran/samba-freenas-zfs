@@ -494,6 +494,8 @@ static int shadow_copy_zfs_open(vfs_handle_struct *handle,
 		smb_fname->base_name = convert_shadow_zfs_name(
 		    handle, smb_fname->base_name, gmt_start, True);
 
+		DEBUG(1, ("Converted name: %s\n", smb_fname->base_name));
+
 		if (smb_fname->base_name == NULL) {
 			smb_fname->base_name = tmp;
 			return -1;
@@ -803,11 +805,15 @@ static NTSTATUS shadow_copy_zfs_get_nt_acl(vfs_handle_struct *handle,
 	const char *gmt_start;
 	char *conv;
 
+	DEBUG(1, ("fname: %s\n", fname));
+
 	if (shadow_copy_zfs_match_name(fname, &gmt_start)) {
 		conv = convert_shadow_zfs_name(handle, fname, gmt_start, True);
 		if (conv == NULL) {
 			return map_nt_error_from_unix(errno);
 		}
+
+		DEBUG(1, ("converted name: %s\n", conv));
 
 		ret = SMB_VFS_NEXT_GET_NT_ACL(handle, conv, security_info,
 					      mem_ctx, ppdesc);
