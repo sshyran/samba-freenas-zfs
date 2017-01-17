@@ -39,8 +39,6 @@
 
 struct freenas_search_state
 {
-	connection_t *conn;
-	rpc_call_t *call;
 	json_t *users;
 	size_t position;
 };
@@ -69,29 +67,6 @@ call_dispatcher(const char *method, json_t *args, json_t **result)
 	return (0);
 }
 
-static rpc_call_t *
-call_dispatcher_stream(const char *method, json_t *args, json_t **result,
-    connection_t **connp)
-{
-	struct timespec ts;
-	connection_t *conn;
-	rpc_call_t *call;
-
-	conn = dispatcher_open("unix:///var/run/dscached.sock");
-	if (conn == NULL)
-		return (NULL);
-
-	call = dispatcher_call_sync_ex(conn, method, args);
-	if (call == NULL) {
-		dispatcher_close(conn);
-		return (NULL);
-	}
-
-	*result = rpc_call_result(call);
-	*connp = conn;
-	return (call);
-}
-
 static bool
 build_sam_account(struct samu *sam_pass, const json_t *user)
 {
@@ -114,9 +89,6 @@ build_sam_account(struct samu *sam_pass, const json_t *user)
 	pwd->pw_passwd = json_string_value(json_object_get(user, "unixhash"));
 	pwd->pw_shell = json_string_value(json_object_get(user, "shell"));
 	pwd->pw_dir = json_string_value(json_object_get(user, "home"));
-
-	if (pwd->pw_passwd == NULL)
-		pwd->pw_passwd = "*";
 
 	if (!NT_STATUS_IS_OK(samu_set_unix(sam_pass, pwd))) {
 		free(pwd);
@@ -272,16 +244,8 @@ freenas_search_next_entry(struct pdb_search *search,
 	    search->private_data, struct freenas_search_state);
 	json_t *user;
 
-	if (state->position >= json_array_size(state->users)) {
-		if (rpc_call_continue(state->call, true) != RPC_CALL_MORE_AVAILABLE) {
-			rpc_call_free(state->call);
-			dispatcher_close(state->conn);
-			return (false);
-		}
-
-		state->users = rpc_call_result(state->call);
-		state->position = 0;
-	}
+	if (state->position >= json_array_size(state->users))
+		return (false);
 
 	user = json_array_get(state->users, state->position);
 
@@ -309,13 +273,11 @@ freenas_search_users(struct pdb_methods *methods, struct pdb_search *search,
 {
 	struct freenas_search_state *search_state;
 	json_t *result;
-	rpc_call_t *call;
-	connection_t *conn;
 	int ret;
 
-	call = call_dispatcher_stream("dscached.account.query", json_array(),
-	    &result, &conn);
-	if (call == NULL) {
+	ret = call_dispatcher("dscached.account.query", json_array(), &result);
+
+	if (ret != 0) {
 		DEBUG(10, ("Unable to contact dscached service.\n"));
 		return (false);
 	}
@@ -326,8 +288,6 @@ freenas_search_users(struct pdb_methods *methods, struct pdb_search *search,
 		return (false);
 	}
 
-	search_state->conn = conn;
-	search_state->call = call;
 	search_state->users = result;
 	search_state->position = 0;
 	search->private_data = search_state;
