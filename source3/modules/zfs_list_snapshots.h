@@ -1,8 +1,11 @@
 /*
- * shadow_copy_zfs: a shadow copy module for ZFS
+ * shadow_copy_zfs: a shadow copy module (second implementation)
  *
- * Copyright (C) XStor Systems Inc 2011
- * Copyright (C) iXsystems Inc     2016
+ * Copyright (C) Andrew Tridgell   2007 (portions taken from shadow_copy_zfs)
+ * Copyright (C) Ed Plese          2009
+ * Copyright (C) Volker Lendecke   2011
+ * Copyright (C) Christian Ambach  2011
+ * Copyright (C) Michael Adam      2013
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
