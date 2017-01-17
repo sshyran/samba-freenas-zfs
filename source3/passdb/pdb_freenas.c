@@ -39,7 +39,6 @@
 
 struct freenas_search_state
 {
-	void (*callback)(json_t *, struct samr_displayentry *, TALLOC_CTX *);
 	connection_t *conn;
 	rpc_call_t *call;
 	json_t *users;
@@ -271,35 +270,6 @@ freenas_capabilities(struct pdb_methods *methods)
 }
 
 static void
-freenas_convert_user(json_t *user, struct samr_displayentry *entry,
-    TALLOC_CTX *ctx)
-{
-
-	entry->rid = algorithmic_pdb_uid_to_user_rid(json_integer_value(
-	    json_object_get(user, "uid")));
-	entry->acct_flags = ACB_NORMAL;
-	entry->account_name = talloc_strdup(ctx, json_string_value(
-	    json_object_get(user, "username")));
-	entry->fullname = talloc_strdup(ctx, json_string_value(
-	    json_object_get(user, "full_name")));
-	entry->description = talloc_strdup(ctx, "description");
-}
-
-static void
-freenas_convert_group(json_t *group, struct samr_displayentry *entry,
-    TALLOC_CTX *ctx)
-{
-
-	entry->rid = algorithmic_pdb_gid_to_group_rid(json_integer_value(
-	    json_object_get(group, "gid")));
-	entry->account_name = talloc_strdup(ctx, json_string_value(
-	    json_object_get(group, "name")));
-	entry->fullname = talloc_strdup(ctx, json_string_value(
-	    json_object_get(group, "name")));
-	entry->description = talloc_strdup(ctx, "description");
-}
-
-static void
 freenas_search_end(struct pdb_search *search)
 {
 	struct freenas_search_state *state = talloc_get_type_abort(
@@ -314,7 +284,7 @@ freenas_search_next_entry(struct pdb_search *search,
 {
 	struct freenas_search_state *state = talloc_get_type_abort(
 	    search->private_data, struct freenas_search_state);
-	json_t *item;
+	json_t *user;
 
 	if (state->position >= json_array_size(state->users)) {
 		if (rpc_call_continue(state->call, true) != RPC_CALL_MORE_AVAILABLE) {
@@ -327,10 +297,16 @@ freenas_search_next_entry(struct pdb_search *search,
 		state->position = 0;
 	}
 
-	item = json_array_get(state->users, state->position);
+	user = json_array_get(state->users, state->position);
 
 	entry->idx = state->position;
-	state->callback(item, entry, search);
+	entry->rid = algorithmic_pdb_uid_to_user_rid(json_integer_value(
+	    json_object_get(user, "uid")));
+	entry->acct_flags = ACB_NORMAL;
+	entry->account_name = talloc_strdup(search, json_string_value(
+	    json_object_get(user, "username")));
+	entry->fullname = talloc_strdup(search, json_string_value(
+	    json_object_get(user, "full_name")));
 
 	if (entry->account_name == NULL) {
 		DEBUG(0, ("talloc_strdup failed\n"));
@@ -368,40 +344,6 @@ freenas_search_users(struct pdb_methods *methods, struct pdb_search *search,
 	search_state->call = call;
 	search_state->users = result;
 	search_state->position = 0;
-	search_state->callback = freenas_convert_user;
-	search->private_data = search_state;
-	search->next_entry = freenas_search_next_entry;
-	search->search_end = freenas_search_end;
-	return (true);
-}
-
-static bool
-freenas_search_groups(struct pdb_methods *methods, struct pdb_search *search)
-{
-	struct freenas_search_state *search_state;
-	json_t *result;
-	rpc_call_t *call;
-	connection_t *conn;
-	int ret;
-
-	call = call_dispatcher_stream("dscached.group.query", json_array(),
-	    &result, &conn);
-	if (call == NULL) {
-		DEBUG(10, ("Unable to contact dscached service.\n"));
-		return (false);
-	}
-
-	search_state = talloc_zero(search, struct freenas_search_state);
-	if (search_state == NULL) {
-		DEBUG(0, ("talloc failed\n"));
-		return (false);
-	}
-
-	search_state->conn = conn;
-	search_state->call = call;
-	search_state->users = result;
-	search_state->position = 0;
-	search_state->callback = freenas_convert_group;
 	search->private_data = search_state;
 	search->next_entry = freenas_search_next_entry;
 	search->search_end = freenas_search_end;
@@ -420,7 +362,6 @@ pdb_init_freenas(struct pdb_methods **pdb_method, const char *location)
 	(*pdb_method)->getsampwnam = freenas_getsampwnam;
 	(*pdb_method)->getsampwsid = freenas_getsampwsid;
 	(*pdb_method)->search_users = freenas_search_users;
-	(*pdb_method)->search_groups = freenas_search_groups;
 	(*pdb_method)->capabilities = freenas_capabilities;
 	(*pdb_method)->private_data = NULL;
 
