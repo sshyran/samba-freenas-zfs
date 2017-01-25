@@ -11,6 +11,7 @@ Homepage: http://www.samba.org
 Standards-Version: 3.9.8
 Build-Depends: bison,
                debhelper (>> 9),
+               dh-python,
                dh-systemd (>= 1.5),
                docbook-xml,
                docbook-xsl,
