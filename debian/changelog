@@ -1,3 +1,13 @@
+samba (2:4.5.4+dfsg-2) UNRELEASED; urgency=medium
+
+  * Fix 'winbindd privileged socket directory' (Closes: #754339):
+    - Fix path from /var/run/samba/winbindd_privileged/ to
+      /var/lib/samba/winbindd_privileged/.
+    - Move mkdir+chgrp+chmod to postinst (to handle systemd also).
+    - Thanks to Jim Barber for the report.
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 26 Jan 2017 23:00:10 +0100
+
 samba (2:4.5.4+dfsg-1) unstable; urgency=medium
 
   [ Mathieu Parent ]
