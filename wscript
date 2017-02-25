@@ -66,7 +66,7 @@ def set_options(opt):
                    action='store_true', dest='with_libzfs', default=False)
 
     opt.add_option('--without-libzfs',
-                   help='enable libZFS support',
+                   help='disable libZFS support',
                    action='store_false', dest='with_libzfs', default=True)
 
     opt.add_option('--without-ad-dc',
