@@ -5,8 +5,10 @@ samba (2:4.5.4+dfsg-2) UNRELEASED; urgency=medium
       /var/lib/samba/winbindd_privileged/.
     - Move mkdir+chgrp+chmod to postinst (to handle systemd also).
     - Thanks to Jim Barber for the report.
+  * logrotate: Use delaycompress on all logs (Closes: #702201)
+    - Thanks to Matthew Gabeler-Lee for the proposed fix.
 
- -- Mathieu Parent <sathieu@debian.org>  Thu, 26 Jan 2017 23:00:10 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Sun, 05 Mar 2017 23:12:25 +0100
 
 samba (2:4.5.4+dfsg-1) unstable; urgency=medium
 
