@@ -49,6 +49,7 @@
 #include <sched.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <signal.h>
 #include <errno.h>
 #include <stdbool.h>
 
@@ -118,6 +119,7 @@ again:
 
 int main(int argc, const char **argv)
 {
+#if 0
 	pthread_mutexattr_t ma;
 	pthread_mutex_t *mutex;
 	int fd, ret, i;
@@ -257,5 +259,6 @@ int main(int argc, const char **argv)
 
 	close(fd);
 	unlink(argv[1]);
+#endif
 	exit(0);
 }
