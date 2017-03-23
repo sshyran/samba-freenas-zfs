@@ -292,7 +292,7 @@ int main(int argc, const char **argv)
 				exit (EXIT_FAILURE);
 			}
 		} else if (ret == EBUSY) {
-			printf("INFO: pid=%u\n", mutex->__data.__owner);
+			/* printf("pid=%u\n", mutex->__data.__owner); */
 		} else if (ret == 0) {
 			pthread_mutex_unlock(mutex);
 		}
