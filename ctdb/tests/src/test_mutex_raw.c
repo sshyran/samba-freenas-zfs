@@ -167,7 +167,7 @@ int main(int argc, const char **argv)
 				pthread_mutex_unlock(mutex);
 			}
 		} else if (ret == EBUSY) {
-			printf("pid=%u\n", mutex->__data.__owner);
+			/* printf("pid=%u\n", mutex->__data.__owner); */
 		} else if (ret == 0) {
 			pthread_mutex_unlock(mutex);
 		}
