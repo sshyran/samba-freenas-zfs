@@ -1869,6 +1869,10 @@ sub provision($$$$$$$$)
 	copy = tmp
 	acl_xattr:ignore system acls = yes
 	acl_xattr:default acl style = windows
+[nosymlinks]
+	copy = tmp
+	path = $nosymlinks_shrdir
+	follow symlinks = no
 [kernel_oplocks]
 	copy = tmp
 	kernel oplocks = yes
