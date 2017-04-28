@@ -237,6 +237,7 @@ class cmd_domain_provision(Command):
          Option("--ol-mmr-urls", type="string", metavar="LDAPSERVER",
                 help="List of LDAP-URLS [ ldap://<FQHN>:<PORT>/  (where <PORT> has to be different than 389!) ] separated with comma (\",\") for use with OpenLDAP-MMR (Multi-Master-Replication), e.g.: \"ldap://s4dc1:9000,ldap://s4dc2:9000\""),
          Option("--use-rfc2307", action="store_true", help="Use AD to store posix attributes (default = no)"),
+         Option("--skip-sysvolacl", action="store_true", help="Skip setting ACL on sysvol (default = no)"),
         ]
 
     openldap_options = [
@@ -302,6 +303,7 @@ class cmd_domain_provision(Command):
             slapd_path=None,
             use_ntvfs=False,
             use_rfc2307=None,
+            skip_sysvolacl=None,
             ldap_backend_nosync=None,
             ldap_backend_extra_port=None,
             ldap_backend_forced_uri=None,
@@ -465,7 +467,7 @@ class cmd_domain_provision(Command):
                   backend_type=ldap_backend_type,
                   ldapadminpass=ldapadminpass, ol_mmr_urls=ol_mmr_urls, slapd_path=slapd_path,
                   useeadb=eadb, next_rid=next_rid, lp=lp, use_ntvfs=use_ntvfs,
-                  use_rfc2307=use_rfc2307, skip_sysvolacl=False,
+                  use_rfc2307=use_rfc2307, skip_sysvolacl=skip_sysvolacl,
                   ldap_backend_extra_port=ldap_backend_extra_port,
                   ldap_backend_forced_uri=ldap_backend_forced_uri,
                   nosync=ldap_backend_nosync, ldap_dryrun_mode=ldap_dryrun_mode)
