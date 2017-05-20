@@ -1610,19 +1610,22 @@ def setsysvolacl(samdb, netlogon, sysvol, uid, gid, domainsid, dnsdomain,
         s3conf = s3param.get_context()
         s3conf.load(lp.configfile)
 
-        file = tempfile.NamedTemporaryFile(dir=os.path.abspath(sysvol))
+        sysvol_dir = os.path.abspath(sysvol)
+        if smbd.has_posix_acls(sysvol_dir):
+            set_simple_acl = smbd.set_simple_acl
+        elif smbd.has_nfsv4_acls(sysvol_dir):
+            set_simple_acl = smbd.set_simple_nfsv4_acl
+
+        file = tempfile.NamedTemporaryFile(dir=sysvol_dir)
         try:
             try:
-                smbd.set_simple_acl(file.name, 0755, gid)
+                set_simple_acl(file.name, 0755, gid)
             except OSError:
-                if not smbd.have_posix_acls():
-                    # This clue is only strictly correct for RPM and
-                    # Debian-like Linux systems, but hopefully other users
-                    # will get enough clue from it.
-                    raise ProvisioningError("Samba was compiled without the posix ACL support that s3fs requires.  "
+                print "OSERROR OCCURED AFTER SETTING ACL"
+                if not smbd.have_posix_acls() and not smbd.have_nfsv4_acls():
+                    raise ProvisioningError("Samba was compiled without the ACL support that s3fs requires.  "
                                             "Try installing libacl1-dev or libacl-devel, then re-run configure and make.")
-
-                raise ProvisioningError("Your filesystem or build does not support posix ACLs, which s3fs requires.  "
+                raise ProvisioningError("Your filesystem or build does not support ACLs, which s3fs requires.  "
                                         "Try the mounting the filesystem with the 'acl' option.")
             try:
                 smbd.chown(file.name, uid, gid)
@@ -1875,6 +1878,9 @@ def provision_fill(samdb, secrets_ldb, logger, names, paths,
         samdb.transaction_commit()
 
     if serverrole == "active directory domain controller":
+        if smbd.have_nfsv4_acls() and smbd.has_nfsv4_acls(targetdir):
+            smbd.set_nfsv4_defaults()
+
         # Continue setting up sysvol for GPO. This appears to require being
         # outside a transaction.
         if not skip_sysvolacl:
