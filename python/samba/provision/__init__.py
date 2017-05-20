@@ -1635,9 +1635,9 @@ def setsysvolacl(samdb, netlogon, sysvol, uid, gid, domainsid, dnsdomain,
         s3conf.load(lp.configfile)
 
         sysvol_dir = os.path.abspath(sysvol)
-        if smbd.has_posix_acls(sysvol_dir):
-            set_simple_acl = smbd.set_simple_acl
-        elif smbd.has_nfsv4_acls(sysvol_dir):
+
+        set_simple_acl = smbd.set_simple_acl
+        if smbd.has_nfsv4_acls(sysvol_dir):
             set_simple_acl = smbd.set_simple_nfsv4_acl
 
         file = tempfile.NamedTemporaryFile(dir=sysvol_dir)
@@ -2297,6 +2297,9 @@ def provision(logger, session_info, smbconf=None,
 
             if not os.path.isdir(paths.netlogon):
                 os.makedirs(paths.netlogon, 0o755)
+
+            if smbd.have_nfsv4_acls() and smbd.has_nfsv4_acls(paths.sysvol):
+                smbd.set_nfsv4_defaults()
 
         if adminpass is None:
             adminpass = samba.generate_random_password(12, 32)
