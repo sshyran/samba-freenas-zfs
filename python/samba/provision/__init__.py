@@ -1621,7 +1621,6 @@ def setsysvolacl(samdb, netlogon, sysvol, uid, gid, domainsid, dnsdomain,
             try:
                 set_simple_acl(file.name, 0755, gid)
             except OSError:
-                print "OSERROR OCCURED AFTER SETTING ACL"
                 if not smbd.have_posix_acls() and not smbd.have_nfsv4_acls():
                     raise ProvisioningError("Samba was compiled without the ACL support that s3fs requires.  "
                                             "Try installing libacl1-dev or libacl-devel, then re-run configure and make.")
@@ -1878,7 +1877,7 @@ def provision_fill(samdb, secrets_ldb, logger, names, paths,
         samdb.transaction_commit()
 
     if serverrole == "active directory domain controller":
-        if smbd.have_nfsv4_acls() and smbd.has_nfsv4_acls(targetdir):
+        if targetdir and smbd.have_nfsv4_acls() and smbd.has_nfsv4_acls(targetdir):
             smbd.set_nfsv4_defaults()
 
         # Continue setting up sysvol for GPO. This appears to require being
