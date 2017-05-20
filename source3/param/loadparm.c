@@ -2746,6 +2746,13 @@ static void init_locals(void)
 			} else if (lp_parm_const_string(-1, "posix", "eadb", NULL)) {
 				lp_do_parameter(-1, "vfs objects", "dfs_samba4 acl_xattr posix_eadb");
 			} else {
+				/*
+				 * This should only set dfs_samba4 and leave acl_xattr
+				 * to be set later (or zfsacl). The only reason the decision
+				 * can't be made here to load acl_xattr or zfsacl is
+				 * that we don't have access to what the target
+				 * directory is.
+				 */
 				lp_do_parameter(-1, "vfs objects", "dfs_samba4 acl_xattr");
 			}
 		}
