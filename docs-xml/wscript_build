@@ -18,6 +18,7 @@ manpages='''
          manpages/idmap_script.8
          manpages/idmap_tdb.8
          manpages/idmap_tdb2.8
+         manpages/mvxattr.1
          manpages/net.8
          manpages/nmbd.8
          manpages/nmblookup.1
@@ -133,7 +134,7 @@ def SMBDOTCONF_MANPAGE(bld, target):
 
 if ('XSLTPROC_MANPAGES' in bld.env and bld.env['XSLTPROC_MANPAGES']):
 
-    #SMBDOTCONF_MANPAGE(bld, 'manpages/smb.conf.5')
+    SMBDOTCONF_MANPAGE(bld, 'manpages/smb.conf.5')
     bld.SAMBAMANPAGES(manpages)
 
     if bld.CONFIG_SET('WITH_PAM_MODULES') and bld.CONFIG_SET('HAVE_PAM_START'):
