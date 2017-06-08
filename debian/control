@@ -153,7 +153,6 @@ Depends: samba-common (= ${source:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
 Pre-Depends: dpkg (>= 1.15.6~)
-Replaces: smbget
 Provides: samba-client
 Suggests: cifs-utils, heimdal-clients
 Description: command-line SMB/CIFS clients for Unix
