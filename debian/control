@@ -84,8 +84,7 @@ Suggests: bind9 (>= 1:9.5.1),
           ufw
 Enhances: bind9, ntp
 Breaks: qtsmbstatus-server (<< 2.2.1-3~)
-Replaces: libsamdb0 (<< 4.0.0~alpha17~),
-          python-samba (<< 2:4.1.4+dfsg-3),
+Replaces: python-samba (<< 2:4.1.4+dfsg-3),
           samba-ad-dc,
           samba-common (<= 2.0.5a-2),
           samba-doc (<< 2:4.0.5~),
@@ -95,8 +94,7 @@ Conflicts: libldb1 (<< 1:1.1.15),
            samba (<< 2:3.3.0~rc2-5),
            samba-ad-dc,
            samba-doc (<< 2:4.0.5~),
-           samba-tools,
-           samba4 (<< 4.0.0~alpha6-2)
+           samba-tools
 Description: SMB/CIFS file, print, and login server for Unix
  Samba is an implementation of the SMB/CIFS protocol for Unix systems,
  providing support for cross-platform file and printer sharing with
@@ -172,9 +170,8 @@ Multi-Arch: foreign
 Pre-Depends: dpkg (>= 1.15.6~), ${misc:Pre-Depends}
 Depends: ucf, ${misc:Depends}
 Replaces: samba (<< 3.0.20b-1),
-          samba-doc (<< 2:4.0.5~),
-          samba4-common (<< 4.0.0~alpha7-1)
-Conflicts: samba-doc (<< 2:4.0.5~), samba4-common (<< 4.0.0~alpha7-1), swat
+          samba-doc (<< 2:4.0.5~)
+Conflicts: samba-doc (<< 2:4.0.5~), swat
 Recommends: samba-common-bin
 Description: common files used by both the Samba server and client
  Samba is an implementation of the SMB/CIFS protocol for Unix systems,
@@ -197,7 +194,6 @@ Conflicts: samba (<< 2:3.3.0~rc2-5),
 Replaces: python-samba (<< 2:4.0.6~),
           samba-common (<< 2:3.4.0~pre2-1),
           samba-doc (<< 2:4.0.5~),
-          samba4-common (<< 4.0.0~alpha7-1),
           samba4-common-bin
 Suggests: heimdal-clients
 Description: Samba common files used by both the server and the client
@@ -353,8 +349,7 @@ Description: Python bindings for Samba
 
 Package: samba-dsdb-modules
 Architecture: any
-Replaces: libgensec0 (<< 4.0.0~alpha17~git20110724.dfsg1-1),
-          samba-libs (<< 2:4.1.9+dfsg-2)
+Replaces: samba-libs (<< 2:4.1.9+dfsg-2)
 Breaks: samba-libs (<< 2:4.1.9+dfsg-2)
 Section: libs
 Depends: libgpgme11, ${misc:Depends}, ${shlibs:Depends}, ${ldb:Depends}, samba-libs (= ${binary:Version})
