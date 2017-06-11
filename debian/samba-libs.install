@@ -11,7 +11,7 @@ usr/lib/*/libsamba-credentials.so.0*
 usr/lib/*/libsamba-errors.so.*
 usr/lib/*/libsamba-hostconfig.so.*
 usr/lib/*/libsamba-passdb.so.0
-usr/lib/*/libsamba-passdb.so.0.25.0
+usr/lib/*/libsamba-passdb.so.0.26.0
 usr/lib/*/libsamba-policy.so.*
 usr/lib/*/libsamba-util.so.*
 usr/lib/*/libsamdb.so.*
@@ -116,7 +116,6 @@ usr/lib/*/samba/libsmbd-conn.so.0
 usr/lib/*/samba/libsmbd-shim.so.0
 usr/lib/*/samba/libsmbldaphelper.so.*
 usr/lib/*/samba/libsmbpasswdparser.so.*
-usr/lib/*/samba/libsmbregistry.so.*
 usr/lib/*/samba/libsocket-blocking.so.0
 usr/lib/*/samba/libsys-rw.so.0
 usr/lib/*/samba/libtalloc-report.so.0

@@ -77,7 +77,6 @@ usr/include/samba-4.0/util/tevent_ntstatus.h
 usr/include/samba-4.0/util/tevent_unix.h
 usr/include/samba-4.0/util/tevent_werror.h
 usr/include/samba-4.0/util/time.h
-usr/include/samba-4.0/util/xfile.h
 usr/include/samba-4.0/util_ldb.h
 usr/lib/*/libdcerpc-binding.so
 usr/lib/*/libdcerpc-samr.so
