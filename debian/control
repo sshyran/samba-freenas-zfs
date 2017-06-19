@@ -17,6 +17,7 @@ Build-Depends: bison,
                docbook-xsl,
                faketime,
                flex,
+               glusterfs-common,
                libacl1-dev,
                libaio-dev [linux-any],
                libarchive-dev,
@@ -289,8 +290,8 @@ Description: Samba Virtual FileSystem plugins
  .
  This package contains plugins for the Samba server Virtual FileSystem.
  .
- Note: The runtime dependencies of vfs_ceph and vfs_snapper are moved to
- Recommends.
+ Note: The runtime dependencies of vfs_ceph, vfs_glusterfs and vfs_snapper are
+ moved to Recommends.
 
 Package: libsmbclient
 Section: libs
