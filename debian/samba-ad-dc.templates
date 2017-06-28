@@ -1,11 +1,3 @@
-Template: samba4/upgrade-from-v3
-Type: boolean
-Default: true
-_Description: Upgrade from Samba 3?
- It is possible to migrate the existing configuration files from Samba 3 to
- Samba 4. This is likely to fail for complex setups, but should provide a
- good starting point for most existing installations.
-
 Template: samba4/server-role
 Type: select
 Choices: domain controller, member, standalone, none
