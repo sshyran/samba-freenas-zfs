@@ -21,3 +21,15 @@
 	delaycompress
 	notifempty
 }
+
+/var/log/samba/log.samba {
+	weekly
+	missingok
+	rotate 7
+	postrotate
+		[ ! -f /var/run/samba/samba.pid ] || kill -HUP `cat /var/run/samba/samba.pid`
+	endscript
+	compress
+	delaycompress
+	notifempty
+}
