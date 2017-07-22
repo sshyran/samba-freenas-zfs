@@ -76,7 +76,6 @@ Depends: adduser,
          samba-common (= ${source:Version}),
          samba-common-bin (=${binary:Version}),
          tdb-tools,
-         update-inetd,
          ${misc:Depends},
          ${python:Depends},
          ${shlibs:Depends}
