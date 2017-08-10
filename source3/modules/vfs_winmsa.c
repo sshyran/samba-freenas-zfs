@@ -30,9 +30,9 @@ typedef struct winmsa_info {
 static char *parent_dir(TALLOC_CTX *ctx, const char *name)
 {
 	const char *p = strrchr(name, '/');
-	if (p == NULL) {
+	if (p == NULL)
 		return NULL;
-	}
+
 	return  talloc_strndup(ctx, name, (p + 1) - name);
 }
 
@@ -44,8 +44,8 @@ static void winmsa_dump_acl(const char *path, ace_t *aces, int naces)
 	DEBUG(5, ("PATH=%s\n", path));
 	for (i = 0;i < naces;i++) {
 		ace = &(aces[i]);
-		DEBUG(5, ("ACE: [%02d/%02d] who=%08x mask=%08x flags=%08x type=%08x\n",
-			i + 1, naces, ace->a_who, ace->a_access_mask, ace->a_flags, ace->a_type));
+		DEBUG(5, ("ACE: [%02d/%02d] who=%08x [%-10d] mask=%08x flags=%08x type=%08x\n",
+			i + 1, naces, ace->a_who, ace->a_who, ace->a_access_mask, ace->a_flags, ace->a_type));
 	}
 }
 
@@ -68,13 +68,11 @@ static int winmsa_get_naces(const char *path)
 
 static int winmsa_get_acl(TALLOC_CTX *ctx, winmsa_info_t *info)
 {
-	if (info == NULL || info->path == NULL) {
+	if (info == NULL || info->path == NULL)
 		return -1;
-	}
 
-	if ((info->d_naces = winmsa_get_naces(info->path)) < 0) {
+	if ((info->d_naces = winmsa_get_naces(info->path)) < 0)
 		return -1;
-	}
 
 	if ((info->d_aces = talloc_size(ctx, sizeof(ace_t) * info->d_naces)) == NULL) {
 		errno = ENOMEM;
@@ -93,13 +91,11 @@ static int winmsa_file_acl(TALLOC_CTX *ctx, winmsa_info_t *info)
 {
 	int i;
 
-	if (info == NULL || info->path == NULL) {
+	if (info == NULL || info->path == NULL)
 		return -1;
-	}
 
-	if ((info->f_naces = winmsa_get_naces(info->path)) < 0) {
+	if ((info->f_naces = winmsa_get_naces(info->path)) < 0)
 		return -1;
-	}
 
 	if ((info->f_aces = talloc_size(ctx, sizeof(ace_t) * info->f_naces)) == NULL) {
 		errno = ENOMEM;
@@ -150,17 +146,14 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 		return -1;
 	}
 
-	if (S_ISLNK(sbuf.st_ex_mode)) {
+	if (S_ISLNK(sbuf.st_ex_mode))
 		return 0;
-	}
 
 	if (!S_ISDIR(sbuf.st_ex_mode)) {
-		if (chown(path, info->uid, info->gid) < 0) {
+		if (chown(path, info->uid, info->gid) < 0)
 			DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
-		}
-		if (acl(path, ACE_SETACL, info->f_naces, info->f_aces) < 0) {
+		if (acl(path, ACE_SETACL, info->f_naces, info->f_aces) < 0)
 			DEBUG(3, ("winmsa_set_acls: acl failed for %s\n", path));
-		}
 		return 0;
 	}
 
@@ -183,11 +176,14 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 		}
 
 		if ((buf = talloc_size(ctx, PATH_MAX)) == NULL) {
+			talloc_free(rp);
 			errno = ENOMEM;
 			return -1;
 		}
 
 		if (realpath(path, rp) == NULL) {
+			talloc_free(buf);
+			talloc_free(rp);
 			DEBUG(3, ("winmsa_set_acls: realpath failed for %s\n", path));
 			continue;
 		}
@@ -201,12 +197,10 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 
 	closedir(dh);
 
-	if (chown(path, info->uid, info->gid) < 0) {
+	if (chown(path, info->uid, info->gid) < 0)
 		DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
-	}
-	if (acl(path, ACE_SETACL, info->d_naces, info->d_aces) < 0) {
+	if (acl(path, ACE_SETACL, info->d_naces, info->d_aces) < 0)
 		DEBUG(3, ("winmsa_set_acls: acl failed for %s\n", path));
-	}
 
 	return 0;
 }
@@ -218,10 +212,11 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 
 	int result = -1;
 	winmsa_info_t *info;
-	char *parent;
+	char *parent, *dst;
 	TALLOC_CTX *ctx;
 
-	if (rename(smb_fname_src->base_name, smb_fname_dst->base_name) < 0) {
+
+	if (SMB_VFS_NEXT_RENAME(handle, smb_fname_src, smb_fname_dst) < 0) {
 		DEBUG(3, ("winmsa_rename: rename failed: %s\n", strerror(errno)));
 		result = -1;
 		goto out;
@@ -251,6 +246,13 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 		goto out;
 	}
 
+	dst = talloc_size(ctx, PATH_MAX);
+	if (realpath(smb_fname_dst->base_name, dst) == NULL) {
+		DEBUG(3, ("winmsa_rename: realpath failed for %s\n", smb_fname_dst->base_name));
+		result = -1;
+		goto out;
+	}
+
 	if (winmsa_get_acl(ctx, info) < 0) {
 		DEBUG(3, ("winmsa_rename: winmsa_get_acl failed\n"));
 		result = -1;
@@ -269,7 +271,10 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 		goto out;
 	}
 
-	result = winmsa_set_acls(ctx, handle, info, info->path);
+	if ((result = winmsa_set_acls(ctx, handle, info, dst)) < 0) {
+		DEBUG(3, ("winmsa_rename: winmsa_set_acls failed\n"));
+		result = -1;
+	}
 
 out:
 	TALLOC_FREE(ctx);
