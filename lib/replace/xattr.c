@@ -61,21 +61,11 @@ ssize_t rep_getxattr (const char *path, const char *name, void *value, size_t si
 #elif defined(HAVE_GETEA)
 	return getea(path, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_FILE)
+	char *s;
 	ssize_t retval;
-	int attrnamespace;
-	const char *attrname;
-
-	if (strncmp(name, "system.", 7) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_SYSTEM;
-		attrname = name + 7;
-	} else if (strncmp(name, "user.", 5) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_USER;
-		attrname = name + 5;
-	} else {
-		errno = EINVAL;
-		return -1;
-	}
-
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr(name, '.')) == NULL) ? name : s + 1;
 	/*
 	 * The BSD implementation has a nasty habit of silently truncating
 	 * the returned value to the size of the buffer, so we have to check
@@ -135,20 +125,11 @@ ssize_t rep_fgetxattr (int filedes, const char *name, void *value, size_t size)
 #elif defined(HAVE_FGETEA)
 	return fgetea(filedes, name, value, size);
 #elif defined(HAVE_EXTATTR_GET_FD)
+	char *s;
 	ssize_t retval;
-	int attrnamespace;
-	const char *attrname;
-
-	if (strncmp(name, "system.", 7) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_SYSTEM;
-		attrname = name + 7;
-	} else if (strncmp(name, "user.", 5) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_USER;
-		attrname = name + 5;
-	} else {
-		errno = EINVAL;
-		return -1;
-	}
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr(name, '.')) == NULL) ? name : s + 1;
 
 	if((retval=extattr_get_fd(filedes, attrnamespace, attrname, NULL, 0)) >= 0) {
 		if (size == 0) {
@@ -433,19 +414,10 @@ int rep_removexattr (const char *path, const char *name)
 #elif defined(HAVE_REMOVEEA)
 	return removeea(path, name);
 #elif defined(HAVE_EXTATTR_DELETE_FILE)
-	int attrnamespace;
-	const char *attrname;
-
-	if (strncmp(name, "system.", 7) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_SYSTEM;
-		attrname = name + 7;
-	} else if (strncmp(name, "user.", 5) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_USER;
-		attrname = name + 5;
-	} else {
-		errno = EINVAL;
-		return -1;
-	}
+	char *s;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr(name, '.')) == NULL) ? name : s + 1;
 
 	return extattr_delete_file(path, attrnamespace, attrname);
 #elif defined(HAVE_ATTR_REMOVE)
@@ -483,19 +455,10 @@ int rep_fremovexattr (int filedes, const char *name)
 #elif defined(HAVE_FREMOVEEA)
 	return fremoveea(filedes, name);
 #elif defined(HAVE_EXTATTR_DELETE_FD)
-	int attrnamespace;
-	const char *attrname;
-
-	if (strncmp(name, "system.", 7) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_SYSTEM;
-		attrname = name + 7;
-	} else if (strncmp(name, "user.", 5) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_USER;
-		attrname = name + 5;
-	} else {
-		errno = EINVAL;
-		return -1;
-	}
+	char *s;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr(name, '.')) == NULL) ? name : s + 1;
 
 	return extattr_delete_fd(filedes, attrnamespace, attrname);
 #elif defined(HAVE_ATTR_REMOVEF)
@@ -533,21 +496,11 @@ int rep_setxattr (const char *path, const char *name, const void *value, size_t 
 #elif defined(HAVE_SETEA)
 	return setea(path, name, value, size, flags);
 #elif defined(HAVE_EXTATTR_SET_FILE)
+	char *s;
 	int retval = 0;
-	int attrnamespace;
-	const char *attrname;
-
-	if (strncmp(name, "system.", 7) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_SYSTEM;
-		attrname = name + 7;
-	} else if (strncmp(name, "user.", 5) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_USER;
-		attrname = name + 5;
-	} else {
-		errno = EINVAL;
-		return -1;
-	}
-
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr(name, '.')) == NULL) ? name : s + 1;
 	if (flags) {
 		/* Check attribute existence */
 		retval = extattr_get_file(path, attrnamespace, attrname, NULL, 0);
@@ -610,21 +563,11 @@ int rep_fsetxattr (int filedes, const char *name, const void *value, size_t size
 #elif defined(HAVE_FSETEA)
 	return fsetea(filedes, name, value, size, flags);
 #elif defined(HAVE_EXTATTR_SET_FD)
+	char *s;
 	int retval = 0;
-	int attrnamespace;
-	const char *attrname;
-
-	if (strncmp(name, "system.", 7) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_SYSTEM;
-		attrname = name + 7;
-	} else if (strncmp(name, "user.", 5) == 0) {
-		attrnamespace = EXTATTR_NAMESPACE_USER;
-		attrname = name + 5;
-	} else {
-		errno = EINVAL;
-		return -1;
-	}
-
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr(name, '.')) == NULL) ? name : s + 1;
 	if (flags) {
 		/* Check attribute existence */
 		retval = extattr_get_fd(filedes, attrnamespace, attrname, NULL, 0);
