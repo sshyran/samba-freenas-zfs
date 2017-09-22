@@ -285,8 +285,8 @@ static struct vfs_fn_pointers winmsa_fns = {
 	.rename_fn = winmsa_rename,
 };
 
-NTSTATUS vfs_winmsa_init(void);
-NTSTATUS vfs_winmsa_init(void)
+NTSTATUS vfs_winmsa_init(TALLOC_CTX *);
+NTSTATUS vfs_winmsa_init(TALLOC_CTX *ctx)
 {
 	return smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "winmsa",
 				&winmsa_fns);
