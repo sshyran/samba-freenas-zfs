@@ -26,6 +26,7 @@
 
 #include "includes.h"
 #include "winbindd.h"
+#include "winbindd_ads.h"
 #include "../libds/common/flags.h"
 #include "ads.h"
 #include "idmap.h"
