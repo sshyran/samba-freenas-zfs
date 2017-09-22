@@ -562,7 +562,7 @@ static struct idmap_methods fruit_methods = {
 	.sids_to_unixids = idmap_fruit_sids_to_unixids,
 };
 
-NTSTATUS idmap_fruit_init(void)
+NTSTATUS idmap_fruit_init(TALLOC_CTX *ctx)
 {
 	return smb_register_idmap(SMB_IDMAP_INTERFACE_VERSION, "fruit", &fruit_methods);
 }
