@@ -60,8 +60,8 @@ static struct vfs_fn_pointers vfs_zfs_space_fns = {
 	.disk_free_fn = vfs_zfs_space_disk_free
 };
 
-NTSTATUS vfs_zfs_space_init(void);
-NTSTATUS vfs_zfs_space_init(void)
+NTSTATUS vfs_zfs_space_init(TALLOC_CTX *);
+NTSTATUS vfs_zfs_space_init(TALLOC_CTX *ctx)
 {
 	return smb_register_vfs(SMB_VFS_INTERFACE_VERSION,
 		"zfs_space", &vfs_zfs_space_fns);
