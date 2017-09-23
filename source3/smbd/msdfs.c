@@ -31,6 +31,7 @@
 #include "lib/param/loadparm.h"
 #include "libcli/security/security.h"
 #include "librpc/gen_ndr/ndr_dfsblobs.h"
+#include "lib/tsocket/tsocket.h"
 
 /**********************************************************************
  Parse a DFS pathname of the form \hostname\service\reqpath
@@ -953,11 +954,13 @@ static NTSTATUS self_ref(TALLOC_CTX *ctx,
 **********************************************************************/
 
 NTSTATUS get_referred_path(TALLOC_CTX *ctx,
-			const char *dfs_path,
-			bool allow_broken_path,
-			struct junction_map *jucn,
-			int *consumedcntp,
-			bool *self_referralp)
+			   const char *dfs_path,
+			   const struct tsocket_address *remote_address,
+			   const struct tsocket_address *local_address,
+			   bool allow_broken_path,
+			   struct junction_map *jucn,
+			   int *consumedcntp,
+			   bool *self_referralp)
 {
 	struct connection_struct *conn;
 	char *targetpath = NULL;
@@ -1067,6 +1070,29 @@ NTSTATUS get_referred_path(TALLOC_CTX *ctx,
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(pdp);
 		return status;
+	}
+
+	/*
+	 * TODO
+	 *
+	 * The remote and local address should be passed down to
+	 * create_conn_struct_cwd.
+	 */
+	if (conn->sconn->remote_address == NULL) {
+		conn->sconn->remote_address =
+			tsocket_address_copy(remote_address, conn->sconn);
+		if (conn->sconn->remote_address == NULL) {
+			TALLOC_FREE(pdp);
+			return NT_STATUS_NO_MEMORY;
+		}
+	}
+	if (conn->sconn->local_address == NULL) {
+		conn->sconn->local_address =
+			tsocket_address_copy(local_address, conn->sconn);
+		if (conn->sconn->local_address == NULL) {
+			TALLOC_FREE(pdp);
+			return NT_STATUS_NO_MEMORY;
+		}
 	}
 
 	/* If this is a DFS path dfs_lookup should return

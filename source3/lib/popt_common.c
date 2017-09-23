@@ -248,6 +248,17 @@ void popt_common_credentials_post(void)
 	}
 
 	set_cmdline_auth_info_getpass(auth_info);
+
+	/*
+	 * When we set the username during the handling of the options passed to
+	 * the binary we haven't loaded the config yet. This means that we
+	 * didnn't take the 'winbind separator' into account.
+	 *
+	 * The username might contain the domain name and thus it hasn't been
+	 * correctly parsed yet. If we have a username we need to set it again
+	 * to run the string parser for the username correctly.
+	 */
+	reset_cmdline_auth_info_username(auth_info);
 }
 
 static void popt_common_credentials_callback(poptContext con,

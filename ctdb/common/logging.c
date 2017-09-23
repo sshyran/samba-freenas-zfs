@@ -354,6 +354,7 @@ static int syslog_log_setup_common(TALLOC_CTX *mem_ctx, const char *app_name,
 	state->app_name = app_name;
 	talloc_set_destructor(state, syslog_log_state_destructor);
 
+	*result = state;
 	return 0;
 }
 
@@ -500,6 +501,8 @@ int logging_init(TALLOC_CTX *mem_ctx, const char *logging,
 	int (*setup)(TALLOC_CTX *, const char *, const char *) = NULL;
 	char *str, *name, *option;
 	int ret, i;
+
+	setup_logging(app_name, DEBUG_STDERR);
 
 	if (debug_level == NULL) {
 		debug_level = getenv("CTDB_DEBUGLEVEL");

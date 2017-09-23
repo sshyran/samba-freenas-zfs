@@ -1617,7 +1617,7 @@ samba-tool user syncpasswords --terminate \\
             return
 
         def run_sync_command(dn, ldif):
-            log_msg("Call Popen[%s] for %s\n" % (dn, self.sync_command))
+            log_msg("Call Popen[%s] for %s\n" % (self.sync_command, dn))
             sync_command_p = Popen(self.sync_command,
                                    stdin=PIPE,
                                    stdout=PIPE,
@@ -1861,7 +1861,7 @@ samba-tool user syncpasswords --terminate \\
 
         def sync_loop(wait):
             notify_attrs = ["name", "uSNCreated", "uSNChanged", "objectClass"]
-            notify_controls = ["notification:1"]
+            notify_controls = ["notification:1", "show_recycled:1"]
             notify_handle = self.samdb.search_iterator(expression="objectClass=*",
                                                        scope=ldb.SCOPE_SUBTREE,
                                                        attrs=notify_attrs,

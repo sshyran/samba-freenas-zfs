@@ -152,6 +152,7 @@ plantestsuite("samba.vfstest.xattr-tdb-1", "nt4_dc:local", [os.path.join(samba3s
 plantestsuite("samba.vfstest.acl", "nt4_dc:local", [os.path.join(samba3srcdir, "script/tests/vfstest-acl/run.sh"), binpath("vfstest"), "$PREFIX", configuration])
 plantestsuite("samba.vfstest.catia", "nt4_dc:local", [os.path.join(samba3srcdir, "script/tests/vfstest-catia/run.sh"), binpath("vfstest"), "$PREFIX", configuration])
 
+plantestsuite("samba3.blackbox.smbclient_basic", "ad_member", [os.path.join(samba3srcdir, "script/tests/test_smbclient_basic.sh"), '$SERVER', '$SERVER_IP', '$DC_USERNAME', '$DC_PASSWORD', smbclient3, configuration])
 for options in ["", "--option=clientntlmv2auth=no", "--option=clientusespnego=no", "--option=clientusespnego=no --option=clientntlmv2auth=no", "--option=clientntlmv2auth=no --option=clientlanmanauth=yes --max-protocol=LANMAN2", "--option=clientntlmv2auth=no --option=clientlanmanauth=yes --option=clientmaxprotocol=NT1"]:
     env = "nt4_dc"
     plantestsuite("samba3.blackbox.smbclient_auth.plain (%s) %s" % (env, options), env, [os.path.join(samba3srcdir, "script/tests/test_smbclient_auth.sh"), '$SERVER', '$SERVER_IP', '$DC_USERNAME', '$DC_PASSWORD', smbclient3, configuration, options])
@@ -235,13 +236,13 @@ for env in ["fileserver"]:
         plantestsuite("samba3.blackbox.smbclient_tarmode (%s)" % env, env,
                       [os.path.join(samba3srcdir, "script/tests/test_smbclient_tarmode.sh"),
                        '$SERVER', '$SERVER_IP', '$USERNAME', '$PASSWORD',
-                       '$LOCAL_PATH', '$PREFIX', smbclient3, configuration])
+                       '$LOCAL_PATH/tarmode', '$PREFIX', smbclient3, configuration])
 
         # Test suite for new smbclient/tar with libarchive (GSoC 13)
         plantestsuite("samba3.blackbox.smbclient_tar (%s)" % env, env,
                       [os.path.join(samba3srcdir, "script/tests/test_smbclient_tarmode.pl"),
                        '-n', '$SERVER', '-i', '$SERVER_IP', '-s', 'tmp',
-                       '-u', '$USERNAME', '-p', '$PASSWORD', '-l', '$LOCAL_PATH',
+                       '-u', '$USERNAME', '-p', '$PASSWORD', '-l', '$LOCAL_PATH/tarmode',
                        '-d', '$PREFIX', '-b', smbclient3,
                        '--subunit', '--', configuration])
 
@@ -393,7 +394,17 @@ for t in tests:
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/write-list-tmp -U$USERNAME%$PASSWORD')
         plansmbtorture4testsuite(t, "ad_dc", '//$SERVER/tmp -U$USERNAME%$PASSWORD')
     elif t == "idmap.rfc2307":
-        plantestsuite(t, "ad_member_rfc2307", [os.path.join(samba3srcdir, "../nsswitch/tests/test_idmap_rfc2307.sh"), '$DOMAIN', 'Administrator', '2000000', 'Guest', '2000001', '"Domain Users"', '2000002', 'DnsAdmins', '2000003', 'ou=idmap,dc=samba,dc=example,dc=com', '$DC_SERVER', '$DC_USERNAME', '$DC_PASSWORD'])
+        plantestsuite(t, "ad_member_rfc2307",
+                      [os.path.join(samba3srcdir,
+                                    "../nsswitch/tests/test_idmap_rfc2307.sh"),
+                       '$DOMAIN',
+                       'Administrator', '2000000',
+                       'Guest', '2000001',
+                       '"Domain Users"', '2000002',
+                       'DnsAdmins', '2000003',
+                       '2000005', '35',
+                       'ou=idmap,dc=samba,dc=example,dc=com',
+                       '$DC_SERVER', '$DC_USERNAME', '$DC_PASSWORD'])
     elif t == "idmap.alloc":
         plantestsuite(t, "ad_member_rfc2307", [os.path.join(samba3srcdir, "../nsswitch/tests/test_idmap_nss.sh"), '$DOMAIN'])
     elif t == "idmap.rid":

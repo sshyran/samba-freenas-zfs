@@ -169,6 +169,8 @@ bool share_mode_stale_pid(struct share_mode_data *d, uint32_t idx);
 bool set_share_mode(struct share_mode_lock *lck, struct files_struct *fsp,
 		    uid_t uid, uint64_t mid, uint16_t op_type,
 		    uint32_t lease_idx);
+struct share_mode_entry *find_share_mode_entry(struct share_mode_lock *lck,
+					       files_struct *fsp);
 void remove_stale_share_mode_entries(struct share_mode_data *d);
 bool del_share_mode(struct share_mode_lock *lck, files_struct *fsp);
 bool mark_share_mode_disconnected(struct share_mode_lock *lck,
@@ -250,6 +252,8 @@ bool release_posix_lock_posix_flavour(files_struct *fsp,
 
 /* The following definitions come from locking/leases_util.c */
 uint32_t map_oplock_to_lease_type(uint16_t op_type);
-uint32_t fsp_lease_type(struct files_struct *fsp);
+uint32_t fsp_lease_type(const struct files_struct *fsp);
+uint32_t lease_type_is_exclusive(uint32_t lease_type);
+bool fsp_lease_type_is_exclusive(const struct files_struct *fsp);
 
 #endif /* _LOCKING_PROTO_H_ */

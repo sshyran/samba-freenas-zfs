@@ -216,6 +216,8 @@ static NTSTATUS vfswrap_get_dfs_referrals(struct vfs_handle_struct *handle,
 
 	/* The following call can change cwd. */
 	status = get_referred_path(r, pathnamep,
+				   handle->conn->sconn->remote_address,
+				   handle->conn->sconn->local_address,
 				   !handle->conn->sconn->using_smb2,
 				   junction, &consumedcnt, &self_referral);
 	if (!NT_STATUS_IS_OK(status)) {
@@ -732,6 +734,7 @@ struct vfswrap_pread_state {
 
 static void vfs_pread_do(void *private_data);
 static void vfs_pread_done(struct tevent_req *subreq);
+static int vfs_pread_state_destructor(struct vfswrap_pread_state *state);
 
 static struct tevent_req *vfswrap_pread_send(struct vfs_handle_struct *handle,
 					     TALLOC_CTX *mem_ctx,
@@ -772,6 +775,8 @@ static struct tevent_req *vfswrap_pread_send(struct vfs_handle_struct *handle,
 	}
 	tevent_req_set_callback(subreq, vfs_pread_done, req);
 
+	talloc_set_destructor(state, vfs_pread_state_destructor);
+
 	return req;
 }
 
@@ -800,19 +805,23 @@ static void vfs_pread_do(void *private_data)
 	SMBPROFILE_BYTES_ASYNC_SET_IDLE(state->profile_bytes);
 }
 
+static int vfs_pread_state_destructor(struct vfswrap_pread_state *state)
+{
+	return -1;
+}
+
 static void vfs_pread_done(struct tevent_req *subreq)
 {
 	struct tevent_req *req = tevent_req_callback_data(
 		subreq, struct tevent_req);
-#ifdef WITH_PROFILE
 	struct vfswrap_pread_state *state = tevent_req_data(
 		req, struct vfswrap_pread_state);
-#endif
 	int ret;
 
 	ret = pthreadpool_tevent_job_recv(subreq);
 	TALLOC_FREE(subreq);
 	SMBPROFILE_BYTES_ASYNC_END(state->profile_bytes);
+	talloc_set_destructor(state, NULL);
 	if (tevent_req_error(req, ret)) {
 		return;
 	}
@@ -848,6 +857,7 @@ struct vfswrap_pwrite_state {
 
 static void vfs_pwrite_do(void *private_data);
 static void vfs_pwrite_done(struct tevent_req *subreq);
+static int vfs_pwrite_state_destructor(struct vfswrap_pwrite_state *state);
 
 static struct tevent_req *vfswrap_pwrite_send(struct vfs_handle_struct *handle,
 					      TALLOC_CTX *mem_ctx,
@@ -888,6 +898,8 @@ static struct tevent_req *vfswrap_pwrite_send(struct vfs_handle_struct *handle,
 	}
 	tevent_req_set_callback(subreq, vfs_pwrite_done, req);
 
+	talloc_set_destructor(state, vfs_pwrite_state_destructor);
+
 	return req;
 }
 
@@ -916,19 +928,23 @@ static void vfs_pwrite_do(void *private_data)
 	SMBPROFILE_BYTES_ASYNC_SET_IDLE(state->profile_bytes);
 }
 
+static int vfs_pwrite_state_destructor(struct vfswrap_pwrite_state *state)
+{
+	return -1;
+}
+
 static void vfs_pwrite_done(struct tevent_req *subreq)
 {
 	struct tevent_req *req = tevent_req_callback_data(
 		subreq, struct tevent_req);
-#ifdef WITH_PROFILE
 	struct vfswrap_pwrite_state *state = tevent_req_data(
 		req, struct vfswrap_pwrite_state);
-#endif
 	int ret;
 
 	ret = pthreadpool_tevent_job_recv(subreq);
 	TALLOC_FREE(subreq);
 	SMBPROFILE_BYTES_ASYNC_END(state->profile_bytes);
+	talloc_set_destructor(state, NULL);
 	if (tevent_req_error(req, ret)) {
 		return;
 	}
@@ -961,6 +977,7 @@ struct vfswrap_fsync_state {
 
 static void vfs_fsync_do(void *private_data);
 static void vfs_fsync_done(struct tevent_req *subreq);
+static int vfs_fsync_state_destructor(struct vfswrap_fsync_state *state);
 
 static struct tevent_req *vfswrap_fsync_send(struct vfs_handle_struct *handle,
 					     TALLOC_CTX *mem_ctx,
@@ -994,6 +1011,8 @@ static struct tevent_req *vfswrap_fsync_send(struct vfs_handle_struct *handle,
 	}
 	tevent_req_set_callback(subreq, vfs_fsync_done, req);
 
+	talloc_set_destructor(state, vfs_fsync_state_destructor);
+
 	return req;
 }
 
@@ -1017,19 +1036,23 @@ static void vfs_fsync_do(void *private_data)
 	state->vfs_aio_state.duration = nsec_time_diff(&end_time, &start_time);
 }
 
+static int vfs_fsync_state_destructor(struct vfswrap_fsync_state *state)
+{
+	return -1;
+}
+
 static void vfs_fsync_done(struct tevent_req *subreq)
 {
 	struct tevent_req *req = tevent_req_callback_data(
 		subreq, struct tevent_req);
-#ifdef WITH_PROFILE
 	struct vfswrap_fsync_state *state = tevent_req_data(
 		req, struct vfswrap_fsync_state);
-#endif
 	int ret;
 
 	ret = pthreadpool_tevent_job_recv(subreq);
 	TALLOC_FREE(subreq);
 	SMBPROFILE_BASIC_ASYNC_END(state->profile_basic);
+	talloc_set_destructor(state, NULL);
 	if (tevent_req_error(req, ret)) {
 		return;
 	}
