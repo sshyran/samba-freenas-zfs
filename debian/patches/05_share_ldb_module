@@ -1,5 +1,13 @@
+From: Debian Samba Maintainers <pkg-samba-maint@lists.alioth.debian.org>
+Subject: Update source4/param/wscript_build
+
+FIXME What is the purpose of this patch?
+---
+ source4/param/wscript_build | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
 diff --git a/source4/param/wscript_build b/source4/param/wscript_build
-index 4a2b3b10be2..6555dde8886 100644
+index 4a2b3b1..6555dde 100644
 --- a/source4/param/wscript_build
 +++ b/source4/param/wscript_build
 @@ -19,7 +19,7 @@ bld.SAMBA_MODULE('share_classic',
