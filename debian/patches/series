@@ -7,7 +7,6 @@ usershare.patch
 VERSION.patch
 add-so-version-to-private-libraries
 heimdal-rfc3454.txt
-no_build_env.patch
 no_build_system.patch
 Skip-raw.write-tests.patch
 systemd-syslog.target-is-obsolete.patch
