@@ -197,10 +197,13 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 
 	closedir(dh);
 
+	become_root(); 
+	fail_here // I'm a canary 
 	if (chown(path, info->uid, info->gid) < 0)
 		DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
 	if (acl(path, ACE_SETACL, info->d_naces, info->d_aces) < 0)
 		DEBUG(3, ("winmsa_set_acls: acl failed for %s\n", path));
+	unbecome_root(); 
 
 	return 0;
 }
