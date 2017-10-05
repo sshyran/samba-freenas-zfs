@@ -137,6 +137,7 @@ static int winmsa_get_ownership(winmsa_info_t *info)
 static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 						winmsa_info_t *info, const char *path)
 {
+	//this  routine must be called under a become_root context to operate with sufficent access 
 	DIR *dh;
 	struct dirent *de;
 	SMB_STRUCT_STAT sbuf;
@@ -150,6 +151,7 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 		return 0;
 
 	if (!S_ISDIR(sbuf.st_ex_mode)) {
+		//these calls require escalated privileges
 		if (chown(path, info->uid, info->gid) < 0)
 			DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
 		if (acl(path, ACE_SETACL, info->f_naces, info->f_aces) < 0)
@@ -197,6 +199,7 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 
 	closedir(dh);
 
+	//these calls may require escalated privileges
 	if (chown(path, info->uid, info->gid) < 0)
 		DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
 	if (acl(path, ACE_SETACL, info->d_naces, info->d_aces) < 0)
@@ -271,10 +274,17 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 		goto out;
 	}
 
+	/* WinMSA theory of operation requires setting the new file to  clone the ACE and Ownership
+	of the parent of destination directory. Field deployment showed ( see jrq-485 )
+	that the effective user did not always have the UNIX rights to accomplish this. 
+	We become root here for the minimal necessary time due to multiple returns in
+	winmsa_set_acls and goto's in this routine. */
+	become_root(); 
 	if ((result = winmsa_set_acls(ctx, handle, info, dst)) < 0) {
 		DEBUG(3, ("winmsa_rename: winmsa_set_acls failed\n"));
 		result = -1;
 	}
+	unbecome_root(); 
 
 out:
 	TALLOC_FREE(ctx);
