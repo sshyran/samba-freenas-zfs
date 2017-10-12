@@ -32,20 +32,20 @@
 #include "modules/zfs_disk_free.h"
 
 
-static uint64_t vfs_zfs_space_disk_free(vfs_handle_struct *handle, const char *path,
+static uint64_t vfs_zfs_space_disk_free(vfs_handle_struct *handle, const struct smb_filename *smb_fname,
     uint64_t *bsize, uint64_t *dfree, uint64_t *dsize)
 {
 	uint64_t res;
 	char rp[PATH_MAX] = { 0 };
 
-	if (realpath(path, rp) == NULL)
+	if (realpath(smb_fname->base_name, rp) == NULL)
 		return (-1);
 
 	DEBUG(9, ("realpath = %s\n", rp));
 
 	res = smb_zfs_disk_free(rp, bsize, dfree, dsize);
 	if (res == (uint64_t)-1)
-		res = SMB_VFS_NEXT_DISK_FREE(handle, path,  bsize, dfree, dsize);
+		res = SMB_VFS_NEXT_DISK_FREE(handle, smb_fname->base_name,  bsize, dfree, dsize);
 	if (res == (uint64_t)-1)
 		return (res);
 
