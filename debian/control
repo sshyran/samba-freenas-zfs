@@ -12,7 +12,6 @@ Standards-Version: 4.0.0
 Build-Depends: bison,
                debhelper (>> 10),
                dh-python,
-               dh-systemd (>= 1.5),
                docbook-xml,
                docbook-xsl,
                flex,
