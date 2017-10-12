@@ -305,7 +305,6 @@ Description: shared library for communication with SMB/CIFS servers
 
 Package: libsmbclient-dev
 Section: libdevel
-Priority: extra
 Architecture: any
 Multi-Arch: same
 Depends: libsmbclient (= ${binary:Version}), ${misc:Depends}
