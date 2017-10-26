@@ -1,4 +1,3 @@
-05_share_ldb_module
 07_private_lib
 bug_221618_precise-64bit-prototype.patch
 README_nosmbldap-tools.patch
