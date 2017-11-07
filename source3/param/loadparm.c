@@ -4453,14 +4453,13 @@ bool lp_posix_pathnames(void)
 }
 
 /*******************************************************************
- Set posix pathnames to new value. Returns old value.
+ Change everything needed to ensure POSIX pathname processing (currently
+ not much).
 ********************************************************************/
 
-bool lp_set_posix_pathnames(bool newval)
+void lp_set_posix_pathnames(void)
 {
-	bool oldval = posix_pathnames;
-	posix_pathnames = newval;
-	return oldval;
+	posix_pathnames = true;
 }
 
 /*******************************************************************
