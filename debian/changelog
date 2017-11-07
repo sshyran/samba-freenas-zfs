@@ -1,3 +1,11 @@
+samba (2:4.7.1+dfsg-1) unstable; urgency=medium
+
+  * New upstream version
+  * Add lintian-override about heimdal embedded-library
+  * Remove trailing spaces in debian/changelog
+
+ -- Mathieu Parent <sathieu@debian.org>  Wed, 08 Nov 2017 07:48:31 +0100
+
 samba (2:4.7.0+dfsg-2) unstable; urgency=medium
 
   * Upload to sid
