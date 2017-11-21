@@ -17,7 +17,6 @@ Build-Depends: bison,
                flex,
                glusterfs-common [linux-any],
                libacl1-dev,
-               libaio-dev [linux-any],
                libarchive-dev,
                libattr1-dev,
                libavahi-client-dev,
@@ -58,6 +57,7 @@ Build-Depends: bison,
                xfslibs-dev [linux-any],
                xsltproc,
                zlib1g-dev (>= 1:1.2.3)
+Build-Conflicts-Arch: libaio-dev [linux-any]
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-samba/samba.git
 Vcs-Git: https://anonscm.debian.org/git/pkg-samba/samba.git
 
