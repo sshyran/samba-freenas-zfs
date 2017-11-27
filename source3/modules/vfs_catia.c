@@ -245,7 +245,7 @@ static NTSTATUS catia_string_replace_allocate(connection_struct *conn,
 
 	if (!init_mappings(conn, &selected)) {
 		/* No mappings found. Just use the old name */
-		*mapped_name = talloc_strdup(NULL, name_in);
+		*mapped_name = talloc_strdup(talloc_tos(), name_in);
 		if (!*mapped_name) {
 			errno = ENOMEM;
 			return NT_STATUS_NO_MEMORY;
@@ -2306,6 +2306,7 @@ static NTSTATUS catia_readdir_attr(struct vfs_handle_struct *handle,
 	status = SMB_VFS_NEXT_READDIR_ATTR(handle, smb_fname, mem_ctx, pattr_data);
 
 	TALLOC_FREE(smb_fname);
+	TALLOC_FREE(fname);
 	return status;
 }
 
