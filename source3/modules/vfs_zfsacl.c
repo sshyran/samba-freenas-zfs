@@ -52,6 +52,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 	const SMB_STRUCT_STAT *psbuf = NULL;
 	int ret;
 	bool is_dir;
+	uint16_t inherited_present;
 
 	if (VALID_STAT(smb_fname->st)) {
 		psbuf = &smb_fname->st;
@@ -103,6 +104,15 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 		aceprop.aceFlags = (uint32_t) acebuf[i].a_flags;
 		aceprop.aceMask  = (uint32_t) acebuf[i].a_access_mask;
 		aceprop.who.id   = (uint32_t) acebuf[i].a_who;
+		
+		/*
+		 * Test whether ACL contains any ACEs with the
+		 * inherited flag set. We use this to determine whether
+		 * to set DACL_PROTECTED in the security descriptor.
+		 */
+		if(aceprop.aceFlags & ACE_INHERITED_ACE) {
+			inherited_present = 1;
+		}
 
 		/*
 		 * Windows clients expect SYNC on acls to correctly allow
@@ -133,6 +143,17 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 			return NT_STATUS_NO_MEMORY;
 	}
 
+	/*
+	 * If the ACL doesn't contain any inherited ACEs, then set DACL_PROTECTED 
+	 * in the security descriptor using smb4acl4_set_control_flags() from
+	 * source3/modules/nfs4_acls.c. This makes it so that the "Disable 
+	 * Inheritance" button works in Windows Explorer and prevents resulting 
+	 * ACL from auto-inheriting ACL changes in parent directory.
+	 */
+	if (!inherited_present){
+		smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
+	}
+	
 	*ppacl = pacl;
 	return NT_STATUS_OK;
 }
