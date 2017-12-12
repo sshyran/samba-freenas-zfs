@@ -36,6 +36,48 @@
 
 #define ZFSACL_MODULE_NAME "zfsacl"
 
+/* Default ACL to be used where acl() returns ENOSYS. (for example .zfs and .zfs/snapshot) */
+
+static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx)
+{
+        struct SMB4ACL_T *pacl = NULL;
+        struct SMB4ACE_T *pace;
+        SMB_ACE4PROP_T ace = {
+                .flags = SMB_ACE4_ID_SPECIAL,
+                .who = {
+                        .id = SMB_ACE4_WHO_EVERYONE,
+                },
+                .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
+                .aceFlags = 0,
+                .aceMask = SMB_ACE4_READ_DATA | SMB_ACE4_READ_NAMED_ATTRS | \
+                           SMB_ACE4_EXECUTE | SMB_ACE4_READ_ATTRIBUTES | \
+                           SMB_ACE4_READ_ACL | SMB_ACE4_SYNCHRONIZE,
+        };
+        
+        DEBUG(9, ("Building default read access acl\n"));
+   
+        pacl = smb_create_smb4acl(mem_ctx);
+        if (pacl == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                errno = ENOMEM;
+                return NULL;
+        }
+                                               
+        pace = smb_add_ace4(pacl, &ace);
+        if (pace == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                TALLOC_FREE(pacl);
+                errno = ENOMEM;
+                return NULL;
+        }
+                                             
+        /* We want to prevent Windows Explorer from trying to apply auto-inherited permissions */
+        
+        smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
+        
+        return pacl;
+}
+
 /* zfs_get_nt_acl()
  * read the local file's acls and return it in NT form
  * using the NFSv4 format conversion
@@ -75,6 +117,8 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): Operation is not "
 				  "supported on the filesystem where the file "
 				  "reside\n", smb_fname->base_name));
+			*ppacl = zfsacl_defaultacl(mem_ctx);
+			return NT_STATUS_OK;
 		} else {
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): %s ", smb_fname->base_name,
 					strerror(errno)));
