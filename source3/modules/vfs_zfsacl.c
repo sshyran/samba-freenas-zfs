@@ -52,7 +52,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 	const SMB_STRUCT_STAT *psbuf = NULL;
 	int ret;
 	bool is_dir;
-	uint16_t inherited_present;
+	bool inherited_present;
 
 	if (VALID_STAT(smb_fname->st)) {
 		psbuf = &smb_fname->st;
@@ -111,7 +111,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 		 * to set DACL_PROTECTED in the security descriptor.
 		 */
 		if(aceprop.aceFlags & ACE_INHERITED_ACE) {
-			inherited_present = 1;
+			inherited_present = true;
 		}
 
 		/*
