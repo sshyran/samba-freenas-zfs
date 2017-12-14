@@ -36,26 +36,27 @@
 
 #define ZFSACL_MODULE_NAME "zfsacl"
 
+#define ZFSACL_MODIFY_SET (SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
+        | SMB_ACE4_WRITE_DATA | SMB_ACE4_APPEND_DATA | SMB_ACE4_READ_NAMED_ATTRS \
+        | SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_DELETE_CHILD \
+        | SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
+        | SMB_ACE4_SYNCHRONIZE)
+#define ZFSACL_READ_SET (SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
+        | SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_READ_ATTRIBUTES \
+        | SMB_ACE4_SYNCHRONIZE)
+#define ZFSACL_WRITE_ONLY_SET (SMB_ACE4_READ_ACL | SMB_ACE4_WRITE_DATA \
+        | SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE \
+        | SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
+        | SMB_ACE4_SYNCHRONIZE)
+#define ZFSACL_BASE_SET (SMB_ACE4_READ_ACL | SMB_ACE4_READ_ATTRIBUTES \
+        | SMB_ACE4_READ_NAMED_ATTRS)
+
 static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx, 
 					SMB_STRUCT_STAT *psbuf)
 {
        struct SMB4ACL_T *pacl = NULL;
        struct SMB4ACE_T *pace;
 	mode_t mode = psbuf->st_ex_mode;
-	uint32_t modify_set = SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
-		| SMB_ACE4_WRITE_DATA | SMB_ACE4_APPEND_DATA | SMB_ACE4_READ_NAMED_ATTRS \
-		| SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_DELETE_CHILD \
-		| SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
-		| SMB_ACE4_SYNCHRONIZE;
-	uint32_t read_set = SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
-		| SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_READ_ATTRIBUTES \
-		| SMB_ACE4_SYNCHRONIZE;
-	uint32_t write_only_set = SMB_ACE4_READ_ACL | SMB_ACE4_WRITE_DATA \
-		| SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE \
-		| SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
-		| SMB_ACE4_SYNCHRONIZE;
-	uint32_t base_set = SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_READ_ATTRIBUTES \
-		| SMB_ACE4_READ_ACL;
 
 	if (!VALID_STAT(*psbuf)) {
 		DEBUG(1, ("No stat info for file\n"));
@@ -69,7 +70,7 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-		.aceMask = base_set 
+		.aceMask = ZFSACL_BASE_SET 
 	};
 
 	if (mode & S_IRUSR) {
@@ -77,11 +78,11 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
 		owner_ace.aceMask = SMB_ACE4_ALL_MASKS;
 	    }
 	    else {
-	        owner_ace.aceMask = read_set; 
+	        owner_ace.aceMask = ZFSACL_READ_SET; 
             }
 	}
 	else if (mode & S_IWUSR) {
-	    owner_ace.aceMask = write_only_set;
+	    owner_ace.aceMask = ZFSACL_WRITE_ONLY_SET;
 	}
 
 	/* group@ ACE */
@@ -92,7 +93,7 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-                .aceMask = base_set 
+                .aceMask = ZFSACL_BASE_SET 
         };
 
         if (mode & S_IRGRP) {
@@ -100,11 +101,11 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 group_ace.aceMask = SMB_ACE4_ALL_MASKS;
             }
 	    else {
-                group_ace.aceMask = read_set; 
+                group_ace.aceMask = ZFSACL_READ_SET; 
             }
         }
         else if (mode & S_IWGRP) {
-		group_ace.aceMask = write_only_set;
+		group_ace.aceMask = ZFSACL_WRITE_ONLY_SET;
         }
        
         /* everyone@ ACE */
@@ -115,19 +116,19 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-                .aceMask = base_set 
+                .aceMask = ZFSACL_BASE_SET 
         };
 
         if (mode & S_IROTH) {
             if (mode & S_IWOTH) {
-                everyone_ace.aceMask = modify_set; 
+                everyone_ace.aceMask = ZFSACL_MODIFY_SET; 
             }
 	    else {
-                everyone_ace.aceMask = read_set;
+                everyone_ace.aceMask = ZFSACL_READ_SET;
             }
         }
         else if (mode & S_IWOTH) {
-            everyone_ace.aceMask = write_only_set;
+            everyone_ace.aceMask = ZFSACL_WRITE_ONLY_SET;
         }       
  
        /* We've converted mode bits to SMB_ACE4PROP_T, add them to ACL */ 
