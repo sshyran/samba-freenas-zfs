@@ -36,34 +36,111 @@
 
 #define ZFSACL_MODULE_NAME "zfsacl"
 
-/* Default ACL to be used where acl() returns ENOSYS. (for example .zfs and .zfs/snapshot) */
-
-static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx)
+static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx, 
+					SMB_STRUCT_STAT *psbuf)
 {
-        struct SMB4ACL_T *pacl = NULL;
-        struct SMB4ACE_T *pace;
-        SMB_ACE4PROP_T ace = {
+       struct SMB4ACL_T *pacl = NULL;
+       struct SMB4ACE_T *pace;
+	mode_t mode = psbuf->st_ex_mode;
+	uint32_t modify_set = SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
+		| SMB_ACE4_WRITE_DATA | SMB_ACE4_APPEND_DATA | SMB_ACE4_READ_NAMED_ATTRS \
+		| SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_DELETE_CHILD \
+		| SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
+		| SMB_ACE4_SYNCHRONIZE;
+	uint32_t read_set = SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
+		| SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_READ_ATTRIBUTES \
+		| SMB_ACE4_SYNCHRONIZE;
+	uint32_t write_only_set = SMB_ACE4_READ_ACL | SMB_ACE4_WRITE_DATA \
+		| SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE \
+		| SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
+		| SMB_ACE4_SYNCHRONIZE;
+	uint32_t base_set = SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_READ_ATTRIBUTES \
+		| SMB_ACE4_READ_ACL;
+
+	if (!VALID_STAT(*psbuf)) {
+		DEBUG(1, ("No stat info for file\n"));
+	}	
+
+	/* Owner@ ACE */
+	SMB_ACE4PROP_T owner_ace = {
+                .flags = SMB_ACE4_ID_SPECIAL,
+                .who = {
+                        .id = SMB_ACE4_WHO_OWNER,
+                },
+                .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
+                .aceFlags = 0,
+		.aceMask = base_set 
+	};
+
+	if (mode & S_IRUSR) {
+	    if (mode & S_IWUSR) {
+		owner_ace.aceMask = SMB_ACE4_ALL_MASKS;
+	    }
+	    else {
+	        owner_ace.aceMask = read_set; 
+            }
+	}
+	else if (mode & S_IWUSR) {
+	    owner_ace.aceMask = write_only_set;
+	}
+
+	/* group@ ACE */
+	SMB_ACE4PROP_T group_ace = {
+                .flags = SMB_ACE4_ID_SPECIAL,
+                .who = {
+                        .id = SMB_ACE4_WHO_GROUP,
+                },
+                .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
+                .aceFlags = 0,
+                .aceMask = base_set 
+        };
+
+        if (mode & S_IRGRP) {
+            if (mode & S_IWGRP) {
+                group_ace.aceMask = SMB_ACE4_ALL_MASKS;
+            }
+	    else {
+                group_ace.aceMask = read_set; 
+            }
+        }
+        else if (mode & S_IWGRP) {
+		group_ace.aceMask = write_only_set;
+        }
+       
+        /* everyone@ ACE */
+        SMB_ACE4PROP_T everyone_ace = {
                 .flags = SMB_ACE4_ID_SPECIAL,
                 .who = {
                         .id = SMB_ACE4_WHO_EVERYONE,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-                .aceMask = SMB_ACE4_READ_DATA | SMB_ACE4_READ_NAMED_ATTRS | \
-                           SMB_ACE4_EXECUTE | SMB_ACE4_READ_ATTRIBUTES | \
-                           SMB_ACE4_READ_ACL | SMB_ACE4_SYNCHRONIZE,
+                .aceMask = base_set 
         };
-        
-        DEBUG(9, ("Building default read access acl\n"));
-   
+
+        if (mode & S_IROTH) {
+            if (mode & S_IWOTH) {
+                everyone_ace.aceMask = modify_set; 
+            }
+	    else {
+                everyone_ace.aceMask = read_set;
+            }
+        }
+        else if (mode & S_IWOTH) {
+            everyone_ace.aceMask = write_only_set;
+        }       
+ 
+       /* We've converted mode bits to SMB_ACE4PROP_T, add them to ACL */ 
         pacl = smb_create_smb4acl(mem_ctx);
         if (pacl == NULL) {
                 DEBUG(0, ("talloc failed\n"));
                 errno = ENOMEM;
                 return NULL;
-        }
-                                               
-        pace = smb_add_ace4(pacl, &ace);
+        } 
+ 
+        pace = smb_add_ace4(pacl, &owner_ace);
+        pace = smb_add_ace4(pacl, &group_ace);
+        pace = smb_add_ace4(pacl, &everyone_ace);
         if (pace == NULL) {
                 DEBUG(0, ("talloc failed\n"));
                 TALLOC_FREE(pacl);
@@ -72,9 +149,8 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx)
         }
                                              
         /* We want to prevent Windows Explorer from trying to apply auto-inherited permissions */
-        
         smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
-        
+
         return pacl;
 }
 
@@ -85,6 +161,7 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx)
 static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 				      TALLOC_CTX *mem_ctx,
 				      const struct smb_filename *smb_fname,
+				      SMB_STRUCT_STAT *st,
 				      struct SMB4ACL_T **ppacl)
 {
 	int naces, i;
@@ -117,7 +194,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): Operation is not "
 				  "supported on the filesystem where the file "
 				  "reside\n", smb_fname->base_name));
-			*ppacl = zfsacl_defaultacl(mem_ctx);
+			*ppacl = zfsacl_defaultacl(mem_ctx, st);
 			return NT_STATUS_OK;
 		} else {
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): %s ", smb_fname->base_name,
@@ -300,7 +377,7 @@ static NTSTATUS zfsacl_fget_nt_acl(struct vfs_handle_struct *handle,
 	TALLOC_CTX *frame = talloc_stackframe();
 
 	status = zfs_get_nt_acl_common(handle->conn, frame,
-				       fsp->fsp_name, &pacl);
+				       fsp->fsp_name, &fsp->fsp_name->st, &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
 		if (!NT_STATUS_EQUAL(status, NT_STATUS_NOT_SUPPORTED)) {
@@ -334,8 +411,10 @@ static NTSTATUS zfsacl_get_nt_acl(struct vfs_handle_struct *handle,
 	struct SMB4ACL_T *pacl;
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
+	SMB_STRUCT_STAT st;
+	st = smb_fname->st;
 
-	status = zfs_get_nt_acl_common(handle->conn, frame, smb_fname, &pacl);
+	status = zfs_get_nt_acl_common(handle->conn, frame, smb_fname, &st, &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
 		if (!NT_STATUS_EQUAL(status, NT_STATUS_NOT_SUPPORTED)) {
