@@ -139,15 +139,14 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 return NULL;
         } 
  
-        pace = smb_add_ace4(pacl, &owner_ace);
-        pace = smb_add_ace4(pacl, &group_ace);
-        pace = smb_add_ace4(pacl, &everyone_ace);
-        if (pace == NULL) {
-                DEBUG(0, ("talloc failed\n"));
-                TALLOC_FREE(pacl);
-                errno = ENOMEM;
-                return NULL;
-        }
+	if(smb_add_ace4(pacl, &owner_ace) == NULL)
+		return NT_STATUS_NO_MEMORY;
+
+	if(smb_add_ace4(pacl, &group_ace) == NULL)
+		return NT_STATUS_NO_MEMORY;
+	
+	if(smb_add_ace4(pacl, &everyone_ace) == NULL)
+		return NT_STATUS_NO_MEMORY;
                                              
         /* 
 	 * Set DACL_Protected control bit to ensure that Windows Explorer won't try to
