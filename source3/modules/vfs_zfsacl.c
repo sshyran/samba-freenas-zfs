@@ -149,7 +149,10 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 return NULL;
         }
                                              
-        /* We want to prevent Windows Explorer from trying to apply auto-inherited permissions */
+        /* 
+	 * Set DACL_Protected control bit to ensure that Windows Explorer won't try to
+	 * change permissions on the snapdir when changing them at the root of the share.
+	 */
         smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
 
         return pacl;
@@ -194,7 +197,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): Operation is not "
 				  "supported on the filesystem where the file "
 				  "reside\n", smb_fname->base_name));
-			if(lp_parm_bool(conn->params->service, "zfsacl", "expose_snapdir", false)){
+			if(lp_parm_bool(conn->params->service, "zfsacl", "expose_snapdir", false)) {
 				*ppacl = zfsacl_defaultacl(mem_ctx, psbuf);
 				return NT_STATUS_OK;
 			}
