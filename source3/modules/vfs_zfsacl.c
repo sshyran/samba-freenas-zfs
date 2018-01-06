@@ -195,8 +195,10 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): Operation is not "
 				  "supported on the filesystem where the file "
 				  "reside\n", smb_fname->base_name));
-			*ppacl = zfsacl_defaultacl(mem_ctx, st);
-			return NT_STATUS_OK;
+			if(lp_parm_bool(conn->params->service, "zfsacl", "expose_snapdir", True)){
+				*ppacl = zfsacl_defaultacl(mem_ctx, st);
+				return NT_STATUS_OK;
+			}
 		} else {
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): %s ", smb_fname->base_name,
 					strerror(errno)));
