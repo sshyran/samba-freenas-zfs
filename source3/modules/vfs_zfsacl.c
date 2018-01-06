@@ -139,15 +139,24 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 return NULL;
         } 
  
-	if(smb_add_ace4(pacl, &owner_ace) == NULL)
-		return NT_STATUS_NO_MEMORY;
-
-	if(smb_add_ace4(pacl, &group_ace) == NULL)
-		return NT_STATUS_NO_MEMORY;
+	if(smb_add_ace4(pacl, &owner_ace) == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                errno = ENOMEM;
+                return NULL;
+	}
 	
-	if(smb_add_ace4(pacl, &everyone_ace) == NULL)
-		return NT_STATUS_NO_MEMORY;
-                                             
+	if(smb_add_ace4(pacl, &group_ace) == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                errno = ENOMEM;
+                return NULL;
+	}
+
+	if(smb_add_ace4(pacl, &everyone_ace) == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                errno = ENOMEM;
+                return NULL;
+	}
+	
         /* 
 	 * Set DACL_Protected control bit to ensure that Windows Explorer won't try to
 	 * change permissions on the snapdir when changing them at the root of the share.
