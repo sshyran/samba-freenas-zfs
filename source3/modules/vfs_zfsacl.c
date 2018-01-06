@@ -162,7 +162,6 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
 static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 				      TALLOC_CTX *mem_ctx,
 				      const struct smb_filename *smb_fname,
-				      SMB_STRUCT_STAT *st,
 				      struct SMB4ACL_T **ppacl)
 {
 	int naces, i;
@@ -196,7 +195,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 				  "supported on the filesystem where the file "
 				  "reside\n", smb_fname->base_name));
 			if(lp_parm_bool(conn->params->service, "zfsacl", "expose_snapdir", True)){
-				*ppacl = zfsacl_defaultacl(mem_ctx, st);
+				*ppacl = zfsacl_defaultacl(mem_ctx, psbuf);
 				return NT_STATUS_OK;
 			}
 		} else {
@@ -382,7 +381,7 @@ static NTSTATUS zfsacl_fget_nt_acl(struct vfs_handle_struct *handle,
 	TALLOC_CTX *frame = talloc_stackframe();
 
 	status = zfs_get_nt_acl_common(handle->conn, frame,
-				       fsp->fsp_name, &fsp->fsp_name->st, &pacl);
+				       fsp->fsp_name, &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
 		return status;
@@ -403,10 +402,8 @@ static NTSTATUS zfsacl_get_nt_acl(struct vfs_handle_struct *handle,
 	struct SMB4ACL_T *pacl;
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
-	SMB_STRUCT_STAT st;
-	st = smb_fname->st;
 
-	status = zfs_get_nt_acl_common(handle->conn, frame, smb_fname, &st, &pacl);
+	status = zfs_get_nt_acl_common(handle->conn, frame, smb_fname, &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
 		return status;
