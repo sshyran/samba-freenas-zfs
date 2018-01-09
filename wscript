@@ -41,6 +41,7 @@ def set_options(opt):
     opt.RECURSE('selftest')
     opt.RECURSE('source4/lib/tls')
     opt.RECURSE('source4/dsdb/samdb/ldb_modules')
+    opt.RECURSE('pidl')
     opt.RECURSE('source3')
     opt.RECURSE('lib/util')
     opt.RECURSE('lib/crypto')
@@ -188,6 +189,7 @@ def configure(conf):
     conf.RECURSE('nsswitch')
     conf.RECURSE('libcli/smbreadline')
     conf.RECURSE('lib/crypto')
+    conf.RECURSE('pidl')
     conf.RECURSE('selftest')
     if conf.CONFIG_GET('ENABLE_SELFTEST'):
         conf.RECURSE('lib/nss_wrapper')
