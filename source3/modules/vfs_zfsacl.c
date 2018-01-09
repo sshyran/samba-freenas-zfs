@@ -70,20 +70,8 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-		.aceMask = ZFSACL_BASE_SET 
+		.aceMask = ZFSACL_READ_SET 
 	};
-
-	if (mode & S_IRUSR) {
-	    if (mode & S_IWUSR) {
-		owner_ace.aceMask = SMB_ACE4_ALL_MASKS;
-	    }
-	    else {
-	        owner_ace.aceMask = ZFSACL_READ_SET; 
-            }
-	}
-	else if (mode & S_IWUSR) {
-	    owner_ace.aceMask = ZFSACL_WRITE_ONLY_SET;
-	}
 
 	/* group@ ACE */
 	SMB_ACE4PROP_T group_ace = {
@@ -93,21 +81,9 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-                .aceMask = ZFSACL_BASE_SET 
+                .aceMask = ZFSACL_READ_SET 
         };
 
-        if (mode & S_IRGRP) {
-            if (mode & S_IWGRP) {
-                group_ace.aceMask = SMB_ACE4_ALL_MASKS;
-            }
-	    else {
-                group_ace.aceMask = ZFSACL_READ_SET; 
-            }
-        }
-        else if (mode & S_IWGRP) {
-		group_ace.aceMask = ZFSACL_WRITE_ONLY_SET;
-        }
-       
         /* everyone@ ACE */
         SMB_ACE4PROP_T everyone_ace = {
                 .flags = SMB_ACE4_ID_SPECIAL,
@@ -116,20 +92,8 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx,
                 },
                 .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
                 .aceFlags = 0,
-                .aceMask = ZFSACL_BASE_SET 
+                .aceMask = ZFSACL_READ_SET 
         };
-
-        if (mode & S_IROTH) {
-            if (mode & S_IWOTH) {
-                everyone_ace.aceMask = ZFSACL_MODIFY_SET; 
-            }
-	    else {
-                everyone_ace.aceMask = ZFSACL_READ_SET;
-            }
-        }
-        else if (mode & S_IWOTH) {
-            everyone_ace.aceMask = ZFSACL_WRITE_ONLY_SET;
-        }       
  
        /* We've converted mode bits to SMB_ACE4PROP_T, add them to ACL */ 
         pacl = smb_create_smb4acl(mem_ctx);
