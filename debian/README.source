@@ -20,6 +20,9 @@ cd $GIT_DIR
 # Import upstream
 git remote add upstream https://git.samba.org/samba.git
 git fetch upstream
+# ensure required branches exists
+git checkout upstream_4.7
+git checkout pristine-tar
 # go to the Debian branch
 git checkout master
 # Import latest version
