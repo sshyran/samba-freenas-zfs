@@ -1,3 +1,15 @@
+samba (2:4.7.4+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream version
+    - Updates patches
+    - Bump ldb build-deps to 1.2.3
+  * Repository moved to salsa: Update Vcs-* fields
+  * d/README.source:
+    - ensure required branches exists
+    - sync all required branches
+
+ -- Mathieu Parent <sathieu@debian.org>  Wed, 10 Jan 2018 22:31:04 +0100
+
 samba (2:4.7.3+dfsg-1) unstable; urgency=high
 
   * New upstream version
