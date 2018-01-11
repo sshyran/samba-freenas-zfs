@@ -340,6 +340,7 @@ Description: service to resolve user and group information from Windows NT serve
  be enabled via the libpam-winbind package.
 
 Package: libpam-winbind
+Section: admin
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~), ${misc:Pre-Depends}
