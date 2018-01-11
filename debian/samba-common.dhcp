@@ -70,11 +70,11 @@ netbios_setup() {
 	# We don't necessarily have the samba package installed. #414841
 	if [ -x /etc/init.d/smbd ]
 	then
-		if [ -x /bin/systemctl ]
+		if [ -d /run/systemd/system ]
 		then
-			if /bin/systemctl is-enabled smbd.service --quiet
+			if systemctl is-enabled smbd.service --quiet
 			then
-				/bin/systemctl try-reload-or-restart smbd.service
+				systemctl try-reload-or-restart smbd.service
 			fi
 		else
 			/usr/sbin/invoke-rc.d smbd reload
