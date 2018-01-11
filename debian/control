@@ -363,6 +363,7 @@ Description: Windows domain authentication integration plugin
  winbindd server to provide Windows domain authentication to the system.
 
 Package: libnss-winbind
+Section: admin
 Architecture: any
 Multi-Arch: same
 Pre-Depends: dpkg (>= 1.15.6~)
