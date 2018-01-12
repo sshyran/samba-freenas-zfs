@@ -130,7 +130,8 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx)
  * read the local file's acls and return it in NT form
  * using the NFSv4 format conversion
  */
-static NTSTATUS zfs_get_nt_acl_common(TALLOC_CTX *mem_ctx,
+static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
+				      TALLOC_CTX *mem_ctx,
 				      const char *name,
 				      struct SMB4ACL_T **ppacl)
 {
@@ -295,7 +296,7 @@ static NTSTATUS zfsacl_fget_nt_acl(struct vfs_handle_struct *handle,
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
 
-	status = zfs_get_nt_acl_common(frame,
+	status = zfs_get_nt_acl_common(handle->conn, frame,
 				       fsp->fsp_name->base_name,
 				       &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
@@ -319,7 +320,7 @@ static NTSTATUS zfsacl_get_nt_acl(struct vfs_handle_struct *handle,
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
 
-	status = zfs_get_nt_acl_common(frame,
+	status = zfs_get_nt_acl_common(handle->conn, frame,
 					smb_fname->base_name,
 					&pacl);
 	if (!NT_STATUS_IS_OK(status)) {
