@@ -40,13 +40,15 @@
  * read the local file's acls and return it in NT form
  * using the NFSv4 format conversion
  */
-static NTSTATUS zfs_get_nt_acl_common(TALLOC_CTX *mem_ctx,
+static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
+				      TALLOC_CTX *mem_ctx,
 				      const char *name,
 				      struct SMB4ACL_T **ppacl)
 {
 	int naces, i;
 	ace_t *acebuf;
 	struct SMB4ACL_T *pacl;
+	bool inherited_present;
 
 	/* read the number of file aces */
 	if((naces = acl(name, ACE_GETACLCNT, 0, NULL)) == -1) {
@@ -84,6 +86,15 @@ static NTSTATUS zfs_get_nt_acl_common(TALLOC_CTX *mem_ctx,
 		aceprop.aceMask  = (uint32_t) acebuf[i].a_access_mask;
 		aceprop.who.id   = (uint32_t) acebuf[i].a_who;
 
+ 		/*
+ 		 * Test whether ACL contains any ACEs with the
+ 		 * inherited flag set. We use this to determine whether
+ 		 * to set DACL_PROTECTED in the security descriptor.
+ 		 */
+ 		if(aceprop.aceFlags & ACE_INHERITED_ACE) {
+ 			inherited_present = true;
+		}
+		
 		if(aceprop.aceFlags & ACE_OWNER) {
 			aceprop.flags = SMB_ACE4_ID_SPECIAL;
 			aceprop.who.special_id = SMB_ACE4_WHO_OWNER;
@@ -98,6 +109,18 @@ static NTSTATUS zfs_get_nt_acl_common(TALLOC_CTX *mem_ctx,
 		}
 		if(smb_add_ace4(pacl, &aceprop) == NULL)
 			return NT_STATUS_NO_MEMORY;
+	}
+	
+	/*
+ 	 * If the ACL doesn't contain any inherited ACEs, then set DACL_PROTECTED 
+ 	 * in the security descriptor using smb4acl4_set_control_flags() from
+ 	 * source3/modules/nfs4_acls.c. This makes it so that the "Disable 
+ 	 * Inheritance" button works in Windows Explorer and prevents resulting 
+ 	 * ACL from auto-inheriting ACL changes in parent directory.
+ 	 */
+ 	if (!inherited_present 
+	    && lp_parm_bool(conn->params->service, "zfsacl", "map_dacl_protected", false)){
+ 		smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
 	}
 
 	*ppacl = pacl;
@@ -201,7 +224,7 @@ static NTSTATUS zfsacl_fget_nt_acl(struct vfs_handle_struct *handle,
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
 
-	status = zfs_get_nt_acl_common(frame,
+	status = zfs_get_nt_acl_common(handle->conn, frame,
 				       fsp->fsp_name->base_name,
 				       &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
@@ -225,7 +248,7 @@ static NTSTATUS zfsacl_get_nt_acl(struct vfs_handle_struct *handle,
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
 
-	status = zfs_get_nt_acl_common(frame,
+	status = zfs_get_nt_acl_common(handle->conn, frame,
 					smb_fname->base_name,
 					&pacl);
 	if (!NT_STATUS_IS_OK(status)) {
