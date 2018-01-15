@@ -36,6 +36,96 @@
 
 #define ZFSACL_MODULE_NAME "zfsacl"
 
+#define ZFSACL_MODIFY_SET (SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \                                       
+        | SMB_ACE4_WRITE_DATA | SMB_ACE4_APPEND_DATA | SMB_ACE4_READ_NAMED_ATTRS \                        
+        | SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_DELETE_CHILD \                         
+        | SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \                        
+        | SMB_ACE4_SYNCHRONIZE)
+#define ZFSACL_READ_SET (SMB_ACE4_READ_DATA | SMB_ACE4_READ_ACL \
+        | SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_EXECUTE | SMB_ACE4_READ_ATTRIBUTES \
+        | SMB_ACE4_SYNCHRONIZE)
+#define ZFSACL_WRITE_ONLY_SET (SMB_ACE4_READ_ACL | SMB_ACE4_WRITE_DATA \
+        | SMB_ACE4_READ_NAMED_ATTRS | SMB_ACE4_WRITE_NAMED_ATTRS | SMB_ACE4_EXECUTE \
+        | SMB_ACE4_READ_ATTRIBUTES | SMB_ACE4_WRITE_ATTRIBUTES | SMB_ACE4_DELETE \
+        | SMB_ACE4_SYNCHRONIZE)
+#define ZFSACL_BASE_SET (SMB_ACE4_READ_ACL | SMB_ACE4_READ_ATTRIBUTES \
+        | SMB_ACE4_READ_NAMED_ATTRS)
+
+static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx) 
+{
+       struct SMB4ACL_T *pacl = NULL;
+
+        /* Owner@ ACE */
+        SMB_ACE4PROP_T owner_ace = {
+                .flags = SMB_ACE4_ID_SPECIAL,
+                .who = {
+                        .id = SMB_ACE4_WHO_OWNER,
+                },
+                .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
+                .aceFlags = 0,
+                .aceMask = ZFSACL_READ_SET 
+        };
+
+        /* group@ ACE */
+        SMB_ACE4PROP_T group_ace = {
+                .flags = SMB_ACE4_ID_SPECIAL,
+                .who = {
+                        .id = SMB_ACE4_WHO_GROUP,
+                },
+                .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
+                .aceFlags = 0,
+                .aceMask = ZFSACL_READ_SET 
+        };
+
+        /* everyone@ ACE */
+        SMB_ACE4PROP_T everyone_ace = {
+                .flags = SMB_ACE4_ID_SPECIAL,
+                .who = {
+                        .id = SMB_ACE4_WHO_EVERYONE,
+                },
+                .aceType = SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE,
+                .aceFlags = 0,
+                .aceMask = ZFSACL_READ_SET 
+        };
+ 
+       /* We've converted mode bits to SMB_ACE4PROP_T, add them to ACL */ 
+        pacl = smb_create_smb4acl(mem_ctx);
+        if (pacl == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                errno = ENOMEM;
+                return NULL;
+        } 
+ 
+        if(smb_add_ace4(pacl, &owner_ace) == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                TALLOC_FREE(pacl);
+                errno = ENOMEM;
+                return NULL;
+        }
+
+        if(smb_add_ace4(pacl, &group_ace) == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                TALLOC_FREE(pacl);
+                errno = ENOMEM;
+                return NULL;
+        }
+
+        if(smb_add_ace4(pacl, &everyone_ace) == NULL) {
+                DEBUG(0, ("talloc failed\n"));
+                TALLOC_FREE(pacl);
+                errno = ENOMEM;
+                return NULL;
+        }
+
+        /* 
+         * Set DACL_Protected control bit to ensure that Windows Explorer won't try to
+         * change permissions on the snapdir when changing them at the root of the share.
+         */
+        smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
+
+        return pacl;
+}
+
 /* zfs_get_nt_acl()
  * read the local file's acls and return it in NT form
  * using the NFSv4 format conversion
@@ -56,6 +146,10 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): Operation is not "
 				  "supported on the filesystem where the file "
 				  "reside\n", name));
+                        if(lp_parm_bool(conn->params->service, "zfsacl", "expose_snapdir", false)) {
+                                *ppacl = zfsacl_defaultacl(mem_ctx);
+                                return NT_STATUS_OK;
+			}
 		} else {
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): %s ", name,
 					strerror(errno)));
