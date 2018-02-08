@@ -4,3 +4,7 @@ Restrictions: needs-root, allow-stderr, isolation-machine
 
 Tests: python-smoke
 Depends: python-samba
+
+Tests: smbclient-anonymous-share-list
+Depends: samba, smbclient
+Restrictions: allow-stderr, isolation-container
