@@ -12,3 +12,7 @@ Restrictions: allow-stderr, isolation-container
 Tests: smbclient-authenticated-share-list
 Depends: samba, smbclient, passwd
 Restrictions: needs-root, allow-stderr, isolation-container
+
+Tests: smbclient-share-access
+Depends: samba, smbclient, coreutils, systemd, passwd
+Restrictions: needs-root, allow-stderr, isolation-container
