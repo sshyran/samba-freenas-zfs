@@ -1,2 +1,6 @@
+Tests: cifs-share-access
+Depends: samba, coreutils, systemd, cifs-utils, passwd
+Restrictions: needs-root, allow-stderr, isolation-machine
+
 Tests: python-smoke
 Depends: python-samba
