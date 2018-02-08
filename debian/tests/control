@@ -8,3 +8,7 @@ Depends: python-samba
 Tests: smbclient-anonymous-share-list
 Depends: samba, smbclient
 Restrictions: allow-stderr, isolation-container
+
+Tests: smbclient-authenticated-share-list
+Depends: samba, smbclient, passwd
+Restrictions: needs-root, allow-stderr, isolation-container
