@@ -105,7 +105,7 @@ static NTSTATUS get_xattr_value(TALLOC_CTX *mem_ctx,
 	}
 
 	pea->value = data_blob_talloc(mem_ctx, NULL, attr_size);
-	if(pea->value.data == NULL) {
+	if(pea->value.data == NULL && attr_size) {
 		DEBUG(5,
 			("get_xattr_value: for EA '%s' failed to allocate %lu bytes\n",
 			ea_name, (unsigned long)attr_size)
@@ -1313,7 +1313,8 @@ static int streams_xattr_ftruncate(struct vfs_handle_struct *handle,
 	}
 
 	/* That can both shrink and expand */
-	if(!data_blob_realloc(talloc_tos(), &ea.value, offset)) {
+	/* XXX: If offset == 0 the result of talloc_realloc is NULL, but still valid */
+	if(offset && !data_blob_realloc(talloc_tos(), &ea.value, offset)) {
 		TALLOC_FREE(frame);
 		errno = ENOMEM;
 		return -1;
@@ -1325,10 +1326,12 @@ static int streams_xattr_ftruncate(struct vfs_handle_struct *handle,
 			offset - orig_length);
 	}
 
+	/* XXX: We should use ea.value.length here, but when offset == 0
+	   it's not reset to 0 in data_blob_realloc() */
 	ret = SMB_VFS_SETXATTR(fsp->conn,
 			       fsp->fsp_name,
 			       sio->xattr_name,
-			       ea.value.data, ea.value.length, 0);
+			       ea.value.data, offset, 0);
 	TALLOC_FREE(frame);
 
 	if (ret == -1) {
