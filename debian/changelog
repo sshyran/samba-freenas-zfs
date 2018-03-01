@@ -1,6 +1,6 @@
-samba (2:4.7.4+dfsg-1.1) unstable; urgency=medium
+samba (2:4.7.4+dfsg-2) UNRELEASED; urgency=medium
 
-  * Non-maintainer upload.
+  [ Andreas Hasenack ]
   * Add extra DEP8 tests to samba (Closes: #890439):
     - d/t/control, d/t/cifs-share-access: access a file in a share using cifs
     - d/t/control, d/t/smbclient-anonymous-share-list: list available shares
@@ -10,7 +10,13 @@ samba (2:4.7.4+dfsg-1.1) unstable; urgency=medium
     - d/t/control, d/t/smbclient-share-access: create a share and download a
       file from it
 
- -- Andreas Hasenack <andreas@canonical.com>  Wed, 14 Feb 2018 17:46:13 -0200
+  [ Mathieu Parent ]
+  * Fix "/etc/dhcp/dhclient-enter-hooks.d/samba returned non-zero exit status 1"
+    when samba.service is disabled
+    - Pick patch from Ubuntu for Launchpad #1579597
+    - Fix systemd check
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 01 Mar 2018 21:51:45 +0100
 
 samba (2:4.7.4+dfsg-1) unstable; urgency=medium
 
