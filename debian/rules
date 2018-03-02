@@ -106,7 +106,15 @@ override_dh_auto_test:
 	# we don't want to do for production systems.
 
 override_dh_installsystemd:
+ifneq (,$(filter samba, $(shell dh_listpackages)))
+	dh_installsystemd -psamba
+endif
+ifneq (,$(filter winbind, $(shell dh_listpackages)))
+	dh_installsystemd -pwinbind
+endif
+ifneq (,$(filter ctdb, $(shell dh_listpackages)))
 	dh_installsystemd -pctdb --no-start --no-stop-on-upgrade
+endif
 
 override_dh_installdocs-arch:
 	cp ctdb/config/events.d/README ctdb/README.eventscripts
