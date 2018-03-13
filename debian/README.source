@@ -58,4 +58,19 @@ gbp import-orig --uscan \
   -u "${upstream_version}+dfsg" \
   --upstream-vcs-tag "samba-${upstream_version}" \
   --merge-mode=replace
-# all done :)
+
+Then several steps are needed:
+
+- Apply all patches:
+
+git am $(cat debian/patches/series | sed s@^@debian/patches/@)
+# then update or drop patches as needed
+
+- Bump talloc, tdb, tevent and ldb Build-Depends in debian/control, from lib/*/wscript
+
+grep ^VERSION lib/{talloc,tdb,tevent,ldb}/wscript
+editor debian/control
+
+- Check if other Build-Depends need to be bumped
+
+git diff origin/master.."samba-${upstream_version}" buildtools/wafsamba/samba_third_party.py
