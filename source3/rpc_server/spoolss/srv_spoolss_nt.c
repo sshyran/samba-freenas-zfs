@@ -373,7 +373,7 @@ static WERROR delete_printer_hook(TALLOC_CTX *ctx, struct security_token *token,
 	ret = smbrun(command, NULL, NULL);
 	if (ret == 0) {
 		/* Tell everyone we updated smb.conf. */
-		message_send_all(msg_ctx, MSG_SMB_CONF_UPDATED, NULL, 0, NULL);
+		messaging_send_all(msg_ctx, MSG_SMB_CONF_UPDATED, NULL, 0);
 	}
 
 	if ( is_print_op )
@@ -4190,9 +4190,12 @@ static WERROR construct_printer_info5(TALLOC_CTX *mem_ctx,
 
 	r->attributes	= info2->attributes;
 
-	/* these two are not used by NT+ according to MSDN */
-	r->device_not_selected_timeout		= 0x0;  /* have seen 0x3a98 */
-	r->transmission_retry_timeout		= 0x0;  /* have seen 0xafc8 */
+	/*
+	 * These two are not used by NT+ according to MSDN. However the values
+	 * we saw on Windows Server 2012 and 2016 are always set to the 0xafc8.
+	 */
+	r->device_not_selected_timeout		= 0xafc8; /* 45 sec */
+	r->transmission_retry_timeout		= 0xafc8; /* 45 sec */
 
 	return WERR_OK;
 }
@@ -6443,7 +6446,7 @@ static bool add_printer_hook(TALLOC_CTX *ctx, struct security_token *token,
 	ret = smbrun(command, &fd, NULL);
 	if (ret == 0) {
 		/* Tell everyone we updated smb.conf. */
-		message_send_all(msg_ctx, MSG_SMB_CONF_UPDATED, NULL, 0, NULL);
+		messaging_send_all(msg_ctx, MSG_SMB_CONF_UPDATED, NULL, 0);
 	}
 
 	if ( is_print_op )

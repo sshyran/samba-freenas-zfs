@@ -80,16 +80,6 @@ extern "C" {
 #include <fcntl.h>
 #include <utime.h>
 
-  /* Debian bug #221618 */
-#ifdef _LARGEFILE64_SOURCE
-#undef _LARGEFILE64_SOURCE
-#endif
-#define _LARGEFILE64_SOURCE 1
-#ifdef _FILE_OFFSET_BITS
-#undef _FILE_OFFSET_BITS
-#endif
-#define _FILE_OFFSET_BITS 64
-
 #define SMBC_BASE_FD        10000 /* smallest file descriptor returned */
 
 #define SMBC_WORKGROUP      1
@@ -138,6 +128,11 @@ struct smbc_dirent
 	 */
 	char name[1];
 };
+
+/*
+ * Logging callback function
+ */
+typedef void (*smbc_debug_callback_fn)(void *private_ptr, int level, const char *msg);
 
 /*
  * Flags for smbc_setxattr()
@@ -480,6 +475,14 @@ smbc_getDebug(SMBCCTX *c);
 void
 smbc_setDebug(SMBCCTX *c, int debug);
 
+/**
+ * set log callback function to capture logs from libsmbclient, this
+ * is applied at global level
+ */
+void
+smbc_setLogCallback(SMBCCTX *c, void *private_ptr,
+		    smbc_debug_callback_fn fn);
+
 /** Get the netbios name used for making connections */
 char *
 smbc_getNetbiosName(SMBCCTX *c);
@@ -501,7 +504,7 @@ smbc_getUser(SMBCCTX *c);
 
 /** Set the username used for making connections */
 void
-smbc_setUser(SMBCCTX *c, char * user);
+smbc_setUser(SMBCCTX *c, const char *user);
 
 /**
  * Get the timeout used for waiting on connections and response data
