@@ -1809,18 +1809,21 @@ sub provision($$$$$$$$$)
 	fruit:metadata = netatalk
 	fruit:locking = netatalk
 	fruit:encoding = native
+	fruit:veto_appledouble = no
 
 [vfs_fruit_metadata_stream]
 	path = $shrdir
 	vfs objects = fruit streams_xattr acl_xattr
 	fruit:resource = file
 	fruit:metadata = stream
+	fruit:veto_appledouble = no
 
 [vfs_fruit_stream_depot]
 	path = $shrdir
 	vfs objects = fruit streams_depot acl_xattr
 	fruit:resource = stream
 	fruit:metadata = stream
+	fruit:veto_appledouble = no
 
 [vfs_wo_fruit]
 	path = $shrdir
@@ -2030,6 +2033,10 @@ sub provision($$$$$$$$$)
 [compound_find]
 	copy = tmp
 	smbd:find async delay usec = 10000
+[error_inject]
+	copy = tmp
+	vfs objects = error_inject
+	include = $libdir/error_inject.conf
 	";
 	close(CONF);
 
