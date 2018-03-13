@@ -2968,6 +2968,8 @@ struct loadparm_context *loadparm_init(TALLOC_CTX *mem_ctx)
 
 	lpcfg_do_global_parameter(lp_ctx, "init logon delay", "100");
 
+	lpcfg_do_global_parameter(lp_ctx, "usershare max shares", "100");
+
 	lpcfg_do_global_parameter(lp_ctx, "usershare owner only", "yes");
 
 	lpcfg_do_global_parameter(lp_ctx, "-valid", "yes");
