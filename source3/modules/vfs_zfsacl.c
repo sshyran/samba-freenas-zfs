@@ -52,7 +52,7 @@
         | SMB_ACE4_READ_NAMED_ATTRS)
 
 static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx, 
-					SMB_STRUCT_STAT *psbuf)
+					const SMB_STRUCT_STAT *psbuf)
 {
        struct SMB4ACL_T *pacl = NULL;
        struct SMB4ACE_T *pace;
