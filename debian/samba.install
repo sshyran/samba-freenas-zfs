@@ -18,6 +18,7 @@ usr/lib/*/samba/libkdc-samba4.so.2
 usr/lib/*/samba/libkdc-samba4.so.2.0.0
 usr/lib/*/samba/libpac.so.*
 usr/lib/*/samba/service/*.so
+usr/lib/python*/dist-packages/samba/dckeytab.so
 usr/sbin/mksmbpasswd
 usr/sbin/nmbd
 usr/sbin/samba
