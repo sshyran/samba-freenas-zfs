@@ -68,6 +68,11 @@ conf_args = \
 		--with-socketpath=/var/run/ctdb/ctdbd.socket \
 		--with-logdir=/var/log/ctdb
 
+ifneq ($(filter pkg.samba.selftest,$(DEB_BUILD_PROFILES)),)
+	conf_args += \
+		--selftest
+endif
+
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	conf_args += \
 		--with-systemd \
@@ -88,8 +93,19 @@ override_dh_auto_build:
 	DESTDIR="$(DESTDIR)" $(WAF)
 
 override_dh_auto_test:
-	# Running make test requires configuration with --enable-selftest, which
-	# we don't want to do for production systems.
+ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
+ifneq ($(filter pkg.samba.selftest,$(DEB_BUILD_PROFILES)),)
+	make quicktest
+else
+	# Running make test requires "waf configure" with --enable-selftest, which
+	# requires --with-ntvfs-fileserver which we don't want on production systems
+	@echo "** tests skipped **"
+	@echo "   use DEB_BUILD_PROFILES=pkg.samba.selftest to enable"
+	@echo "   but DO NOT UPLOAD!"
+endif
+else
+	@echo "** tests disabled **"
+endif
 
 override_dh_auto_install:
 	DESTDIR="$(DESTDIR)" $(WAF) install
@@ -156,6 +172,12 @@ override_dh_auto_install:
 	  $(DESTDIR)/lib/systemd/system/winbind.service
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
+ifneq ($(filter pkg.samba.selftest,$(DEB_BUILD_PROFILES)),)
+	# Triggers package-contains-ancient-file Lintian Reject
+	# See https://ftp-master.debian.org/#lintianrejects
+	# RIP Duke Ellington
+	touch -d 1974-05-24 $(DESTDIR)/usr/share/samba
+endif
 
 override_dh_installdocs-arch:
 	cp ctdb/config/events.d/README ctdb/README.eventscripts
