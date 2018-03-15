@@ -113,25 +113,26 @@ override_dh_install:
 	rm $(DESTDIR)/lib/$(DEB_HOST_MULTIARCH)/libnss_*.so
 	#Remove unused vfstest manpage vfstest is no longer installed
 	rm $(DESTDIR)/usr/share/man/man1/vfstest.1
+	# Install winbind_krb5_locator
 	mkdir -p $(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/plugin/krb5
 	mv $(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/winbind_krb5_locator.so \
 	   $(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/plugin/krb5
+	# Debian goodies to set global option in smb.conf and add a share
 	install -m 0755 debian/setoption.py $(DESTDIR)/usr/share/samba
 	install -m 0755 debian/addshare.py $(DESTDIR)/usr/share/samba
-	# Install samba-common's conffiles - they'll get moved later to their
-	# correct place by dh_install
+	# Debian goodies
 	cp debian/smb.conf* $(DESTDIR)/usr/share/samba/
 	install -m755 debian/panic-action $(DESTDIR)/usr/share/samba/panic-action
 	cp debian/gdbcommands $(DESTDIR)/etc/samba/
 	mkdir -p $(DESTDIR)/etc/dhcp/dhclient-enter-hooks.d
 	install -m755 debian/samba-common.dhcp $(DESTDIR)/etc/dhcp/dhclient-enter-hooks.d/samba
-	# Install other stuff not installed by "make install"
 	install -m 0755 debian/mksmbpasswd.awk $(DESTDIR)/usr/sbin/mksmbpasswd
+	mkdir -p $(DESTDIR)/etc/ufw/applications.d
+	install -m644 debian/samba.ufw.profile $(DESTDIR)/etc/ufw/applications.d/samba
+	# Install other stuff not installed by "make install"
 	mkdir -p debian/samba/usr/lib/$(PYSHORT)/dist-packages/samba
 	mv $(DESTDIR)/usr/lib/$(PYSHORT)/dist-packages/samba/dckeytab.so \
 	   debian/samba/usr/lib/$(PYSHORT)/dist-packages/samba/dckeytab.so
-	mkdir -p $(DESTDIR)/etc/ufw/applications.d
-	install -m644 debian/samba.ufw.profile $(DESTDIR)/etc/ufw/applications.d/samba
 	# use upstream version of smb.conf.5 if there is no built version
 	# this is a temporary workaround for #750593 in xsltproc
 	[ -e $(DESTDIR)/usr/share/man/man5/smb.conf.5 ] || \
@@ -146,6 +147,7 @@ override_dh_install:
 	# Install systemd configs
 	mkdir -p $(DESTDIR)/lib/systemd/system/
 	install -m 0644 ctdb/config/ctdb.service $(DESTDIR)/lib/systemd/system/
+	# Services fixups
 	mv $(DESTDIR)/lib/systemd/system/nmb.service $(DESTDIR)/lib/systemd/system/nmbd.service
 	mv $(DESTDIR)/lib/systemd/system/smb.service $(DESTDIR)/lib/systemd/system/smbd.service
 	mv $(DESTDIR)/lib/systemd/system/samba.service $(DESTDIR)/lib/systemd/system/samba-ad-dc.service
@@ -161,8 +163,7 @@ override_dh_install:
 	  $(DESTDIR)/lib/systemd/system/winbind.service
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
-	#install -m 0644 packaging/systemd/samba.sysconfig $(DESTDIR)/etc/default/samba
-	#
+	# Move files in the proper packages
 	dh_install --sourcedir=$(DESTDIR)
 
 override_dh_installdocs-arch:
