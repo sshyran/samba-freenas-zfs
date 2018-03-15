@@ -25,10 +25,6 @@ export PYTHON=$(shell which $(PYSHORT))
 export PYTHON_CONFIG="$(PYTHON)-config"
 WAF = $(PYTHON) ./buildtools/bin/waf -v
 
-# turn DEB_BUILD_OPTIONS='foo,bar' into DEB_BUILD_OPT_FOO and DEB_BUILD_OPT_BAR
-d_b_o:=$(shell echo "$$DEB_BUILD_OPTIONS"|sed 's/[^-[:alnum:]]/ /g'|tr a-z A-Z)
-$(foreach o, $(d_b_o), $(eval DEB_BUILD_OPT_$o := 1))
-
 # wrapper around cups-config, to work around #726726
 export PATH:=$(CURDIR)/debian/bin:$(PATH)
 
