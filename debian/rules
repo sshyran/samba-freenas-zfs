@@ -198,7 +198,10 @@ override_dh_install:
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
 	#install -m 0644 packaging/systemd/samba.sysconfig $(DESTDIR)/etc/default/samba
 	#
-	dh_install --sourcedir=$(DESTDIR) --list-missing --fail-missing
+	dh_install --sourcedir=$(DESTDIR)
+
+override_dh_missing:
+	dh_missing --fail-missing
 
 override_dh_python2:
 	dh_python2 --no-guessing-versions
