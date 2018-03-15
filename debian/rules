@@ -158,9 +158,6 @@ override_dh_auto_install:
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
 
-override_dh_install:
-	dh_install --sourcedir=$(DESTDIR)
-
 override_dh_installdocs-arch:
 	cp ctdb/config/events.d/README ctdb/README.eventscripts
 	cp ctdb/config/notify.d.README ctdb/README.notify.d
