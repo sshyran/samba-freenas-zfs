@@ -1,12 +1,28 @@
-The packaging is kept in https://anonscm.debian.org/git/pkg-samba/samba.git
-(web interface: https://anonscm.debian.org/cgit/pkg-samba/samba.git).
+The packaging is kept in https://salsa.debian.org/samba-team/samba.
 
 The version in unstable is on the 'master' branch, with the corresponding
-upstream version in the 'upstream_4.7' branch (with pristine-tar information
+upstream version in the 'upstream_4.8' branch (with pristine-tar information
 in the pristine-tar branch).
 
 It should be possible to build the package by just running 'git-buildpackage'.
 
+Building
+=======
+
+# The first time:
+sudo apt install git-buildpackage pristine-tar cowbuilder
+DIST=sid ARCH=amd64 git-pbuilder create
+git clone https://salsa.debian.org/samba-team/samba.git
+cd samba
+git checkout pristine-tar
+git checkout upstream_4.8
+
+
+# Each time:
+cd samba
+git checkout master
+gbp pull
+gbp buildpackage --git-pbuilder --git-dist=sid --git-arch=amd64
 
 Merging minor upstream releases
 ===============================
@@ -14,7 +30,7 @@ Merging minor upstream releases
 Importing a new upstream version can be done like this:
 
 # set target version
-upstream_version=4.7.0
+upstream_version=4.8.0
 major_version="$(echo $upstream_version | sed 's/.[[:digit:]]\+$//')"
 # go to git repo
 cd $GIT_DIR
