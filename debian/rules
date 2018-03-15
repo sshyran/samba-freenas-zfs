@@ -257,6 +257,3 @@ override_dh_auto_clean:
 	rm -f .lock-wscript
 	rm -f ctdb/README.eventscripts
 	rm -f ctdb/README.notify.d
-
-get-packaged-orig-source:
-	./debian/build-orig.sh
