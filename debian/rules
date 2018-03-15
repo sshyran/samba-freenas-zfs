@@ -74,7 +74,9 @@ conf_args = \
 
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	conf_args += \
-		--with-systemd
+		--with-systemd \
+		--systemd-install-services \
+		--with-systemddir=/lib/systemd/system
 else
 	conf_args += \
 		--without-systemd
@@ -179,7 +181,6 @@ override_dh_install:
 	# Install systemd configs
 	mkdir -p $(DESTDIR)/lib/systemd/system/
 	install -m 0644 ctdb/config/ctdb.service $(DESTDIR)/lib/systemd/system/
-	install -m 0644 packaging/systemd/*.service $(DESTDIR)/lib/systemd/system/
 	mv $(DESTDIR)/lib/systemd/system/nmb.service $(DESTDIR)/lib/systemd/system/nmbd.service
 	mv $(DESTDIR)/lib/systemd/system/smb.service $(DESTDIR)/lib/systemd/system/smbd.service
 	mv $(DESTDIR)/lib/systemd/system/samba.service $(DESTDIR)/lib/systemd/system/samba-ad-dc.service
