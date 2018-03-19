@@ -25,14 +25,6 @@ Each time:
     gbp pull
     gbp buildpackage --git-pbuilder --git-dist=sid --git-arch=amd64
 
-Building with selftest
-======================
-
-    DEB_BUILD_PROFILES=pkg.samba.selftest \
-    gbp buildpackage --git-pbuilder --git-dist=sid --git-arch=amd64
-
-:warning: DO NOT UPLOAD THE RESULTING PACKAGES! :warning:
-
 Merging minor upstream releases
 ===============================
 
