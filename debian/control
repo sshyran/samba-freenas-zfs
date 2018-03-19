@@ -10,7 +10,7 @@ Uploaders: Steve Langasek <vorlon@debian.org>,
 Homepage: http://www.samba.org
 Standards-Version: 4.1.3
 Build-Depends: bison,
-               debhelper (>> 11),
+               debhelper (>= 11),
                dh-python,
                docbook-xml,
                docbook-xsl,
