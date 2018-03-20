@@ -183,18 +183,17 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 			return -1;
 		}
 
+		if (realpath(path, rp) == NULL) {
+			talloc_free(rp);
+			DEBUG(3, ("winmsa_set_acls: realpath failed for %s\n", path));
+			continue;
+		}
+
 		if ((buf = talloc_size(ctx, PATH_MAX)) == NULL) {
 			talloc_free(rp);
 			errno = ENOMEM;
 			closedir(dh);
 			return -1;
-		}
-
-		if (realpath(path, rp) == NULL) {
-			talloc_free(buf);
-			talloc_free(rp);
-			DEBUG(3, ("winmsa_set_acls: realpath failed for %s\n", path));
-			continue;
 		}
 
 		snprintf(buf, PATH_MAX, "%s/%s", rp, de.d_name);
