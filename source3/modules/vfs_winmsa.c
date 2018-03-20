@@ -222,7 +222,7 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 
 	int result = -1;
 	winmsa_info_t *info;
-	char *parent, *dst;
+	char *parent, *p1, *p2, *dst;
 	TALLOC_CTX *ctx;
 
 
@@ -238,7 +238,10 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 		goto out;
 	}
 
-	if (parent_dir(ctx, smb_fname_dst->base_name) == parent_dir(ctx, smb_fname_src->base_name)) {
+	p1 = parent_dir(ctx, smb_fname_src->base_name);
+	p2 = parent_dir(ctx, smb_fname_dst->base_name);
+
+	if (p1 != NULL && p2 != NULL && strcmp(p1, p2) == 0) {
 		DEBUG(5, ("winmsa_rename: source and destination parent directory is the same\n"));
 		result = 0;
 		goto out;
