@@ -238,6 +238,12 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 		goto out;
 	}
 
+	if (parent_dir(ctx, smb_fname_dst->base_name) == parent_dir(ctx, smb_fname_src->base_name)) {
+		DEBUG(5, ("winmsa_rename: source and destination parent directory is the same\n"));
+		result = 0;
+		goto out;
+	}
+
 	if ((parent = parent_dir(ctx, smb_fname_dst->base_name)) == NULL) {
 		result = 0;
 		goto out;
