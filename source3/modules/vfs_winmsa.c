@@ -11,6 +11,10 @@
 #include "sunacl.h"
 #endif
 
+#ifndef NAME_MAX
+#define NAME_MAX 255
+#endif
+
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_VFS
 
@@ -39,11 +43,10 @@ static char *parent_dir(TALLOC_CTX *ctx, const char *name)
 static void winmsa_dump_acl(const char *path, ace_t *aces, int naces)
 {
 	int i;
-	ace_t *ace;
 
 	DEBUG(5, ("PATH=%s\n", path));
 	for (i = 0;i < naces;i++) {
-		ace = &(aces[i]);
+		ace_t *ace = &(aces[i]);
 		DEBUG(5, ("ACE: [%02d/%02d] who=%08x [%-10d] mask=%08x flags=%08x type=%08x\n",
 			i + 1, naces, ace->a_who, ace->a_who, ace->a_access_mask, ace->a_flags, ace->a_type));
 	}
@@ -134,12 +137,14 @@ static int winmsa_get_ownership(winmsa_info_t *info)
 	return 0;
 }
 
+/* this  routine must be called under a become_root context to operate with sufficent access */
 static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 						winmsa_info_t *info, const char *path)
 {
-	//this  routine must be called under a become_root context to operate with sufficent access 
+	int ret;
 	DIR *dh;
-	struct dirent *de;
+	struct dirent de;
+	struct dirent *result;
 	SMB_STRUCT_STAT sbuf;
 
 	if (sys_lstat(path, &sbuf, false) < 0) {
@@ -151,7 +156,7 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 		return 0;
 
 	if (!S_ISDIR(sbuf.st_ex_mode)) {
-		//these calls require escalated privileges
+		/* these calls require escalated privileges */
 		if (chown(path, info->uid, info->gid) < 0)
 			DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
 		if (acl(path, ACE_SETACL, info->f_naces, info->f_aces) < 0)
@@ -164,22 +169,24 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 		return -1;
 	}
 
-	while ((de = readdir(dh)) != NULL) {
+	for (ret = readdir_r(dh, &entry, &result); result != NULL && ret == 0; ret = readdir_r(dh, &entry, &result)) {
 		char *rp, *buf;
 
-		if (strcmp(de->d_name, ".") == 0 ||
-			strcmp(de->d_name, "..") == 0) {
+		if (strcmp(de.d_name, ".") == 0 ||
+			strcmp(de.d_name, "..") == 0) {
 			continue;
 		}
 
 		if ((rp = talloc_size(ctx, PATH_MAX)) == NULL) {
 			errno = ENOMEM;
+			closedir(dh);
 			return -1;
 		}
 
 		if ((buf = talloc_size(ctx, PATH_MAX)) == NULL) {
 			talloc_free(rp);
 			errno = ENOMEM;
+			closedir(dh);
 			return -1;
 		}
 
@@ -190,7 +197,7 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 			continue;
 		}
 
-		snprintf(buf, PATH_MAX, "%s/%s", rp, de->d_name);
+		snprintf(buf, PATH_MAX, "%s/%s", rp, de.d_name);
 		talloc_free(rp);
 
 		winmsa_set_acls(ctx, handle, info, buf);
@@ -199,7 +206,7 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 
 	closedir(dh);
 
-	//these calls may require escalated privileges
+	/* these calls may require escalated privileges */
 	if (chown(path, info->uid, info->gid) < 0)
 		DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
 	if (acl(path, ACE_SETACL, info->d_naces, info->d_aces) < 0)
