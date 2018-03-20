@@ -169,7 +169,7 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 		return -1;
 	}
 
-	for (ret = readdir_r(dh, &entry, &result); result != NULL && ret == 0; ret = readdir_r(dh, &entry, &result)) {
+	for (ret = readdir_r(dh, &de, &result); result != NULL && ret == 0; ret = readdir_r(dh, &de, &result)) {
 		char *rp, *buf;
 
 		if (strcmp(de.d_name, ".") == 0 ||
