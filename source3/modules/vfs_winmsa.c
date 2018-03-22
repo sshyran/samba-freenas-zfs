@@ -71,6 +71,8 @@ static int winmsa_get_naces(const char *path)
 
 static int winmsa_get_acl(TALLOC_CTX *ctx, winmsa_info_t *info)
 {
+	int i;
+
 	if (info == NULL || info->path == NULL)
 		return -1;
 
@@ -87,6 +89,10 @@ static int winmsa_get_acl(TALLOC_CTX *ctx, winmsa_info_t *info)
 		return -1;
 	}
 
+	for (i = 0;i < info->d_naces;i++) {
+		info->d_aces[i].a_flags |= ACE_INHERITED_ACE;
+	}
+	
 	return 0;
 }
 
@@ -117,6 +123,8 @@ static int winmsa_file_acl(TALLOC_CTX *ctx, winmsa_info_t *info)
 			ACE_NO_PROPAGATE_INHERIT_ACE|
 			ACE_INHERIT_ONLY_ACE
 		);
+		
+		info->f_aces[i].a_flags |= ACE_INHERITED_ACE;
 	}
 
 	return 0;
