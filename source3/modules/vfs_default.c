@@ -2229,9 +2229,7 @@ static struct smb_filename *vfswrap_getwd(vfs_handle_struct *handle,
 				NULL,
 				NULL,
 				0);
-	if (smb_fname == NULL) {
-		SAFE_FREE(result);
-	}
+	SAFE_FREE(result);
 	return smb_fname;
 }
 
