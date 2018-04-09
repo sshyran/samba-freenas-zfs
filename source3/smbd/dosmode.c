@@ -395,6 +395,11 @@ NTSTATUS get_ea_dos_attribute(connection_struct *conn,
 	if (S_ISDIR(smb_fname->st.st_ex_mode)) {
 		dosattr |= FILE_ATTRIBUTE_DIRECTORY;
 	}
+
+	if (is_ntfs_stream_smb_fname(smb_fname)) {
+		dosattr &= ~(FILE_ATTRIBUTE_DIRECTORY);
+	}
+
 	/* FILE_ATTRIBUTE_SPARSE is valid on get but not on set. */
 	*pattr |= (uint32_t)(dosattr & (SAMBA_ATTRIBUTES_MASK|FILE_ATTRIBUTE_SPARSE));
 
