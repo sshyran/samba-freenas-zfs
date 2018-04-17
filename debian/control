@@ -199,6 +199,7 @@ Description: tools for viewing and manipulating the Windows registry
 
 Package: libparse-pidl-perl
 Architecture: any
+Multi-Arch: same
 Depends: libparse-yapp-perl, ${misc:Depends}, ${perl:Depends}
 Recommends: samba-dev
 Suggests: libwireshark-dev
@@ -215,6 +216,7 @@ Description: IDL compiler written in Perl
 
 Package: samba-dev
 Architecture: any
+Multi-Arch: same
 Depends: libc6-dev,
          libldb-dev,
          libparse-pidl-perl,
@@ -257,6 +259,7 @@ Description: Python bindings for Samba
 
 Package: samba-dsdb-modules
 Architecture: any
+Multi-Arch: same
 Section: libs
 Depends: libgpgme11,
          samba-libs (= ${binary:Version}),
@@ -275,6 +278,7 @@ Description: Samba Directory Services Database
 
 Package: samba-vfs-modules
 Architecture: any
+Multi-Arch: same
 Breaks: samba (<< 2:4.3.2+dfsg-1), samba-libs (<< 2:4.3.2+dfsg-1)
 Replaces: samba (<< 2:4.3.2+dfsg-1), samba-libs (<< 2:4.3.2+dfsg-1)
 Depends: samba-libs (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
