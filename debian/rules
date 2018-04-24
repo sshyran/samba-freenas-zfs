@@ -10,6 +10,7 @@ include /usr/share/dpkg/buildflags.mk
 
 DEB_HOST_ARCH_OS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+DEB_HOST_GNU_CPU ?= $(shell dpkg-architecture -qDEB_HOST_GNU_CPU)
 
 PYVERS=$(shell pyversions -vr)
 
@@ -76,6 +77,11 @@ ifeq ($(DEB_HOST_ARCH_OS), linux)
 else
 	conf_args += \
 		--without-systemd
+endif
+
+ifeq ($(DEB_HOST_GNU_CPU), x86_64)
+	conf_args += \
+		--accel-aes=intelaesni
 endif
 
 %:
