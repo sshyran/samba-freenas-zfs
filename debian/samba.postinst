@@ -3,7 +3,7 @@
 set -e
 
 nmbd_error_handler() {
-    if [ -d /sys/class/net/lo ] && ls /sys/class/net/lo | grep -qv ^lo$; then
+    if [ -d /sys/class/net/lo ] && ls /sys/class/net | grep -qv ^lo$; then
         # https://bugs.debian.org/893762
         echo 'WARNING: nmbd failed to start as there is no non-loopback interface.'
         echo 'Either add an interface or set "disable netbios = yes" in smb.conf and run "systemctl mask nmbd"'
