@@ -6,3 +6,4 @@ usershare.patch
 VERSION.patch
 add-so-version-to-private-libraries
 heimdal-rfc3454.txt
+Fix-pidl-manpage-sections.patch
