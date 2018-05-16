@@ -1,3 +1,12 @@
+samba (2:4.8.1+dfsg-3) UNRELEASED; urgency=medium
+
+  * Fix lintian warnings with patches recently merged upstream:
+    - Add Fix-pidl-manpage-sections.patch
+    - Add Fix-spelling.patch
+    - Add Improve-vfs_linux_xfs_sgid-manpage.patch
+
+ -- Mathieu Parent <sathieu@debian.org>  Wed, 16 May 2018 06:42:59 +0200
+
 samba (2:4.8.1+dfsg-2) unstable; urgency=low
 
   * Upload to unstable
