@@ -484,8 +484,9 @@ static int adouble_path(TALLOC_CTX *ctx,
 			struct smb_filename **ppsmb_fname_out);
 static AfpInfo *afpinfo_new(TALLOC_CTX *ctx);
 static ssize_t afpinfo_pack(const AfpInfo *ai, char *buf);
-static AfpInfo *afpinfo_unpack(TALLOC_CTX *ctx, const void *data);
-
+static AfpInfo *afpinfo_unpack(TALLOC_CTX *ctx,
+			       const void *data,
+			       const struct smb_filename *smb_fname);
 
 /**
  * Return a pointer to an AppleDouble entry
@@ -2063,13 +2064,17 @@ static ssize_t afpinfo_pack(const AfpInfo *ai, char *buf)
 	return AFP_INFO_SIZE;
 }
 
+#define BROKEN_FREEBSD_AFP_Signature 0x00465000
+
 /**
  * Unpack a buffer into a AfpInfo structure
  *
  * Buffer size must be at least AFP_INFO_SIZE
  * Returns allocated AfpInfo struct
  **/
-static AfpInfo *afpinfo_unpack(TALLOC_CTX *ctx, const void *data)
+static AfpInfo *afpinfo_unpack(TALLOC_CTX *ctx,
+			       const void *data,
+			       const struct smb_filename *smb_fname)
 {
 	AfpInfo *ai = talloc_zero(ctx, AfpInfo);
 	if (ai == NULL) {
@@ -2082,10 +2087,21 @@ static AfpInfo *afpinfo_unpack(TALLOC_CTX *ctx, const void *data)
 	memcpy(ai->afpi_FinderInfo, (const char *)data + 16,
 	       sizeof(ai->afpi_FinderInfo));
 
-	if (ai->afpi_Signature != AFP_Signature
-	    || ai->afpi_Version != AFP_Version) {
-		DEBUG(1, ("Bad AfpInfo signature or version\n"));
+	if (ai->afpi_Signature != AFP_Signature) {
+		DBG_WARNING("Bad signature [%x] on [%s]\n",
+			    ai->afpi_Signature, smb_fname_str_dbg(smb_fname));
+
+		if (ai->afpi_Signature != BROKEN_FREEBSD_AFP_Signature) {
+			DBG_ERR("Bad AfpInfo signature\n");
+			TALLOC_FREE(ai);
+			return NULL;
+		}
+	}
+
+	if (ai->afpi_Version != AFP_Version) {
+		DBG_ERR("Bad AfpInfo version\n");
 		TALLOC_FREE(ai);
+		return NULL;
 	}
 
 	return ai;
@@ -4171,7 +4187,7 @@ static ssize_t fruit_pwrite_meta_stream(vfs_handle_struct *handle,
 	size_t nwritten;
 	bool ok;
 
-	ai = afpinfo_unpack(talloc_tos(), data);
+	ai = afpinfo_unpack(talloc_tos(), data, fsp->fsp_name);
 	if (ai == NULL) {
 		return -1;
 	}
@@ -4209,7 +4225,7 @@ static ssize_t fruit_pwrite_meta_netatalk(vfs_handle_struct *handle,
 	int ret;
 	bool ok;
 
-	ai = afpinfo_unpack(talloc_tos(), data);
+	ai = afpinfo_unpack(talloc_tos(), data, fsp->fsp_name);
 	if (ai == NULL) {
 		return -1;
 	}
