@@ -529,19 +529,13 @@ static int streams_xattr_open(vfs_handle_struct *handle,
 		/*
 		 * The attribute does not exist or needs to be truncated
 		 */
-
-		/*
-		 * Darn, xattrs need at least 1 byte
-		 */
-		char null = '\0';
-
 		DEBUG(10, ("creating or truncating attribute %s on file %s\n",
 			   xattr_name, smb_fname->base_name));
 
 		ret = SMB_VFS_SETXATTR(fsp->conn,
 				       smb_fname,
 				       xattr_name,
-				       &null, 0,
+				       NULL, 0,
 				       flags & O_EXCL ? XATTR_CREATE : 0);
 		if (ret != 0) {
 			goto fail;
