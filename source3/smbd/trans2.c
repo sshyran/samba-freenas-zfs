@@ -243,7 +243,7 @@ NTSTATUS get_ea_value(TALLOC_CTX *mem_ctx,
 	}
 
 	if (sizeret == -1 && errno == ERANGE && attr_size <= max_xattr_size) {
-		attr_size = sizeret;
+		attr_size = max_xattr_size;
 		goto again;
 	}
 
