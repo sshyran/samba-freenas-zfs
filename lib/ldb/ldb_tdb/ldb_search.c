@@ -102,8 +102,11 @@ static int msg_add_distinguished_name(struct ldb_message *msg)
 	el.values = &val;
 	el.flags = 0;
 	val.data = (uint8_t *)ldb_dn_alloc_linearized(msg, msg->dn);
+	if (val.data == NULL) {
+		return -1;
+	}
 	val.length = strlen((char *)val.data);
-	
+
 	ret = msg_add_element(msg, &el, 1);
 	return ret;
 }
@@ -405,7 +408,7 @@ int ltdb_filter_attrs(TALLOC_CTX *mem_ctx,
 	/* Shortcuts for the simple cases */
 	} else if (add_dn && i == 1) {
 		if (msg_add_distinguished_name(msg2) != 0) {
-			return -1;
+			goto failed;
 		}
 		*filtered_msg = msg2;
 		return 0;
@@ -471,7 +474,7 @@ int ltdb_filter_attrs(TALLOC_CTX *mem_ctx,
 
 	if (add_dn) {
 		if (msg_add_distinguished_name(msg2) != 0) {
-			return -1;
+			goto failed;
 		}
 	}
 
@@ -480,7 +483,7 @@ int ltdb_filter_attrs(TALLOC_CTX *mem_ctx,
 						struct ldb_message_element,
 						msg2->num_elements);
 		if (msg2->elements == NULL) {
-			return -1;
+			goto failed;
 		}
 	} else {
 		talloc_free(msg2->elements);
@@ -491,6 +494,7 @@ int ltdb_filter_attrs(TALLOC_CTX *mem_ctx,
 
 	return 0;
 failed:
+	TALLOC_FREE(msg2);
 	return -1;
 }
 
@@ -818,7 +822,7 @@ int ltdb_search(struct ltdb_context *ctx)
 		 * callback error */
 		if ( ! ctx->request_terminated && ret != LDB_SUCCESS) {
 			/* Not indexed, so we need to do a full scan */
-			if (ltdb->warn_unindexed) {
+			if (ltdb->warn_unindexed || ltdb->disable_full_db_scan) {
 				/* useful for debugging when slow performance
 				 * is caused by unindexed searches */
 				char *expression = ldb_filter_from_tree(ctx, ctx->tree);
@@ -831,6 +835,7 @@ int ltdb_search(struct ltdb_context *ctx)
 
 				talloc_free(expression);
 			}
+
 			if (match_count != 0) {
 				/* the indexing code gave an error
 				 * after having returned at least one
@@ -843,6 +848,14 @@ int ltdb_search(struct ltdb_context *ctx)
 				ltdb_unlock_read(module);
 				return LDB_ERR_OPERATIONS_ERROR;
 			}
+
+			if (ltdb->disable_full_db_scan) {
+				ldb_set_errstring(ldb,
+						  "ldb FULL SEARCH disabled");
+				ltdb_unlock_read(module);
+				return LDB_ERR_INAPPROPRIATE_MATCHING;
+			}
+
 			ret = ltdb_search_full(ctx);
 			if (ret != LDB_SUCCESS) {
 				ldb_set_errstring(ldb, "Indexed and full searches both failed!\n");

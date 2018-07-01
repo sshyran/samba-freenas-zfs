@@ -78,7 +78,7 @@ tests = ["FDPASS", "LOCK1", "LOCK2", "LOCK3", "LOCK4", "LOCK5", "LOCK6", "LOCK7"
         "UID-REGRESSION-TEST", "SHORTNAME-TEST",
         "CASE-INSENSITIVE-CREATE", "SMB2-BASIC", "NTTRANS-FSCTL", "SMB2-NEGPROT",
         "SMB2-SESSION-REAUTH", "SMB2-SESSION-RECONNECT", "SMB2-FTRUNCATE",
-        "SMB2-ANONYMOUS",
+        "SMB2-ANONYMOUS", "SMB2-DIR-FSYNC",
         "CLEANUP1",
         "CLEANUP2",
         "CLEANUP4",
@@ -210,7 +210,21 @@ plantestsuite("samba3.wbinfo_simple.(%s:local).%s" % (env, t), "%s:local" % env,
 plantestsuite("samba3.wbinfo_name_lookup", env,
               [ os.path.join(srcdir(),
                             "nsswitch/tests/test_wbinfo_name_lookup.sh"),
-                '$DOMAIN', '$DC_USERNAME' ])
+                '$DOMAIN', '$REALM', '$DC_USERNAME' ])
+
+env = "ad_member:local"
+plantestsuite("samba3.wbinfo_user_info", env,
+              [ os.path.join(srcdir(),
+                            "nsswitch/tests/test_wbinfo_user_info.sh"),
+                '$DOMAIN', '$REALM', 'alice', 'alice', 'jane', 'jane.doe' ])
+
+env = "fl2008r2dc:local"
+plantestsuite("samba3.wbinfo_user_info", env,
+              [ os.path.join(srcdir(),
+                            "nsswitch/tests/test_wbinfo_user_info.sh"),
+                '$TRUST_DOMAIN', '$TRUST_REALM', 'alice', 'alice', 'jane', 'jane.doe' ])
+
+env = "ad_member"
 t = "WBCLIENT-MULTI-PING"
 plantestsuite("samba3.smbtorture_s3.%s" % t, env, [os.path.join(samba3srcdir, "script/tests/test_smbtorture_s3.sh"), t, '//foo/bar', '""', '""', smbtorture3, ""])
 plantestsuite("samba3.substitutions", env, [os.path.join(samba3srcdir, "script/tests/test_substitutions.sh"), "$SERVER", "alice", "Secret007", "$PREFIX"])
