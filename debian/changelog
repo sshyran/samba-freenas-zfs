@@ -1,3 +1,18 @@
+samba (2:4.8.3+dfsg-1) UNRELEASED; urgency=medium
+
+  [ Andreas Hasenack ]
+  * d/samba.logrotate: only try to reload the services if they are running
+    (Closes: #902149)
+  * Remove the deprecated "syslog" and "syslog only" options (Closes: #901138)
+
+  [ Mathieu Parent ]
+  * New upstream release
+    - Bump build-depends ldb >= 1.3.4
+  * smb.conf: Remove "wins support" and "wins server" comments
+  * smb.conf: Improve "logging" comments
+
+ -- Mathieu Parent <sathieu@debian.org>  Sun, 01 Jul 2018 14:43:08 +0200
+
 samba (2:4.8.2+dfsg-2) unstable; urgency=medium
 
   * Update panic-action script message, samba-dbg renamed to samba-dbgsym
