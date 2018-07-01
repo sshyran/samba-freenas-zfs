@@ -434,6 +434,7 @@ int ltdb_store(struct ldb_module *module, const struct ldb_message *msg, int flg
 	}
 
 	if (ltdb->read_only) {
+		talloc_free(tdb_key_ctx);
 		return LDB_ERR_UNWILLING_TO_PERFORM;
 	}
 
@@ -575,7 +576,7 @@ static int ltdb_add_internal(struct ldb_module *module,
 			if (mem_ctx == NULL) {
 				return ldb_module_operr(module);
 			}
-			ret2 = ltdb_search_base(module, module,
+			ret2 = ltdb_search_base(module, mem_ctx,
 						msg->dn, &dn2);
 			TALLOC_FREE(mem_ctx);
 			if (ret2 == LDB_SUCCESS) {
@@ -657,6 +658,7 @@ int ltdb_delete_noindex(struct ldb_module *module,
 	}
 
 	if (ltdb->read_only) {
+		talloc_free(tdb_key_ctx);
 		return LDB_ERR_UNWILLING_TO_PERFORM;
 	}
 
@@ -1964,6 +1966,22 @@ static int ltdb_connect(struct ldb_context *ldb, const char *url,
 	}
 
 	ltdb->sequence_number = 0;
+
+	/*
+	 * Override full DB scans
+	 *
+	 * A full DB scan is expensive on a large database.  This
+	 * option is for testing to show that the full DB scan is not
+	 * triggered.
+	 */
+	{
+		const char *len_str =
+			ldb_options_find(ldb, options,
+					 "disable_full_db_scan_for_self_test");
+		if (len_str != NULL) {
+			ltdb->disable_full_db_scan = true;
+		}
+	}
 
 	module = ldb_module_new(ldb, ldb, "ldb_tdb backend", &ltdb_ops);
 	if (!module) {
