@@ -357,16 +357,28 @@ static struct {
 static int audit_syslog_facility(vfs_handle_struct *handle)
 {
 	static const struct enum_list enum_log_facilities[] = {
-		{ LOG_USER, "USER" },
-		{ LOG_LOCAL0, "LOCAL0" },
-		{ LOG_LOCAL1, "LOCAL1" },
-		{ LOG_LOCAL2, "LOCAL2" },
-		{ LOG_LOCAL3, "LOCAL3" },
-		{ LOG_LOCAL4, "LOCAL4" },
-		{ LOG_LOCAL5, "LOCAL5" },
-		{ LOG_LOCAL6, "LOCAL6" },
-		{ LOG_LOCAL7, "LOCAL7" },
-		{ -1, NULL}
+		{ LOG_AUTH,	"AUTH" },
+		{ LOG_CRON,	"CRON" },
+		{ LOG_DAEMON,	"DAEMON" },
+		{ LOG_FTP,	"FTP" },
+		{ LOG_KERN,	"KERN" },
+		{ LOG_LPR,	"LPR" },
+		{ LOG_MAIL,	"MAIL" },
+		{ LOG_NEWS,	"NEWS" },
+		{ LOG_NTP,	"NTP" },
+		{ LOG_SECURITY,	"SECURITY" },
+		{ LOG_SYSLOG,	"SYSLOG" },
+		{ LOG_USER,	"USER" },
+		{ LOG_UUCP,	"UUCP" },
+		{ LOG_LOCAL0,	"LOCAL0" },
+		{ LOG_LOCAL1,	"LOCAL1" },
+		{ LOG_LOCAL2,	"LOCAL2" },
+		{ LOG_LOCAL3,	"LOCAL3" },
+		{ LOG_LOCAL4,	"LOCAL4" },
+		{ LOG_LOCAL5,	"LOCAL5" },
+		{ LOG_LOCAL6,	"LOCAL6" },
+		{ LOG_LOCAL7,	"LOCAL7" },
+		{ -1,		NULL }
 	};
 
 	int facility;
@@ -387,7 +399,7 @@ static int audit_syslog_priority(vfs_handle_struct *handle)
 		{ LOG_NOTICE, "NOTICE" },
 		{ LOG_INFO, "INFO" },
 		{ LOG_DEBUG, "DEBUG" },
-		{ -1, NULL}
+		{ -1, NULL }
 	};
 
 	int priority;
@@ -612,6 +624,7 @@ static int smb_full_audit_connect(vfs_handle_struct *handle,
 			 const char *svc, const char *user)
 {
 	int result;
+	const char *none[] = { "none" };
 	struct vfs_full_audit_private_data *pd = NULL;
 
 	result = SMB_VFS_NEXT_CONNECT(handle, svc, user);
@@ -651,10 +664,10 @@ static int smb_full_audit_connect(vfs_handle_struct *handle,
 
 	pd->success_ops = init_bitmap(
 		pd, lp_parm_string_list(SNUM(handle->conn), "full_audit",
-					"success", NULL));
+					"success", none));
 	pd->failure_ops = init_bitmap(
 		pd, lp_parm_string_list(SNUM(handle->conn), "full_audit",
-					"failure", NULL));
+					"failure", none));
 
 	/* Store the private data. */
 	SMB_VFS_HANDLE_SET_DATA(handle, pd, NULL,
