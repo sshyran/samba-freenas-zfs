@@ -165,8 +165,11 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 
 	if (!S_ISDIR(sbuf.st_ex_mode)) {
 		/* these calls require escalated privileges */
-		if (chown(path, info->uid, info->gid) < 0)
-			DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
+		if (lp_parm_bool(handle->conn->params->service, "winmsa", "chown", True)){
+			if (chown(path, info->uid, info->gid) < 0)
+				DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
+		}
+
 		if (acl(path, ACE_SETACL, info->f_naces, info->f_aces) < 0)
 			DEBUG(3, ("winmsa_set_acls: acl failed for %s\n", path));
 		return 0;
@@ -214,8 +217,11 @@ static int winmsa_set_acls(TALLOC_CTX *ctx, struct vfs_handle_struct *handle,
 	closedir(dh);
 
 	/* these calls may require escalated privileges */
-	if (chown(path, info->uid, info->gid) < 0)
-		DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
+	if (lp_parm_bool(handle->conn->params->service, "winmsa", "chown", True)){
+ 		if (chown(path, info->uid, info->gid) < 0)
+			DEBUG(3, ("winmsa_set_acls: chown failed for %s\n", path));
+	}
+ 
 	if (acl(path, ACE_SETACL, info->d_naces, info->d_aces) < 0)
 		DEBUG(3, ("winmsa_set_acls: acl failed for %s\n", path));
 
