@@ -18,7 +18,7 @@ samba (2:4.8.4+dfsg-1) unstable; urgency=high
       CVE-2018-1140
   * smb.conf: Remove "wins support" and "wins server" comments
   * smb.conf: Improve "logging" comments
-  * smb.conf: Remove "dns proxy = no", only usefull as a WINS server
+  * smb.conf: Remove "dns proxy = no", only useful as a WINS server
   * smb.conf: Propose better idmap config
   * smb.conf: Remove "passdb backend = tdbsam" as this is the default
   * smb.conf: Fix "usershare max shares" default (patched to 100 instead of 0)
