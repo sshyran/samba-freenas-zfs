@@ -8,7 +8,7 @@ Uploaders: Steve Langasek <vorlon@debian.org>,
            Mathieu Parent <sathieu@debian.org>,
            Andrew Bartlett <abartlet+debian@catalyst.net.nz>
 Homepage: http://www.samba.org
-Standards-Version: 4.2.0
+Standards-Version: 4.2.1
 Build-Depends: bison,
                debhelper (>= 11),
                dh-exec,
