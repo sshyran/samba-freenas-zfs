@@ -2,7 +2,7 @@ samba (2:4.9.1+dfsg-2) UNRELEASED; urgency=medium
 
   * Enable --accel-aes=intelaesni on DEB_HOST_ARCH_CPU=amd64 instead of
     DEB_HOST_ARCH=amd64. This matches samba-libs.install and adds x32
-  * Allow to change password via passwd in default config
+  * Allow one to change password via passwd in default config
     - third_party: Update pam_wrapper to version 1.0.7
     - third_party: Add pam_set_items.so from pam_wrapper
     - nsswitch: Add try_authtok option to pam_winbind
