@@ -211,6 +211,13 @@ endif
 override_dh_installpam:
 	dh_installpam --name=samba
 
+override_dh_perl:
+	dh_perl
+	# Fix Perl shbangs
+	sed -i '1s@^#!/usr/bin/env perl@#!/usr/bin/perl@' \
+	  debian/libparse-pidl-perl/usr/bin/pidl \
+	  debian/smbclient/usr/bin/findsmb
+
 override_dh_fixperms:
 	dh_fixperms
 ifneq (,$(filter samba-common, $(shell dh_listpackages)))
