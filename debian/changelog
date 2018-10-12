@@ -11,6 +11,10 @@ samba (2:4.9.1+dfsg-2) UNRELEASED; urgency=medium
     - debian/winbind.pam-config: Use the new try_authtok option allowing
       password change while preserving current behavior with password strength
       modules (Closes: #858923, LP: #570944)
+  * README.source: use gbp pull --track-missing
+  * Override library-not-linked-against-libc false positives (See #896012)
+  * Fix wrong-path-for-interpreter for pidl and findsmb
+  * ctdb.postrm: Fix to disable_legacy (found by piuparts)
 
  -- Mathieu Parent <sathieu@debian.org>  Tue, 09 Oct 2018 10:09:09 +0200
 
