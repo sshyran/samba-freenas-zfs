@@ -69,3 +69,6 @@ run piuparts:
     - piuparts --hard-link -e ${CHROOT_PATH} ${WORKING_DIR}/*.deb
 # End of include
 #################################### Below starts the local customization ###################################
+before_script:
+  - echo 'deb http://deb.debian.org/debian experimental main' > /etc/apt/sources.list.d/experimental.list
+  - "echo 'Package: ldb-tools libldb* python*-ldb*\nPin: release a=experimental\nPin-Priority: 500' > /etc/apt/preferences.d/experimental.pref"
