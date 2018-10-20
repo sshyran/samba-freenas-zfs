@@ -1663,7 +1663,7 @@ def check_gpos_acl(sysvol, dnsdomain, domainsid, domaindn, samdb, lp,
         raise ProvisioningError('DB ACL on policy root %s %s not found!' % (acl_type(direct_db_access), root_policy_path))
     fsacl_sddl = fsacl.as_sddl(domainsid)
     if fsacl_sddl != POLICIES_ACL:
-        raise ProvisioningError('%s ACL on policy root %s %s does not match expected value %s from provision' % (acl_type(direct_db_access), root_policy_path, fsacl_sddl, fsacl))
+        raise ProvisioningError('%s ACL on policy root %s %s does not match expected value %s from provision' % (acl_type(direct_db_access), root_policy_path, fsacl_sddl, POLICIES_ACL))
     res = samdb.search(base="CN=Policies,CN=System,%s"%(domaindn),
                         attrs=["cn", "nTSecurityDescriptor"],
                         expression="", scope=ldb.SCOPE_ONELEVEL)
