@@ -224,7 +224,7 @@ def ldapmask2filemask(ldm):
     return filemask
 
 
-def dsacl2fsacl(dssddl, sid, as_sddl=True):
+def dsacl2fsacl(dssddl, sid, as_sddl=True, is_dir=True):
     """
 
     This function takes an the SDDL representation of a DS
@@ -242,10 +242,15 @@ def dsacl2fsacl(dssddl, sid, as_sddl=True):
         ace = aces[i]
         if not ace.type & security.SEC_ACE_TYPE_ACCESS_ALLOWED_OBJECT and str(ace.trustee) != security.SID_BUILTIN_PREW2K:
        #    if fdescr.type & security.SEC_DESC_DACL_AUTO_INHERITED:
-            ace.flags = ace.flags | security.SEC_ACE_FLAG_OBJECT_INHERIT | security.SEC_ACE_FLAG_CONTAINER_INHERIT
-            if str(ace.trustee) == security.SID_CREATOR_OWNER:
-                # For Creator/Owner the IO flag is set as this ACE has only a sense for child objects
-                ace.flags = ace.flags | security.SEC_ACE_FLAG_INHERIT_ONLY
+            if is_dir:
+                ace.flags = ace.flags | security.SEC_ACE_FLAG_OBJECT_INHERIT | security.SEC_ACE_FLAG_CONTAINER_INHERIT
+                if str(ace.trustee) == security.SID_CREATOR_OWNER:
+                    # For Creator/Owner the IO flag is set as this ACE has only a sense for child objects
+                    ace.flags = ace.flags | security.SEC_ACE_FLAG_INHERIT_ONLY
+            else:
+                if str(ace.trustee) == security.SID_CREATOR_OWNER:
+                    continue 
+              	ace.flags = 0 
             ace.access_mask =  ldapmask2filemask(ace.access_mask)
             fdescr.dacl_add(ace)
 
