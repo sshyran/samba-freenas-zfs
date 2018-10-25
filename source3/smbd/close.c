@@ -435,7 +435,7 @@ static NTSTATUS close_remove_share_mode(files_struct *fsp,
 	}
 
 	if ((conn->fs_capabilities & FILE_NAMED_STREAMS)
-	    && !is_ntfs_stream_smb_fname(fsp->fsp_name)) {
+	    && !is_ntfs_stream_smb_fname(fsp->fsp_name) && !lp_bypass_stream_delete()) {
 
 		status = delete_all_streams(conn, fsp->fsp_name);
 
@@ -1158,7 +1158,7 @@ static NTSTATUS close_directory(struct smb_request *req, files_struct *fsp,
 		TALLOC_FREE(lck);
 
 		if ((fsp->conn->fs_capabilities & FILE_NAMED_STREAMS)
-		    && !is_ntfs_stream_smb_fname(fsp->fsp_name)) {
+		    && !is_ntfs_stream_smb_fname(fsp->fsp_name) && !lp_bypass_stream_delete()) {
 
 			status = delete_all_streams(fsp->conn, fsp->fsp_name);
 			if (!NT_STATUS_IS_OK(status)) {

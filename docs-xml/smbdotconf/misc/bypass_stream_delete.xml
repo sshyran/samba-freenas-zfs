@@ -1,0 +1,17 @@
+<samba:parameter name="bypass stream delete"
+		context="G"
+		type="boolean"
+		xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
+<description>
+
+	<para>This parameter controls whether we should bypass delete_all_streams()
+	when we delete a file, and is appropriate if streams are _only_ being stored
+	as filesystem xattrs (deletion of parent file ensures deletion of streams).
+	</para>
+
+</description>
+
+<value type="default">no</value>
+<value type="example">no</value>
+</samba:parameter>
+
