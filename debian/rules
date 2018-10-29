@@ -162,7 +162,7 @@ ifeq ($(DEB_HOST_ARCH_OS), linux)
 	  $(DESTDIR)/lib/systemd/system/smbd.service \
 	  $(DESTDIR)/lib/systemd/system/winbind.service
 endif
-	# Harmless on systems without systemd-tmpfiles, and other consumers existm
+	# Harmless on systems without systemd-tmpfiles, and other consumers exist
 	# such as OpenRC's opentmpfiles
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
