@@ -144,6 +144,7 @@ override_dh_auto_install:
 	rm $(DESTDIR)/usr/bin/ctdb_run_cluster_tests
 	rm -r $(DESTDIR)/usr/lib/*/ctdb/tests
 	rm -r $(DESTDIR)/usr/share/ctdb/tests
+ifeq ($(DEB_HOST_ARCH_OS), linux)
 	# Install systemd configs
 	mkdir -p $(DESTDIR)/lib/systemd/system/
 	install -m 0644 ctdb/config/ctdb.service $(DESTDIR)/lib/systemd/system/
@@ -160,6 +161,9 @@ override_dh_auto_install:
 	  $(DESTDIR)/lib/systemd/system/samba-ad-dc.service \
 	  $(DESTDIR)/lib/systemd/system/smbd.service \
 	  $(DESTDIR)/lib/systemd/system/winbind.service
+endif
+	# Harmless on systems without systemd-tmpfiles, and other consumers existm
+	# such as OpenRC's opentmpfiles
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
 
