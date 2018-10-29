@@ -14,7 +14,7 @@ samba (2:4.9.1+dfsg-2) UNRELEASED; urgency=medium
   * README.source: use gbp pull --track-missing
   * Override library-not-linked-against-libc false positives (See #896012)
   * Fix wrong-path-for-interpreter for pidl and findsmb
-  * ctdb.postrm: Fix to disable_legacy (found by piuparts)
+  * ctdb.postrm: Fix to disable_legacy (found by piuparts) (Closes: #911530)
 
  -- Mathieu Parent <sathieu@debian.org>  Tue, 09 Oct 2018 10:09:09 +0200
 
