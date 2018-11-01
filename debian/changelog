@@ -20,7 +20,26 @@ samba (2:4.9.1+dfsg-2) UNRELEASED; urgency=medium
   [ James Clarke ]
   * Fix systemd-related build failures on non-Linux
 
- -- Mathieu Parent <sathieu@debian.org>  Mon, 29 Oct 2018 22:49:09 +0100
+  [ Mathieu Parent ]
+  * Add Gitlab CI:
+    - Subscribe to salsa-ci-team/pipeline (See salsa-ci-team/pipeline!27 and
+      samba-team/samba!10)
+    - Copy /etc/apt/{sources.list.d,preferences.d} in the dockerbuilder
+      container (salsa-ci-team/images!9)
+    - Allow daemons to start during autopkgtest (salsa-ci-team/images!10)
+    - debian/gitlab-ci.yml: all jobs: Use ldb from experimental
+    - debian/gitlab-ci.yml: piuparts job: Add --scriptsdir, --allow-database
+      and --warn-on-leftovers-after-purge options
+    - debian/gitlab-ci.yml: piuparts job: Copy apt config to allow enabling
+      extra repositories
+    - debian/gitlab-ci.yml: piuparts job: Use image with the following changes:
+      + Add pre_install_copy_configs and post_install_remove_configs to copy,
+        resp. remove config files from /etc-target to /etc
+      + patch pre_remove_50_find_bad_permissions to workaround findutils bug
+        #912180. Also proposed another workaround in piuparts as bug #911334
+        which is merged but not yet released
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 01 Nov 2018 16:47:35 +0100
 
 samba (2:4.9.1+dfsg-1) experimental; urgency=medium
 
