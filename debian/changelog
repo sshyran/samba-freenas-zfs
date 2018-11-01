@@ -1,4 +1,4 @@
-samba (2:4.9.1+dfsg-2) UNRELEASED; urgency=medium
+samba (2:4.9.1+dfsg-2) unstable; urgency=medium
 
   [ Mathieu Parent ]
   * Enable --accel-aes=intelaesni on DEB_HOST_ARCH_CPU=amd64 instead of
@@ -38,8 +38,9 @@ samba (2:4.9.1+dfsg-2) UNRELEASED; urgency=medium
       + patch pre_remove_50_find_bad_permissions to workaround findutils bug
         #912180. Also proposed another workaround in piuparts as bug #911334
         which is merged but not yet released
+  * Upload to unstable
 
- -- Mathieu Parent <sathieu@debian.org>  Thu, 01 Nov 2018 16:47:35 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 01 Nov 2018 21:13:37 +0100
 
 samba (2:4.9.1+dfsg-1) experimental; urgency=medium
 
