@@ -1,4 +1,4 @@
-samba (2:4.9.1+dfsg-3) UNRELEASED; urgency=medium
+samba (2:4.9.2+dfsg-1) UNRELEASED; urgency=medium
 
   * New upstream release
   * d/gitlab-ci.yml:
