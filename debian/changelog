@@ -1,4 +1,4 @@
-samba (2:4.9.2+dfsg-1) UNRELEASED; urgency=medium
+samba (2:4.9.2+dfsg-1) unstable; urgency=medium
 
   * New upstream release
   * d/gitlab-ci.yml:
@@ -6,7 +6,7 @@ samba (2:4.9.2+dfsg-1) UNRELEASED; urgency=medium
     - allow_failure for reprotest until #912340 is fixed
   * d/rules: Replace override_dh_perl by override_dh_perl-arch (Closes: #913143)
 
- -- Mathieu Parent <sathieu@debian.org>  Sat, 10 Nov 2018 20:42:38 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Sat, 10 Nov 2018 20:46:58 +0100
 
 samba (2:4.9.1+dfsg-2) unstable; urgency=medium
 
