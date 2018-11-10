@@ -5,6 +5,8 @@ build:
 
 reprotest:
     extends: .test-reprotest
+    # Until https://bugs.debian.org/912340 is fixed
+    allow_failure: true
 
 lintian:
     extends: .test-lintian
