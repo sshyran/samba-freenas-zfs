@@ -1,12 +1,13 @@
-samba (2:4.9.2+dfsg-1) unstable; urgency=medium
+samba (2:4.9.2+dfsg-1) UNRELEASED; urgency=medium
 
   * New upstream release
+    - Bump build-dependencies to ldb 1.4.2
   * d/gitlab-ci.yml:
     - Update to use include
     - allow_failure for reprotest until #912340 is fixed
   * d/rules: Replace override_dh_perl by override_dh_perl-arch (Closes: #913143)
 
- -- Mathieu Parent <sathieu@debian.org>  Sat, 10 Nov 2018 20:46:58 +0100
+ -- Mathieu Parent <sathieu@debian.org>  Sun, 11 Nov 2018 06:24:20 +0100
 
 samba (2:4.9.1+dfsg-2) unstable; urgency=medium
 
