@@ -345,7 +345,7 @@ static int samldb_generate_next_linkid(struct samldb_ctx *ac,
 static int samldb_schema_add_handle_linkid(struct samldb_ctx *ac)
 {
 	int ret;
-	bool ok, found;
+	bool ok, found = false;
 	struct ldb_message_element *el;
 	const char *enc_str;
 	const struct dsdb_attribute *attr;
@@ -875,6 +875,7 @@ static int samldb_add_handle_msDS_IntId(struct samldb_ctx *ac)
 		 * order to be sure.
 		 */
 		if (dsdb_attribute_by_attributeID_id(schema, msds_intid)) {
+			id_exists = true;
 			msds_intid = generate_random() % 0X3FFFFFFF;
 			msds_intid += 0x80000000;
 			continue;
@@ -3351,13 +3352,13 @@ static int verify_cidr(const char *cidr)
 }
 
 
-static int samldb_verify_subnet(struct samldb_ctx *ac)
+static int samldb_verify_subnet(struct samldb_ctx *ac, struct ldb_dn *dn)
 {
 	struct ldb_context *ldb = ldb_module_get_ctx(ac->module);
 	const char *cidr = NULL;
 	const struct ldb_val *rdn_value = NULL;
 
-	rdn_value = ldb_dn_get_rdn_val(ac->msg->dn);
+	rdn_value = ldb_dn_get_rdn_val(dn);
 	if (rdn_value == NULL) {
 		ldb_set_errstring(ldb, "samldb: ldb_dn_get_rdn_val "
 				  "failed");
@@ -3588,7 +3589,7 @@ static int samldb_add(struct ldb_module *module, struct ldb_request *req)
 
 	if (samdb_find_attribute(ldb, ac->msg,
 				 "objectclass", "subnet") != NULL) {
-		ret = samldb_verify_subnet(ac);
+		ret = samldb_verify_subnet(ac, ac->msg->dn);
 		if (ret != LDB_SUCCESS) {
 			talloc_free(ac);
 			return ret;
@@ -3991,7 +3992,7 @@ static int check_rename_constraints(struct ldb_message *msg,
 
 	/* subnet objects */
 	if (samdb_find_attribute(ldb, msg, "objectclass", "subnet") != NULL) {
-		ret = samldb_verify_subnet(ac);
+		ret = samldb_verify_subnet(ac, newdn);
 		if (ret != LDB_SUCCESS) {
 			talloc_free(ac);
 			return ret;

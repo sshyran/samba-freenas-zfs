@@ -95,11 +95,13 @@ bool run_nttrans_create(int dummy);
 bool run_nttrans_fsctl(int dummy);
 bool run_smb2_basic(int dummy);
 bool run_smb2_negprot(int dummy);
+bool run_smb2_anonymous(int dummy);
 bool run_smb2_session_reconnect(int dummy);
 bool run_smb2_tcon_dependence(int dummy);
 bool run_smb2_multi_channel(int dummy);
 bool run_smb2_session_reauth(int dummy);
 bool run_smb2_ftruncate(int dummy);
+bool run_smb2_dir_fsync(int dummy);
 bool run_chain3(int dummy);
 bool run_local_conv_auth_info(int dummy);
 bool run_local_sprintf_append(int dummy);
@@ -130,5 +132,6 @@ bool run_g_lock2(int dummy);
 bool run_g_lock3(int dummy);
 bool run_g_lock4(int dummy);
 bool run_g_lock5(int dummy);
+bool run_g_lock6(int dummy);
 
 #endif /* __TORTURE_H__ */

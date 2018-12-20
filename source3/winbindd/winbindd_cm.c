@@ -2036,7 +2036,6 @@ void invalidate_cm_connection(struct winbindd_domain *domain)
 	}
 
 	conn->auth_level = DCERPC_AUTH_LEVEL_PRIVACY;
-	conn->netlogon_force_reauth = false;
 	conn->netlogon_flags = 0;
 	TALLOC_FREE(conn->netlogon_creds);
 
@@ -3347,6 +3346,7 @@ static NTSTATUS cm_connect_netlogon_transport(struct winbindd_domain *domain,
 		creds,
 		conn->netlogon_creds,
 		&conn->netlogon_pipe);
+	conn->netlogon_force_reauth = false;
 	if (!NT_STATUS_IS_OK(result)) {
 		DEBUG(3, ("Could not open schannel'ed NETLOGON pipe. Error "
 			  "was %s\n", nt_errstr(result)));
@@ -3466,4 +3466,20 @@ void winbind_msg_ip_dropped(struct messaging_context *msg_ctx,
 		}
 	}
 	TALLOC_FREE(freeit);
+}
+
+void winbind_msg_disconnect_dc(struct messaging_context *msg_ctx,
+			       void *private_data,
+			       uint32_t msg_type,
+			       struct server_id server_id,
+			       DATA_BLOB *data)
+{
+	struct winbindd_domain *domain;
+
+	for (domain = domain_list(); domain; domain = domain->next) {
+		if (domain->internal) {
+			continue;
+		}
+		invalidate_cm_connection(domain);
+	}
 }

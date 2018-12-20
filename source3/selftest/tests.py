@@ -74,10 +74,11 @@ tests = ["FDPASS", "LOCK1", "LOCK2", "LOCK3", "LOCK4", "LOCK5", "LOCK6", "LOCK7"
         "DIR", "DIR1", "DIR-CREATETIME", "TCON", "TCONDEV", "RW1", "RW2", "RW3", "LARGE_READX", "RW-SIGNING",
         "OPEN", "XCOPY", "RENAME", "DELETE", "DELETE-LN", "WILDDELETE", "PROPERTIES", "W2K",
         "TCON2", "IOCTL", "CHKPATH", "FDSESS", "CHAIN1", "CHAIN2", "OWNER-RIGHTS",
-        "CHAIN3", "PIDHIGH",
+        "CHAIN3", "PIDHIGH", "CLI_SPLICE",
         "GETADDRINFO", "UID-REGRESSION-TEST", "SHORTNAME-TEST",
         "CASE-INSENSITIVE-CREATE", "SMB2-BASIC", "NTTRANS-FSCTL", "SMB2-NEGPROT",
         "SMB2-SESSION-REAUTH", "SMB2-SESSION-RECONNECT", "SMB2-FTRUNCATE",
+        "SMB2-ANONYMOUS", "SMB2-DIR-FSYNC",
         "CLEANUP1",
         "CLEANUP2",
         "CLEANUP4",
@@ -90,6 +91,9 @@ for t in tests:
         # this is a negative test to verify that the server rejects
         # access without encryption
         plantestsuite("samba3.smbtorture_s3.crypt_server(nt4_dc).%s" % t, "nt4_dc", [os.path.join(samba3srcdir, "script/tests/test_smbtorture_s3.sh"), t, '//$SERVER_IP/tmpenc', '$USERNAME', '$PASSWORD', smbtorture3, "", "-l $LOCAL_PATH"])
+    if t == "CLI_SPLICE":
+        # We must test this against the SMB1 fallback.
+        plantestsuite("samba3.smbtorture_s3.plain(fileserver).%s" % t, "fileserver", [os.path.join(samba3srcdir, "script/tests/test_smbtorture_s3.sh"), t, '//$SERVER_IP/tmp', '$USERNAME', '$PASSWORD', smbtorture3, "", "-l $LOCAL_PATH", "-mNT1"])
     plantestsuite("samba3.smbtorture_s3.plain(ad_dc_ntvfs).%s" % t, "ad_dc_ntvfs", [os.path.join(samba3srcdir, "script/tests/test_smbtorture_s3.sh"), t, '//$SERVER_IP/tmp', '$USERNAME', '$PASSWORD', smbtorture3, "", "-l $LOCAL_PATH"])
 
 #
@@ -157,6 +161,7 @@ local_tests = [
     "LOCAL-G-LOCK3",
     "LOCAL-G-LOCK4",
     "LOCAL-G-LOCK5",
+    "LOCAL-G-LOCK6",
     "LOCAL-hex_encode_buf",
     "LOCAL-remove_duplicate_addrs2"]
 
@@ -197,6 +202,24 @@ for env in ["nt4_member", "ad_member"]:
 env = "ad_member"
 t = "--krb5auth=$DOMAIN/$DC_USERNAME%$DC_PASSWORD"
 plantestsuite("samba3.wbinfo_simple.(%s:local).%s" % (env, t), "%s:local" % env, [os.path.join(srcdir(), "nsswitch/tests/test_wbinfo_simple.sh"), t])
+plantestsuite("samba3.wbinfo_name_lookup", env,
+              [ os.path.join(srcdir(),
+                            "nsswitch/tests/test_wbinfo_name_lookup.sh"),
+                '$DOMAIN', '$REALM', '$DC_USERNAME' ])
+
+env = "ad_member:local"
+plantestsuite("samba3.wbinfo_user_info", env,
+              [ os.path.join(srcdir(),
+                            "nsswitch/tests/test_wbinfo_user_info.sh"),
+                '$DOMAIN', '$REALM', 'alice', 'alice', 'jane', 'jane.doe' ])
+
+env = "fl2008r2dc:local"
+plantestsuite("samba3.wbinfo_user_info", env,
+              [ os.path.join(srcdir(),
+                            "nsswitch/tests/test_wbinfo_user_info.sh"),
+                '$TRUST_DOMAIN', '$TRUST_REALM', 'alice', 'alice', 'jane', 'jane.doe' ])
+
+env = "ad_member"
 t = "WBCLIENT-MULTI-PING"
 plantestsuite("samba3.smbtorture_s3.%s" % t, env, [os.path.join(samba3srcdir, "script/tests/test_smbtorture_s3.sh"), t, '//foo/bar', '""', '""', smbtorture3, ""])
 plantestsuite("samba3.substitutions", env, [os.path.join(samba3srcdir, "script/tests/test_substitutions.sh"), "$SERVER", "alice", "Secret007", "$PREFIX"])
@@ -434,7 +457,7 @@ for t in tests:
     elif t == "rpc.samr.passwords.validate":
         plansmbtorture4testsuite(t, "nt4_dc", 'ncacn_ip_tcp:$SERVER_IP[seal] -U$USERNAME%$PASSWORD', 'over ncacn_ip_tcp ')
         plansmbtorture4testsuite(t, "ad_dc", 'ncacn_ip_tcp:$SERVER_IP[seal] -U$USERNAME%$PASSWORD', 'over ncacn_ip_tcp ')
-    elif t == "smb2.durable-open" or t == "smb2.durable-v2-open" or t == "smb2.replay":
+    elif t == "smb2.durable-open" or t == "smb2.durable-v2-open" or t == "smb2.replay" or t == "smb2.durable-v2-delay":
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/durable -U$USERNAME%$PASSWORD')
         plansmbtorture4testsuite(t, "ad_dc", '//$SERVER_IP/durable -U$USERNAME%$PASSWORD')
     elif t == "base.rw1":
@@ -485,7 +508,7 @@ for t in tests:
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/vfs_fruit_metadata_stream -U$USERNAME%$PASSWORD --option=torture:localdir=$SELFTEST_PREFIX/nt4_dc/share --option=torture:share2=vfs_wo_fruit', 'metadata_stream')
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/vfs_fruit_stream_depot -U$USERNAME%$PASSWORD --option=torture:localdir=$SELFTEST_PREFIX/nt4_dc/share --option=torture:share2=vfs_wo_fruit_stream_depot', 'streams_depot')
     elif t == "vfs.fruit_netatalk":
-        plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/vfs_fruit -U$USERNAME%$PASSWORD --option=torture:localdir=$SELFTEST_PREFIX/nt4_dc/share')
+        plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/vfs_fruit_xattr -U$USERNAME%$PASSWORD --option=torture:localdir=$SELFTEST_PREFIX/nt4_dc/share')
     elif t == "vfs.fruit_file_id":
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/vfs_fruit -U$USERNAME%$PASSWORD')
     elif t == "rpc.schannel_anon_setpw":
@@ -521,13 +544,17 @@ for t in tests:
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/tmp -U$USERNAME%$PASSWORD')
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/aio -U$USERNAME%$PASSWORD', 'aio')
         plansmbtorture4testsuite(t, "ad_dc", '//$SERVER/tmp -U$USERNAME%$PASSWORD')
+    elif t == "smb2.streams":
+        plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/tmp -U$USERNAME%$PASSWORD')
+        plansmbtorture4testsuite(t, "ad_dc", '//$SERVER/tmp -U$USERNAME%$PASSWORD')
+        plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/streams_xattr -U$USERNAME%$PASSWORD', 'streams_xattr')
     else:
         plansmbtorture4testsuite(t, "nt4_dc", '//$SERVER_IP/tmp -U$USERNAME%$PASSWORD')
         plansmbtorture4testsuite(t, "ad_dc", '//$SERVER/tmp -U$USERNAME%$PASSWORD')
 
 
 test = 'rpc.lsa.lookupsids'
-auth_options = ["", "ntlm", "spnego", "spnego,ntlm" ]
+auth_options = ["", "ntlm", "spnego", "spnego,ntlm", "spnego,smb1", "spnego,smb2"]
 signseal_options = ["", ",connect", ",packet", ",sign", ",seal"]
 endianness_options = ["", ",bigendian"]
 for s in signseal_options:
@@ -575,6 +602,9 @@ plantestsuite("samba3.blackbox.net_tdb", "simpleserver:local",
 plantestsuite("samba3.blackbox.smbd_error", "simpleserver:local",
               [ os.path.join(samba3srcdir, "script/tests/test_smbd_error.sh") ])
 
+plantestsuite("samba3.blackbox.durable_v2_delay", "simpleserver:local",
+              [os.path.join(samba3srcdir, "script/tests/test_durable_handle_reconnect.sh")])
+
 plantestsuite("samba3.blackbox.net_cache_samlogon", "ad_member:local",
               [ os.path.join(samba3srcdir, "script/tests/test_net_cache_samlogon.sh"),
                 '$SERVER', 'tmp', '$DC_USERNAME', '$DC_PASSWORD'])
@@ -606,6 +636,12 @@ plantestsuite("samba3.blackbox.smbclient.encryption_off", "simpleserver",
               [os.path.join(samba3srcdir, "script/tests/test_smbclient_encryption_off.sh"),
                "$USERNAME", "$PASSWORD", "$SERVER",
                smbclient3])
+
+plantestsuite("samba3.blackbox.rpcclient_netsessenum", "ad_member",
+              [os.path.join(samba3srcdir,
+                            "script/tests/test_rpcclient_netsessenum.sh"),
+               "$DOMAIN", "$DC_USERNAME", "$DC_PASSWORD", "$SERVER",
+               os.path.join(bindir(), "rpcclient"), smbtorture3, "tmp"])
 
 # The ktest environment uses:
 # server min protocol = SMB3_00
