@@ -323,15 +323,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
 """)
 
         self.base_dn = self.ldb.domain_dn()
-
-        #
-        # Some test cases sleep() for self.account_lockout_duration
-        # so allow it to be controlled via the subclass
-        #
-        if not hasattr(self, 'account_lockout_duration'):
-            self.account_lockout_duration = 3
-        if not hasattr(self, 'lockout_observation_window'):
-            self.lockout_observation_window = 3
+        self.account_lockout_duration = 3
+        self.lockout_observation_window = 3
         self.update_lockout_settings(threshold=3,
                                      duration=self.account_lockout_duration,
                                      observation_window=self.lockout_observation_window)
