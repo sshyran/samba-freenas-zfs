@@ -93,7 +93,8 @@ class BasePasswordTestCase(PasswordTestCase):
                             logonCount=0,
                             lastLogon=0,
                             lastLogonTimestamp=("absent", None),
-                            userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                            userAccountControl=
+                            dsdb.UF_NORMAL_ACCOUNT,
                             msDSUserAccountControlComputed=0)
 
     def _check_account(self, dn,
@@ -388,7 +389,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=(logoncount_relation, 0),
                                   lastLogon=("greater", 0),
                                   lastLogonTimestamp=("greater", 0),
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
         logonCount = int(res[0]["logonCount"][0])
@@ -418,7 +420,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=logonCount,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0,
                                   msg='lastlogontimestamp with wrong password')
         badPasswordTime = int(res[0]["badPasswordTime"][0])
@@ -436,7 +439,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=(logoncount_relation, logonCount),
                                   lastLogon=('greater', lastLogon),
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0,
                                   msg='LLTimestamp is updated to lastlogon')
 
@@ -456,7 +460,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=logonCount,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
 
@@ -477,7 +482,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=logonCount,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
 
@@ -501,7 +507,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
                                   lockoutTime=("greater", badPasswordTime),
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=dsdb.UF_LOCKOUT)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
         lockoutTime = int(res[0]["lockoutTime"][0])
@@ -522,7 +529,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
                                   lockoutTime=lockoutTime,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=dsdb.UF_LOCKOUT)
 
         # The wrong password
@@ -541,7 +549,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
                                   lockoutTime=lockoutTime,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=dsdb.UF_LOCKOUT)
 
         # The correct password, but we are locked out
@@ -560,7 +569,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
                                   lockoutTime=lockoutTime,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=dsdb.UF_LOCKOUT)
 
         # wait for the lockout to end
@@ -574,7 +584,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lockoutTime=lockoutTime,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
 
         # The correct password after letting the timeout expire
@@ -593,7 +604,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lastLogon=(lastlogon_relation, lastLogon),
                                   lastLogonTimestamp=lastLogonTimestamp,
                                   lockoutTime=0,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0,
                                   msg="lastLogon is way off")
 
@@ -616,7 +628,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lockoutTime=0,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
 
@@ -636,7 +649,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lockoutTime=0,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
 
@@ -649,7 +663,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lockoutTime=0,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
 
         # The wrong password
@@ -668,7 +683,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lockoutTime=0,
                                   lastLogon=lastLogon,
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
 
@@ -683,7 +699,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   lockoutTime=0,
                                   lastLogon=("greater", lastLogon),
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
 
     def _test_multiple_logon(self, creds):
@@ -716,7 +733,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=(logoncount_relation, 0),
                                   lastLogon=("greater", 0),
                                   lastLogonTimestamp=("greater", 0),
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
         badPasswordTime = int(res[0]["badPasswordTime"][0])
         logonCount = int(res[0]["logonCount"][0])
@@ -736,7 +754,8 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=(logoncount_relation, logonCount),
                                   lastLogon=(lastlogon_relation, lastLogon),
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0,
                                   msg=("second logon, firstlogon was %s" %
                                        firstLogon))
@@ -754,5 +773,6 @@ lockoutThreshold: """ + str(lockoutThreshold) + """
                                   logonCount=(logoncount_relation, logonCount),
                                   lastLogon=(lastlogon_relation, lastLogon),
                                   lastLogonTimestamp=lastLogonTimestamp,
-                                  userAccountControl=dsdb.UF_NORMAL_ACCOUNT,
+                                  userAccountControl=
+                                  dsdb.UF_NORMAL_ACCOUNT,
                                   msDSUserAccountControlComputed=0)
