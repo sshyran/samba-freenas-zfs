@@ -1,3 +1,10 @@
+samba (2:4.9.4+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+    - Remove patches for previous security fixes, merged
+
+ -- Mathieu Parent <sathieu@debian.org>  Sat, 22 Dec 2018 10:09:19 +0100
+
 samba (2:4.9.2+dfsg-2) unstable; urgency=high
 
   * New upstream security release
