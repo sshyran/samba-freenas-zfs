@@ -87,7 +87,4 @@ NTSTATUS dns_common_zones(struct ldb_context *samdb,
 			  TALLOC_CTX *mem_ctx,
 			  struct ldb_dn *base_dn,
 			  struct dns_server_zone **zones_ret);
-
-bool dns_zoneinfo_load_zone_property(struct dnsserver_zoneinfo *zoneinfo,
-				     struct dnsp_DnsProperty *prop);
 #endif /* __DNSSERVER_COMMON_H__ */
