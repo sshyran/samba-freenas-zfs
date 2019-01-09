@@ -175,8 +175,8 @@
 /* Buffer size to use when printing backtraces */
 #define BACKTRACE_STACK_SIZE 64
 
-/* size of listen() backlog in smbd */
-#define SMBD_LISTEN_BACKLOG 50
+/* Default size of listen() backlog in smbd */
+#define SMBD_LISTEN_BACKLOG 100
 
 /* Number of microseconds to wait before a sharing violation. */
 #define SHARING_VIOLATION_USEC_WAIT 950000

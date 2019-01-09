@@ -774,6 +774,7 @@ static void init_globals(struct loadparm_context *lp_ctx, bool reinit_globals)
 
 	Globals.show_add_printer_wizard = true;
 	Globals.os_level = 20;
+	Globals.socket_listen_backlog = 1000;
 	Globals.local_master = true;
 	Globals._domain_master = Auto;	/* depending on _domain_logons */
 	Globals._domain_logons = false;
