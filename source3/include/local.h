@@ -172,8 +172,11 @@
 /* Number in seconds for winbindd to wait for the mutex. Make this 2 * smbd wait time. */
 #define WINBIND_SERVER_MUTEX_WAIT_TIME (( ((NUM_CLI_AUTH_CONNECT_RETRIES) * ((CLI_AUTH_TIMEOUT)/1000)) + 5)*2)
 
-/* size of listen() backlog in smbd */
-#define SMBD_LISTEN_BACKLOG 50
+/* Buffer size to use when printing backtraces */
+#define BACKTRACE_STACK_SIZE 64
+
+/* Default size of listen() backlog in smbd */
+#define SMBD_LISTEN_BACKLOG 100
 
 /* Number of microseconds to wait before a sharing violation. */
 #define SHARING_VIOLATION_USEC_WAIT 950000
