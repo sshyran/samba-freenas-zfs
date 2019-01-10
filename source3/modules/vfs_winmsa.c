@@ -304,10 +304,10 @@ static int winmsa_rename(struct vfs_handle_struct *handle,
 	}
 
 	/* WinMSA theory of operation requires setting the new file to  clone the ACE and Ownership
-	 * of the parent of destination directory. Field deployment showed ( see jrq-485 )
-	 * that the effective user did not always have the UNIX rights to accomplish this. 
-	 * We become root here for the minimal necessary time due to multiple returns in
-	 * winmsa_set_acls and goto's in this routine. */
+	of the parent of destination directory. Field deployment showed ( see jrq-485 )
+	that the effective user did not always have the UNIX rights to accomplish this. 
+	We become root here for the minimal necessary time due to multiple returns in
+	winmsa_set_acls and goto's in this routine. */
 	become_root(); 
 	if ((result = winmsa_set_acls(ctx, handle, info, dst)) < 0) {
 		DEBUG(3, ("winmsa_rename: winmsa_set_acls failed\n"));
