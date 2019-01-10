@@ -214,6 +214,14 @@ bld.SAMBA3_MODULE('vfs_winmsa',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_winmsa'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_winmsa'))
 
+bld.SAMBA3_MODULE('vfs_ixnas',
+                 subsystem='vfs',
+                 source='vfs_ixnas.c',
+                 deps='NFS4_ACLS sunacl smb_libzfs',
+                 init_function='',
+                 internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_ixnas'),
+                 enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_ixnas'))
+
 bld.SAMBA3_MODULE('vfs_zfsacl',
                  subsystem='vfs',
                  source='vfs_zfsacl.c',
@@ -518,8 +526,10 @@ bld.SAMBA3_MODULE('vfs_fake_dfq',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_fake_dfq'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_fake_dfq'))
 
-bld.SAMBA3_LIBRARY('zfs_disk_free',
-                   source='zfs_disk_free.c',
+bld.SAMBA3_LIBRARY('smb_libzfs',
+                   source='smb_libzfs.c',
+                   cflags='-DNEED_SOLARIS_BOOLEAN',
+                   deps='samba-util',
                    includes=[
                        '/usr/src/cddl/contrib/opensolaris/lib/libzpool/common',
                        '/usr/src/cddl/compat/opensolaris/include',
@@ -537,13 +547,13 @@ bld.SAMBA3_LIBRARY('zfs_disk_free',
                        '/usr/src/sys/cddl/contrib/opensolaris/common/zfs',
                    ],
                    ldflags='-lgeom -luutil -lzfs_core -lzfs',
-                   enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_zfs_space'),
+                   enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_ixnas'),
                    private_library=True)
 
 bld.SAMBA3_MODULE('vfs_zfs_space',
                  subsystem='vfs',
                  source='vfs_zfs_space.c',
-                 deps='zfs_disk_free',
+                 deps='smb_libzfs',
                  allow_undefined_symbols=True,
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_zfs_space'),

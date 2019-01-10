@@ -130,7 +130,7 @@ static int winmsa_file_acl(TALLOC_CTX *ctx, winmsa_info_t *info)
 	return 0;
 }
 
-static int winmsa_get_ownership(winmsa_info_t *info)	
+static int winmsa_get_ownership(winmsa_info_t *info)
 {
 	SMB_STRUCT_STAT sbuf;
 
