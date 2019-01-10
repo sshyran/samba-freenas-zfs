@@ -231,7 +231,7 @@ static int socket_setup(const char *sockpath, bool remove_before_use)
 		return -1;
 	}
 
-	ret = listen(fd, lp_socket_listen_backlog());
+	ret = listen(fd, 10);
 	if (ret != 0) {
 		D_ERR("socket listen failed - %s\n", sockpath);
 		close(fd);

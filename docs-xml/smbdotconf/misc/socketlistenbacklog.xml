@@ -3,7 +3,7 @@
                  type="integer"
                  xmlns:samba="http://www.samba.org/samba/DTD/samba-doc">
 <description>
-	<para>This parameter specifies the default size of the internal 
+	<para>This parameter specifies the default size of the internal
 	socket listen backlog (max number of queued TCP connections).
 	The parameter is not a hard limit and most operating systems
 	enforces a (much) smaller internal limit.
