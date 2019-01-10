@@ -29,7 +29,7 @@
 #include "system/filesys.h"
 #include "lib/util/tevent_ntstatus.h"
 
-#include "modules/zfs_disk_free.h"
+#include "modules/smb_libzfs.h"
 
 
 static uint64_t vfs_zfs_space_disk_free(vfs_handle_struct *handle, const struct smb_filename *smb_fname,
@@ -43,7 +43,7 @@ static uint64_t vfs_zfs_space_disk_free(vfs_handle_struct *handle, const struct 
 
 	DEBUG(9, ("realpath = %s\n", rp));
 
-	res = smb_zfs_disk_free(rp, bsize, dfree, dsize);
+	res = smb_zfs_disk_free(rp, bsize, dfree, dsize, geteuid());
 	if (res == (uint64_t)-1)
 		res = SMB_VFS_NEXT_DISK_FREE(handle, smb_fname, bsize, dfree, dsize);
 	if (res == (uint64_t)-1)
