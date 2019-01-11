@@ -98,7 +98,6 @@ smb_zfs_get_quota(char *path, int64_t xid, enum SMB_QUOTA_TYPE quota_type, uint6
 		return (-1);
 	}
 	
-	DBG_DEBUG("userused string: (%s), userquota string: (%s)\n", u_req, q_req);
 	zfs_prop_get_userquota_int(zfsp, q_req, &quota);
 	zfs_prop_get_userquota_int(zfsp, u_req, &used);
 
@@ -164,7 +163,6 @@ smb_zfs_set_quota(char *path, int64_t xid, enum SMB_QUOTA_TYPE quota_type, uint6
 		return (-1);
 	}
 
-	DBG_INFO("PREPARING: smb_zfs_set_quota: Set (%s = %s)\n", q_req, quota);
 	if (zfs_prop_set(zfsp, q_req, quota) != 0) {
 		DBG_ERR("Failed to set (%s = %s)\n", q_req, quota);
 		zfs_close(zfsp);
@@ -175,7 +173,7 @@ smb_zfs_set_quota(char *path, int64_t xid, enum SMB_QUOTA_TYPE quota_type, uint6
 	zfs_close(zfsp);
 	libzfs_fini(libzfsp);
 
-	DBG_ERR("smb_zfs_set_quota: Set (%s = %s)\n", q_req, quota);
+	DBG_DEBUG("smb_zfs_set_quota: Set (%s = %s)\n", q_req, quota);
 
 	return 0;
 }
