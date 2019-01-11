@@ -1103,7 +1103,7 @@ static bool smbd_open_one_socket(struct smbd_parent_context *parent,
 	 * non-blocking for the accept. */
 	set_blocking(s->fd, False);
 
-	if (listen(s->fd, lp_socket_listen_backlog()) == -1) {
+	if (listen(s->fd, -1) == -1) {
 		DEBUG(0,("smbd_open_one_socket: listen: "
 			"%s\n", strerror(errno)));
 			close(s->fd);

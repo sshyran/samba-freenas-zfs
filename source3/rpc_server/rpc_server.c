@@ -158,7 +158,7 @@ bool setup_named_pipe_socket(const char *pipe_name,
 		goto out;
 	}
 
-	rc = listen(state->fd, lp_socket_listen_backlog());
+	rc = listen(state->fd, -1);
 	if (rc < 0) {
 		DEBUG(0, ("Failed to listen on pipe socket %s: %s\n",
 			  pipe_name, strerror(errno)));
@@ -667,7 +667,7 @@ uint16_t setup_dcerpc_ncacn_tcpip_socket(struct tevent_context *ev_ctx,
 	/* Set server socket to non-blocking for the accept. */
 	set_blocking(state->fd, false);
 
-	rc = listen(state->fd, lp_socket_listen_backlog());
+	rc = listen(state->fd, -1);
 	if (rc == -1) {
 		DEBUG(0,("setup_tcpip_socket: listen - %s\n", strerror(errno)));
 		goto out;
@@ -828,7 +828,7 @@ bool setup_dcerpc_ncalrpc_socket(struct tevent_context *ev_ctx,
 		goto out;
 	}
 
-	rc = listen(state->fd, lp_socket_listen_backlog());
+	rc = listen(state->fd, -1);
 	if (rc < 0) {
 		DEBUG(0, ("Failed to listen on ncalrpc socket %s: %s\n",
 			  name, strerror(errno)));

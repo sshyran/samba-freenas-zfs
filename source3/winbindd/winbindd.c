@@ -1237,16 +1237,8 @@ static bool winbindd_setup_listeners(void)
 	struct winbindd_listen_state *priv_state = NULL;
 	struct tevent_fd *fde;
 	int rc;
-	int listen_backlog = lp_winbind_max_clients();
 	char *socket_path;
 
-
-	if (listen_backlog < lp_socket_listen_backlog())
-	  listen_backlog = lp_socket_listen_backlog();
-
-	if (listen_backlog < 10)
-	  listen_backlog = 10;
-	
 	pub_state = talloc(winbind_event_context(),
 			   struct winbindd_listen_state);
 	if (!pub_state) {
@@ -1259,7 +1251,7 @@ static bool winbindd_setup_listeners(void)
 	if (pub_state->fd == -1) {
 		goto failed;
 	}
-	rc = listen(pub_state->fd, listen_backlog);
+	rc = listen(pub_state->fd, -1);
 	if (rc < 0) {
 		goto failed;
 	}
@@ -1291,7 +1283,7 @@ static bool winbindd_setup_listeners(void)
 	if (priv_state->fd == -1) {
 		goto failed;
 	}
-	rc = listen(priv_state->fd, listen_backlog);
+	rc = listen(priv_state->fd, -1);
 	if (rc < 0) {
 		goto failed;
 	}
