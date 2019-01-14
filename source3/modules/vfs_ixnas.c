@@ -50,7 +50,7 @@ struct ixnas_config_data {
 	bool dosmode_enabled;
 	bool dosmode_remote_storage;
 	bool zfs_acl_enabled;
-	bool zfs_acl_mapdaclprotected;
+	bool zfs_acl_expose_snapdir;
 	bool zfs_acl_denymissingspecial;
 	bool zfs_space_enabled;
 	bool zfs_quota_enabled;
@@ -385,6 +385,7 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 	const SMB_STRUCT_STAT *psbuf = NULL;
 	int ret;
 	bool is_dir;
+	bool inherited_present = false;
 
 	if (VALID_STAT(smb_fname->st)) {
 		psbuf = &smb_fname->st;
@@ -455,6 +456,14 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 		if (is_dir && (aceprop.aceMask & SMB_ACE4_ADD_FILE)) {
 			aceprop.aceMask |= SMB_ACE4_DELETE_CHILD;
 		}
+ 		/*
+		 * Test whether ACL contains any ACEs with the
+		 * inherited flag set. We use this to determine whether
+   		 * to set DACL_PROTECTED in the security descriptor.
+   		 */
+ 		if(aceprop.aceFlags & ACE_INHERITED_ACE) {
+ 			inherited_present = true;
+ 		}
 
 		if(aceprop.aceFlags & ACE_OWNER) {
 			aceprop.flags = SMB_ACE4_ID_SPECIAL;
@@ -471,6 +480,16 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 		if(smb_add_ace4(pacl, &aceprop) == NULL)
 			return NT_STATUS_NO_MEMORY;
 	}
+
+	/*
+  	 * If the ACL doesn't contain any inherited ACEs, then set DACL_PROTECTED 
+  	 * in the security descriptor using smb4acl4_set_control_flags().
+   	 * This makes it so that the "Disable Inheritance" button works in Windows Explorer
+   	 * and prevents resulting ACL from auto-inheriting ACL changes in parent directory.
+   	 */
+ 	if (!inherited_present) {
+ 		smbacl4_set_controlflags(pacl, SEC_DESC_DACL_PROTECTED|SEC_DESC_SELF_RELATIVE);
+ 	}
 
 	*ppacl = pacl;
 	return NT_STATUS_OK;
@@ -605,9 +624,24 @@ static NTSTATUS ixnas_fget_nt_acl(struct vfs_handle_struct *handle,
 
 	status = zfs_get_nt_acl_common(handle->conn, frame,
 				       fsp->fsp_name, &pacl, config);
+
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
-		return status;
+		// Control whether we expose .zfs/snapdir over SMB.
+		if (!config->zfs_acl_expose_snapdir || !NT_STATUS_EQUAL(status, NT_STATUS_NOT_SUPPORTED)) {
+			return status;
+		}
+
+		status = make_default_filesystem_acl(mem_ctx,
+						     DEFAULT_ACL_POSIX,
+						     fsp->fsp_name->base_name,
+						     &fsp->fsp_name->st,
+						     ppdesc);
+		if (!NT_STATUS_IS_OK(status)) {
+			return status;
+		}
+		(*ppdesc)->type |= SEC_DESC_DACL_PROTECTED;
+		return NT_STATUS_OK;
 	}
 
 	status = smb_fget_nt_acl_nfs4(fsp, &config->nfs4_params, security_info, mem_ctx,
@@ -637,9 +671,30 @@ static NTSTATUS ixnas_get_nt_acl(struct vfs_handle_struct *handle,
 	}
 
 	status = zfs_get_nt_acl_common(handle->conn, frame, smb_fname, &pacl, config);
+
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
-		return status;
+		// Control whether we expose .zfs/snapdir over SMB.
+		if (!config->zfs_acl_expose_snapdir || !NT_STATUS_EQUAL(status, NT_STATUS_NOT_SUPPORTED)) {
+			return status;
+		}
+
+		if (!VALID_STAT(smb_fname->st)) {
+			DBG_ERR("No stat info for [%s]\n",
+				smb_fname_str_dbg(smb_fname));
+			return NT_STATUS_INTERNAL_ERROR;
+		}
+
+		status = make_default_filesystem_acl(mem_ctx,
+						     DEFAULT_ACL_POSIX,
+						     smb_fname->base_name,
+						     &smb_fname->st,
+						     ppdesc);
+		if (!NT_STATUS_IS_OK(status)) {
+			return status;
+		}
+		(*ppdesc)->type |= SEC_DESC_DACL_PROTECTED;
+		return NT_STATUS_OK;
 	}
 
 	status = smb_get_nt_acl_nfs4(handle->conn,
@@ -671,6 +726,56 @@ static NTSTATUS ixnas_fset_nt_acl(vfs_handle_struct *handle,
 	return zfs_set_nt_acl(handle, fsp, security_info_sent, psd, config);
 }
 
+static SMB_ACL_T ixnas_fail__sys_acl_get_file(vfs_handle_struct *handle,
+					const struct smb_filename *smb_fname,
+					SMB_ACL_TYPE_T type,
+					TALLOC_CTX *mem_ctx)
+{
+	return (SMB_ACL_T)NULL;
+}
+
+static SMB_ACL_T ixnas_fail__sys_acl_get_fd(vfs_handle_struct *handle,
+					     files_struct *fsp,
+					     TALLOC_CTX *mem_ctx)
+{
+	return (SMB_ACL_T)NULL;
+}
+
+static int ixnas_fail__sys_acl_set_file(vfs_handle_struct *handle,
+					 const struct smb_filename *smb_fname,
+					 SMB_ACL_TYPE_T type,
+					 SMB_ACL_T theacl)
+{
+	return -1;
+}
+
+static int ixnas_fail__sys_acl_set_fd(vfs_handle_struct *handle,
+				       files_struct *fsp,
+				       SMB_ACL_T theacl)
+{
+	return -1;
+}
+
+static int ixnas_fail__sys_acl_delete_def_file(vfs_handle_struct *handle,
+			const struct smb_filename *smb_fname)
+{
+	return -1;
+}
+
+static int ixnas_fail__sys_acl_blob_get_file(vfs_handle_struct *handle,
+			const struct smb_filename *smb_fname,
+			TALLOC_CTX *mem_ctx,
+			char **blob_description,
+			DATA_BLOB *blob)
+{
+	return -1;
+}
+
+static int ixnas_fail__sys_acl_blob_get_fd(vfs_handle_struct *handle, files_struct *fsp, TALLOC_CTX *mem_ctx, char **blob_description, DATA_BLOB *blob)
+{
+	return -1;
+}
+
 /********************************************************************
  Expose ZFS user/group quotas 
 ********************************************************************/
@@ -692,7 +797,7 @@ static int ixnas_get_quota(struct vfs_handle_struct *handle,
 				return -1);
 
 	if (!config->zfs_quota_enabled) {
-		DBG_INFO("Quotas disabled in ixnas configuration.\n");
+		DBG_DEBUG("Quotas disabled in ixnas configuration.\n");
 		errno = ENOSYS;
 		return -1;
 	}
@@ -704,7 +809,6 @@ static int ixnas_get_quota(struct vfs_handle_struct *handle,
 	switch (qtype) {
 	case SMB_USER_QUOTA_TYPE:
 	case SMB_USER_FS_QUOTA_TYPE:
-		DBG_INFO("qtype: (%d), id: (%d)\n", qtype, id.uid);
 		//passing -1 to quotactl means that the current UID should be used. Do the same.
 		if (id.uid == -1) {
 			become_root();
@@ -719,7 +823,6 @@ static int ixnas_get_quota(struct vfs_handle_struct *handle,
 		break;
 	case SMB_GROUP_QUOTA_TYPE:
 	case SMB_GROUP_FS_QUOTA_TYPE:
-		DBG_INFO("qtype: (%d), id: (%d)\n", qtype, id.gid);
 		become_root();
         	ret = smb_zfs_get_quota(rp, id.gid, qtype, &hardlimit, &usedspace);
 		unbecome_root();
@@ -759,7 +862,7 @@ static int ixnas_set_quota(struct vfs_handle_struct *handle,
 				return -1);
 
 	if (!config->zfs_quota_enabled) {
-		DBG_INFO("Quotas disabled in ixnas configuration.\n");
+		DBG_DEBUG("Quotas disabled in ixnas configuration.\n");
 		errno = ENOSYS;
 		return -1;
 	}
@@ -957,8 +1060,6 @@ static int ixnas_connect(struct vfs_handle_struct *handle,
 
 	if (base_quota_str != NULL) {
 		config->base_user_quota = conv_str_size(base_quota_str); 
-		DBG_ERR("Quota string (%s) converted to (%lu)\n", 
-			base_quota_str, config->base_user_quota);
         }
 
 	if (config->base_user_quota) {
@@ -1019,8 +1120,8 @@ static int ixnas_connect(struct vfs_handle_struct *handle,
 			"ixnas", "zfs_acl_enabled", true);
 
 	if (config->zfs_acl_enabled) {
-		config->zfs_acl_mapdaclprotected = lp_parm_bool(SNUM(handle->conn),
-			"ixnas","zfsacl_mapdaclprotected", true);	
+		config->zfs_acl_expose_snapdir = lp_parm_bool(SNUM(handle->conn),
+			"ixnas","zfsacl_expose_snapdir", true);	
 		
 		config->zfs_acl_denymissingspecial = lp_parm_bool(SNUM(handle->conn),
 			"ixnas","zfsacl_denymissingspecial",false);
@@ -1067,6 +1168,14 @@ static struct vfs_fn_pointers ixnas_fns = {
 	.fget_nt_acl_fn = ixnas_fget_nt_acl,
 	.get_nt_acl_fn = ixnas_get_nt_acl,
 	.fset_nt_acl_fn = ixnas_fset_nt_acl,
+	.sys_acl_get_file_fn = ixnas_fail__sys_acl_get_file,
+	.sys_acl_get_fd_fn = ixnas_fail__sys_acl_get_fd,
+	.sys_acl_blob_get_file_fn = ixnas_fail__sys_acl_blob_get_file,
+	.sys_acl_blob_get_fd_fn = ixnas_fail__sys_acl_blob_get_fd,
+	.sys_acl_set_file_fn = ixnas_fail__sys_acl_set_file,
+	.sys_acl_set_fd_fn = ixnas_fail__sys_acl_set_fd,
+	.sys_acl_delete_def_file_fn = ixnas_fail__sys_acl_delete_def_file,
+	
 #if HAVE_LIBZFS
 	.get_quota_fn = ixnas_get_quota,
 	.set_quota_fn = ixnas_set_quota,
