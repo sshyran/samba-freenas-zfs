@@ -1227,7 +1227,15 @@ bool smbd_dirptr_get_entry(TALLOC_CTX *ctx,
 			mask, smb_fname_str_dbg(&smb_fname),
 			dname, fname));
 
-		DirCacheAdd(dirptr->dir_hnd, dname, cur_offset);
+		if (!conn->sconn->using_smb2) {
+			/*
+			 * The dircache is only needed for SMB1 because SMB1
+			 * uses a name for the resume wheras SMB2 always
+			 * continues from the next position (unless it's told to
+			 * restart or close-and-reopen the listing).
+			 */
+			DirCacheAdd(dirptr->dir_hnd, dname, cur_offset);
+		}
 
 		TALLOC_FREE(dname);
 
@@ -1654,7 +1662,16 @@ static struct smb_Dir *OpenDir_internal(TALLOC_CTX *mem_ctx,
 	}
 
 	dirp->conn = conn;
-	dirp->name_cache_size = lp_directory_name_cache_size(SNUM(conn));
+
+	if (!conn->sconn->using_smb2) {
+		/*
+		 * The dircache is only needed for SMB1 because SMB1 uses a name
+		 * for the resume wheras SMB2 always continues from the next
+		 * position (unless it's told to restart or close-and-reopen the
+		 * listing).
+		 */
+		dirp->name_cache_size = lp_directory_name_cache_size(SNUM(conn));
+	}
 
 	if (sconn && !sconn->using_smb2) {
 		sconn->searches.dirhandles_open++;
@@ -1776,7 +1793,16 @@ static struct smb_Dir *OpenDir_fsp(TALLOC_CTX *mem_ctx, connection_struct *conn,
 	}
 
 	dirp->conn = conn;
-	dirp->name_cache_size = lp_directory_name_cache_size(SNUM(conn));
+
+	if (!conn->sconn->using_smb2) {
+		/*
+		 * The dircache is only needed for SMB1 because SMB1 uses a name
+		 * for the resume wheras SMB2 always continues from the next
+		 * position (unless it's told to restart or close-and-reopen the
+		 * listing).
+		 */
+		dirp->name_cache_size = lp_directory_name_cache_size(SNUM(conn));
+	}
 
 	dirp->dir_smb_fname = cp_smb_filename(dirp, fsp->fsp_name);
 	if (!dirp->dir_smb_fname) {
@@ -2128,9 +2154,9 @@ NTSTATUS can_delete_directory_fsp(files_struct *fsp)
 	char *talloced = NULL;
 	SMB_STRUCT_STAT st;
 	struct connection_struct *conn = fsp->conn;
-	struct smb_Dir *dir_hnd = OpenDir_fsp(talloc_tos(),
+	struct smb_Dir *dir_hnd = OpenDir(talloc_tos(),
 					conn,
-					fsp,
+					fsp->fsp_name,
 					NULL,
 					0);
 

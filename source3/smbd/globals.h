@@ -225,6 +225,7 @@ void smbd_server_connection_terminate_ex(struct smbXsrv_connection *xconn,
 
 const char *smb2_opcode_name(uint16_t opcode);
 bool smbd_is_smb2_header(const uint8_t *inbuf, size_t size);
+bool smbd_smb2_is_compound(const struct smbd_smb2_request *req);
 
 NTSTATUS smbd_add_connection(struct smbXsrv_client *client, int sock_fd,
 			     struct smbXsrv_connection **_xconn);
@@ -743,6 +744,7 @@ struct smbd_smb2_request {
 	 * adapted again in reply.
 	 */
 	bool request_counters_updated;
+	uint64_t channel_generation;
 
 	/*
 	 * The sub request for async backend calls.

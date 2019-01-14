@@ -8,6 +8,7 @@
 .*driver.add_driver_timestamps # we only can store dates, not timestamps
  ^samba3.smbtorture_s3.crypt_server\(nt4_dc\).SMB2-SESSION-REAUTH # expected to give ACCESS_DENIED SMB2.1 doesn't have encryption
 ^samba3.smbtorture_s3.crypt_server\(nt4_dc\).SMB2-SESSION-RECONNECT # expected to give CONNECTION_DISCONNECTED, we need to fix the test
+^samba3.smbtorture_s3.*ad_dc_ntvfs.*SMB2-DIR-FSYNC.*
 ^samba3.smb2.session enc.reconnect # expected to give CONNECTION_DISCONNECTED, we need to fix the test
 ^samba3.raw.session enc # expected to give ACCESS_DENIED as SMB1 encryption isn't used
 ^samba3.smbtorture_s3.crypt_server # expected to give ACCESS_DENIED as SMB1 encryption isn't used
@@ -166,11 +167,15 @@
 ^samba3.smb2.streams.rename
 ^samba3.smb2.streams.rename2
 ^samba3.smb2.streams.attributes
+^samba3.smb2.streams streams_xattr.rename\(nt4_dc\)
+^samba3.smb2.streams streams_xattr.rename2\(nt4_dc\)
+^samba3.smb2.streams streams_xattr.attributes\(nt4_dc\)
 ^samba3.smb2.getinfo.complex
 ^samba3.smb2.getinfo.fsinfo # quotas don't work yet
 ^samba3.smb2.setinfo.setinfo
 ^samba3.smb2.session.*reauth5 # some special anonymous checks?
 ^samba3.smb2.compound.interim2 # wrong return code (STATUS_CANCELLED)
+^samba3.smb2.compound.aio.interim2 # wrong return code (STATUS_CANCELLED)
 ^samba3.smb2.replay.channel-sequence
 ^samba3.smb2.replay.replay3
 ^samba3.smb2.replay.replay4
@@ -318,7 +323,7 @@
 ^samba3.smb2.credits.session_setup_credits_granted.*
 ^samba3.smb2.credits.single_req_credits_granted.*
 ^samba3.smb2.credits.skipped_mid.*
-^samba4.blackbox.dbcheck-links.release-4-5-0-pre1.dangling_multi_valued_dbcheck
+^samba4.blackbox.dbcheck-links.release-4-5-0-pre1.dbcheck_dangling_multi_valued_clean
 ^samba4.blackbox.dbcheck-links.release-4-5-0-pre1.dangling_multi_valued_check_missing
 #
 # rap password tests don't function in the ad_dc_ntvfs:local environment

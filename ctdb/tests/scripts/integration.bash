@@ -259,50 +259,6 @@ delete_ip_from_all_nodes ()
 
 #######################################
 
-# Wait until either timeout expires or command succeeds.  The command
-# will be tried once per second, unless timeout has format T/I, where
-# I is the recheck interval.
-wait_until ()
-{
-    local timeout="$1" ; shift # "$@" is the command...
-
-    local interval=1
-    case "$timeout" in
-	*/*)
-	    interval="${timeout#*/}"
-	    timeout="${timeout%/*}"
-    esac
-
-    local negate=false
-    if [ "$1" = "!" ] ; then
-	negate=true
-	shift
-    fi
-
-    echo -n "<${timeout}|"
-    local t=$timeout
-    while [ $t -gt 0 ] ; do
-	local rc=0
-	"$@" || rc=$?
-	if { ! $negate && [ $rc -eq 0 ] ; } || \
-	    { $negate && [ $rc -ne 0 ] ; } ; then
-	    echo "|$(($timeout - $t))|"
-	    echo "OK"
-	    return 0
-	fi
-	local i
-	for i in $(seq 1 $interval) ; do
-	    echo -n .
-	done
-	t=$(($t - $interval))
-	sleep $interval
-    done
-
-    echo "*TIMEOUT*"
-
-    return 1
-}
-
 sleep_for ()
 {
     echo -n "=${1}|"
@@ -382,6 +338,7 @@ node_has_status ()
 	(monon)        mpat='^Monitoring mode:ACTIVE \(0\)$' ;;
 	(monoff)       mpat='^Monitoring mode:DISABLED \(1\)$' ;;
 	(recovered)    rpat='^Recovery mode:RECOVERY \(1\)$' ;;
+	(notlmaster)   rpat="^hash:.* lmaster:${pnn}\$" ;;
 	*)
 	    echo "node_has_status: unknown status \"$status\""
 	    return 1

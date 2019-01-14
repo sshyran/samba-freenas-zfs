@@ -1105,9 +1105,12 @@ int ctdb_process_deferred_attach(struct ctdb_context *ctdb)
 /*
   a client has asked to attach a new database
  */
-int32_t ctdb_control_db_attach(struct ctdb_context *ctdb, TDB_DATA indata,
+int32_t ctdb_control_db_attach(struct ctdb_context *ctdb,
+			       TDB_DATA indata,
 			       TDB_DATA *outdata,
-			       uint8_t db_flags, uint32_t client_id,
+			       uint8_t db_flags,
+			       uint32_t srcnode,
+			       uint32_t client_id,
 			       struct ctdb_req_control_old *c,
 			       bool *async_reply)
 {
@@ -1128,7 +1131,7 @@ int32_t ctdb_control_db_attach(struct ctdb_context *ctdb, TDB_DATA indata,
 	 * allow all attach from the network since these are always from remote
 	 * recovery daemons.
 	 */
-	if (client_id != 0) {
+	if (srcnode == ctdb->pnn && client_id != 0) {
 		client = reqid_find(ctdb->idr, client_id, struct ctdb_client);
 	}
 	if (client != NULL) {
@@ -1206,7 +1209,7 @@ int32_t ctdb_control_db_attach(struct ctdb_context *ctdb, TDB_DATA indata,
 	}
 
 	/* tell all the other nodes about this database */
-	ctdb_daemon_send_control(ctdb, CTDB_BROADCAST_ALL, 0, opcode,
+	ctdb_daemon_send_control(ctdb, CTDB_BROADCAST_CONNECTED, 0, opcode,
 				 0, CTDB_CTRL_FLAG_NOREPLY,
 				 indata, NULL, NULL);
 
@@ -1260,7 +1263,8 @@ int32_t ctdb_control_db_detach(struct ctdb_context *ctdb, TDB_DATA indata,
 		client = reqid_find(ctdb->idr, client_id, struct ctdb_client);
 		if (client != NULL) {
 			/* forward the control to all the nodes */
-			ctdb_daemon_send_control(ctdb, CTDB_BROADCAST_ALL, 0,
+			ctdb_daemon_send_control(ctdb,
+						 CTDB_BROADCAST_CONNECTED, 0,
 						 CTDB_CONTROL_DB_DETACH, 0,
 						 CTDB_CTRL_FLAG_NOREPLY,
 						 indata, NULL, NULL);
@@ -1534,9 +1538,15 @@ static void ctdb_ltdb_seqnum_check(struct tevent_context *ev,
 		TDB_DATA data;
 		data.dptr = (uint8_t *)&ctdb_db->db_id;
 		data.dsize = sizeof(uint32_t);
-		ctdb_daemon_send_control(ctdb, CTDB_BROADCAST_VNNMAP, 0,
-					 CTDB_CONTROL_UPDATE_SEQNUM, 0, CTDB_CTRL_FLAG_NOREPLY,
-					 data, NULL, NULL);		
+		ctdb_daemon_send_control(ctdb,
+					 CTDB_BROADCAST_ACTIVE,
+					 0,
+					 CTDB_CONTROL_UPDATE_SEQNUM,
+					 0,
+					 CTDB_CTRL_FLAG_NOREPLY,
+					 data,
+					 NULL,
+					 NULL);
 	}
 	ctdb_db->seqnum = new_seqnum;
 

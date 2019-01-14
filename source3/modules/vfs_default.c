@@ -129,8 +129,14 @@ static uint32_t vfswrap_fs_capabilities(struct vfs_handle_struct *handle,
 	struct vfs_statvfs_struct statbuf;
 	int ret;
 
+	smb_fname_cpath = synthetic_smb_fname(talloc_tos(), conn->connectpath,
+					      NULL, NULL, 0);
+	if (smb_fname_cpath == NULL) {
+		return caps;
+	}
+
 	ZERO_STRUCT(statbuf);
-	ret = sys_statvfs(conn->connectpath, &statbuf);
+	ret = SMB_VFS_STATVFS(conn, smb_fname_cpath, &statbuf);
 	if (ret == 0) {
 		caps = statbuf.FsCapabilities;
 	}
@@ -139,12 +145,6 @@ static uint32_t vfswrap_fs_capabilities(struct vfs_handle_struct *handle,
 
 	/* Work out what timestamp resolution we can
 	 * use when setting a timestamp. */
-
-	smb_fname_cpath = synthetic_smb_fname(talloc_tos(), conn->connectpath,
-					      NULL, NULL, 0);
-	if (smb_fname_cpath == NULL) {
-		return caps;
-	}
 
 	ret = SMB_VFS_STAT(conn, smb_fname_cpath);
 	if (ret == -1) {
@@ -2226,11 +2226,20 @@ static struct smb_filename *vfswrap_getwd(vfs_handle_struct *handle,
 	START_PROFILE(syscall_getwd);
 	result = sys_getwd();
 	END_PROFILE(syscall_getwd);
+
+	if (result == NULL) {
+		return NULL;
+	}
 	smb_fname = synthetic_smb_fname(ctx,
 				result,
 				NULL,
 				NULL,
 				0);
+	/*
+	 * sys_getwd() *always* returns malloced memory.
+	 * We must free here to avoid leaks:
+	 * BUG:https://bugzilla.samba.org/show_bug.cgi?id=13372
+	 */
 	SAFE_FREE(result);
 	return smb_fname;
 }

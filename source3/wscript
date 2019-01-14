@@ -97,7 +97,7 @@ def configure(conf):
     # We crash without vfs_default
     required_static_modules.extend(TO_LIST('vfs_default'))
 
-    conf.CHECK_HEADERS('execinfo.h libexc.h libunwind.h netdb.h')
+    conf.CHECK_HEADERS('netdb.h')
     conf.CHECK_HEADERS('linux/falloc.h linux/ioctl.h')
 
     conf.CHECK_FUNCS('getcwd fchown chmod fchmod mknod')
@@ -120,7 +120,6 @@ def configure(conf):
     conf.CHECK_FUNCS('memalign posix_memalign hstrerror')
     conf.CHECK_FUNCS('shmget')
     conf.CHECK_FUNCS_IN('shm_open', 'rt', checklibc=True)
-    #FIXME: for some reason this one still fails
     conf.CHECK_FUNCS_IN('yp_get_default_domain', 'nsl')
     conf.CHECK_FUNCS_IN('dn_expand _dn_expand __dn_expand', 'resolv')
     conf.CHECK_FUNCS_IN('dn_expand', 'inet')
@@ -635,6 +634,11 @@ msg.msg_accrightslen = sizeof(fd);
                     headers='netdb.h netgroup.h',
                     cflags=netgrent_cflags)
 
+    if (conf.CONFIG_SET('HAVE_YP_GET_DEFAULT_DOMAIN') and
+        conf.CONFIG_SET('HAVE_SETNETGRENT') and
+        conf.CONFIG_SET('HAVE_ENDNETGRENT') and
+        conf.CONFIG_SET('HAVE_GETNETGRENT')):
+           conf.DEFINE('HAVE_NETGROUP', '1')
 
     # Look for CUPS
     if Options.options.with_cups:
@@ -1489,11 +1493,23 @@ main() {
         #darwin style quota bytecount
         conf.CHECK_STRUCTURE_MEMBER('struct dqblk', 'dqb_curbytes', define='HAVE_STRUCT_DQBLK_DQB_CURBYTES',
                                 headers='sys/quota.h')
-        if conf.CHECK_HEADERS('rpcsvc/rquota.h'):
-            conf.DEFINE('HAVE_NFS_QUOTAS', '1')
+        if conf.CHECK_HEADERS('rpcsvc/rquota.h', lib='tirpc'):
+            # Optional structure member
             conf.CHECK_STRUCTURE_MEMBER('struct getquota_rslt', 'getquota_rslt_u',
                                         define='HAVE_GETQUOTA_RSLT_GETQUOTA_RSLT_U',
-                                        headers='rpcsvc/rquota.h')
+                                        headers='rpcsvc/rquota.h',
+                                        lib='tirpc')
+
+            # Required fucntion for NFS quote support
+            conf.CHECK_CODE('''
+                            clnt_create("", RQUOTAPROG, RQUOTAVERS, "udp");
+                            ''',
+                            headers="rpc/rpc.h rpc/types.h rpcsvc/rquota.h rpc/nettype.h rpc/xdr.h",
+                            define='HAVE_NFS_QUOTAS',
+                            msg='checking for clnt_create()',
+                            execute=True,
+                            local_include=False,
+                            lib='tirpc')
 
         if (host_os.rfind('linux') > -1):
             conf.DEFINE('HAVE_QUOTACTL_LINUX', '1')
@@ -1519,15 +1535,6 @@ main() {
                                 msg='for QUOTACTL_4B:  int quotactl(const char *path, int cmd, int id, char *addr)',
                                 execute=True,
                                 addmain=False)
-
-        conf.CHECK_CODE('''
-                     clnt_create("", RQUOTAPROG, RQUOTAVERS, "udp");
-''',
-                        headers="rpc/rpc.h rpc/types.h rpcsvc/rquota.h rpc/nettype.h rpc/xdr.h", 
-                        define='HAVE_NFS_QUOTAS',
-                        msg='for NFS QUOTAS',
-                        execute=True,
-                        local_include=False)
 
         if conf.CONFIG_SET('HAVE_QUOTACTL_LINUX') or \
            conf.CONFIG_SET('HAVE_QUOTACTL_4A') or \
@@ -1587,11 +1594,18 @@ main() {
     if Options.options.libcephfs_dir:
         conf.env['CPPPATH_CEPHFS'] = Options.options.libcephfs_dir + '/include'
         conf.env['LIBPATH_CEPHFS'] = Options.options.libcephfs_dir + '/lib'
+        conf.env['LIBPATH_CEPH-COMMON'] = Options.options.libcephfs_dir + '/lib/ceph'
+    else:
+        conf.env['LIBPATH_CEPH-COMMON'] = Options.options.LIBDIR + '/ceph'
 
-    if conf.CHECK_HEADERS('cephfs/libcephfs.h', False, False, 'cephfs') and conf.CHECK_LIB('cephfs', shlib=True) and Options.options.with_cephfs:
+    if (Options.options.with_cephfs and
+        conf.CHECK_HEADERS('cephfs/libcephfs.h', False, False, 'cephfs') and
+        conf.CHECK_LIB('cephfs', shlib=True)):
+        conf.CHECK_LIB('ceph-common', shlib=True)
         if Options.options.with_acl_support:
             conf.DEFINE('HAVE_CEPH', '1')
-            if conf.CHECK_FUNCS_IN('ceph_statx', 'cephfs', headers='cephfs/libcephfs.h'):
+            if conf.CHECK_FUNCS_IN('ceph_statx', 'cephfs ceph-common',
+                                   headers='cephfs/libcephfs.h'):
                 conf.DEFINE('HAVE_CEPH_STATX', '1')
         else:
             Logs.warn("ceph support disabled due to --without-acl-support")
@@ -1600,10 +1614,10 @@ main() {
     if Options.options.with_glusterfs:
         conf.CHECK_CFG(package='glusterfs-api', args='"glusterfs-api >= 4" --cflags --libs',
                        msg='Checking for glusterfs-api >= 4', uselib_store="GFAPI")
-        conf.CHECK_HEADERS('api/glfs.h', lib='gfapi')
+        conf.CHECK_HEADERS('glusterfs/api/glfs.h', lib='gfapi')
         conf.CHECK_LIB('gfapi', shlib=True)
 
-        if conf.CONFIG_SET('HAVE_API_GLFS_H'):
+        if conf.CONFIG_SET('HAVE_GLUSTERFS_API_GLFS_H'):
             if Options.options.with_acl_support:
                  conf.DEFINE('HAVE_GLUSTERFS', '1')
             else:
@@ -1715,6 +1729,8 @@ main() {
 
     if Options.options.enable_selftest or Options.options.developer:
         default_shared_modules.extend(TO_LIST('vfs_fake_acls vfs_nfs4acl_xattr'))
+        default_shared_modules.extend(TO_LIST('vfs_error_inject'))
+        default_shared_modules.extend(TO_LIST('vfs_delay_inject'))
 
     if conf.CONFIG_SET('AD_DC_BUILD_IS_ENABLED'):
         default_static_modules.extend(TO_LIST('pdb_samba_dsdb auth_samba4 vfs_dfs_samba4'))

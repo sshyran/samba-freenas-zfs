@@ -420,6 +420,7 @@ NTSTATUS set_ea_dos_attribute(connection_struct *conn,
 	struct xattr_DOSATTRIB dosattrib;
 	enum ndr_err_code ndr_err;
 	DATA_BLOB blob;
+	int ret;
 
 	if (!lp_store_dos_attributes(SNUM(conn))) {
 		return NT_STATUS_NOT_IMPLEMENTED;
@@ -461,14 +462,16 @@ NTSTATUS set_ea_dos_attribute(connection_struct *conn,
 		return NT_STATUS_INVALID_PARAMETER;
 	}
 
-	if (SMB_VFS_SETXATTR(conn, smb_fname,
-			     SAMBA_XATTR_DOS_ATTRIB, blob.data, blob.length,
-			     0) == -1) {
+	ret = SMB_VFS_SETXATTR(conn, smb_fname,
+			       SAMBA_XATTR_DOS_ATTRIB,
+			       blob.data, blob.length, 0);
+	if (ret != 0) {
 		NTSTATUS status = NT_STATUS_OK;
 		bool need_close = false;
 		files_struct *fsp = NULL;
+		bool set_dosmode_ok = false;
 
-		if((errno != EPERM) && (errno != EACCES)) {
+		if ((errno != EPERM) && (errno != EACCES)) {
 			DBG_INFO("Cannot set "
 				 "attribute EA on file %s: Error = %s\n",
 				 smb_fname_str_dbg(smb_fname), strerror(errno));
@@ -480,10 +483,21 @@ NTSTATUS set_ea_dos_attribute(connection_struct *conn,
 		*/
 
 		/* Check if we have write access. */
-		if(!CAN_WRITE(conn) || !lp_dos_filemode(SNUM(conn)))
+		if (!CAN_WRITE(conn)) {
 			return NT_STATUS_ACCESS_DENIED;
+		}
 
-		if (!can_write_to_file(conn, smb_fname)) {
+		status = smbd_check_access_rights(conn, smb_fname, false,
+						  FILE_WRITE_ATTRIBUTES);
+		if (NT_STATUS_IS_OK(status)) {
+			set_dosmode_ok = true;
+		}
+
+		if (!set_dosmode_ok && lp_dos_filemode(SNUM(conn))) {
+			set_dosmode_ok = can_write_to_file(conn, smb_fname);
+		}
+
+		if (!set_dosmode_ok) {
 			return NT_STATUS_ACCESS_DENIED;
 		}
 
@@ -501,9 +515,10 @@ NTSTATUS set_ea_dos_attribute(connection_struct *conn,
 		}
 
 		become_root();
-		if (SMB_VFS_FSETXATTR(fsp,
-				     SAMBA_XATTR_DOS_ATTRIB, blob.data,
-				     blob.length, 0) == 0) {
+		ret = SMB_VFS_FSETXATTR(fsp,
+					SAMBA_XATTR_DOS_ATTRIB,
+					blob.data, blob.length, 0);
+		if (ret == 0) {
 			status = NT_STATUS_OK;
 		}
 		unbecome_root();
@@ -668,6 +683,28 @@ uint32_t dos_mode(connection_struct *conn, struct smb_filename *smb_fname)
 		 */
 		if (NT_STATUS_EQUAL(status, NT_STATUS_NOT_IMPLEMENTED)) {
 			result |= dos_mode_from_sbuf(conn, smb_fname);
+		}
+	}
+
+	/*
+	 * According to MS-FSA a stream name does not have
+	 * separate DOS attribute metadata, so we must return
+	 * the DOS attribute from the base filename. With one caveat,
+	 * a non-default stream name can never be a directory.
+	 *
+	 * As this is common to all streams data stores, we handle
+	 * it here instead of inside all stream VFS modules.
+	 *
+	 * BUG: https://bugzilla.samba.org/show_bug.cgi?id=13380
+	 */
+
+	if (is_ntfs_stream_smb_fname(smb_fname)) {
+		/* is_ntfs_stream_smb_fname() returns false for a POSIX path. */
+		if (!is_ntfs_default_stream_smb_fname(smb_fname)) {
+			/*
+			 * Non-default stream name, not a posix path.
+			 */
+			result &= ~(FILE_ATTRIBUTE_DIRECTORY);
 		}
 	}
 
@@ -1157,7 +1194,7 @@ static NTSTATUS get_file_handle_for_metadata(connection_struct *conn,
 		NULL,                                   /* req */
 		0,                                      /* root_dir_fid */
 		smb_fname_cp,				/* fname */
-		FILE_WRITE_DATA,                        /* access_mask */
+		FILE_WRITE_ATTRIBUTES,			/* access_mask */
 		(FILE_SHARE_READ | FILE_SHARE_WRITE |   /* share_access */
 			FILE_SHARE_DELETE),
 		FILE_OPEN,                              /* create_disposition*/

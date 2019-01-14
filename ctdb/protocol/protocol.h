@@ -43,7 +43,7 @@ enum ctdb_operation {
 /* send a broadcast to all nodes in the cluster, active or not */
 #define CTDB_BROADCAST_ALL    0xF0000002
 /* send a broadcast to all nodes in the current vnn map */
-#define CTDB_BROADCAST_VNNMAP 0xF0000003
+#define CTDB_BROADCAST_ACTIVE 0xF0000003
 /* send a broadcast to all connected nodes */
 #define CTDB_BROADCAST_CONNECTED 0xF0000004
 /* send a broadcast to selected connected nodes */
@@ -369,6 +369,7 @@ enum ctdb_controls {CTDB_CONTROL_PROCESS_EXISTS          = 0,
 		    CTDB_CONTROL_DB_PUSH_CONFIRM         = 148,
 		    CTDB_CONTROL_DB_OPEN_FLAGS           = 149,
 		    CTDB_CONTROL_DB_ATTACH_REPLICATED    = 150,
+		    CTDB_CONTROL_CHECK_PID_SRVID         = 151,
 };
 
 #define CTDB_MONITORING_ENABLED		0
@@ -842,6 +843,11 @@ enum ctdb_runstate {
 	CTDB_RUNSTATE_SHUTDOWN,
 };
 
+struct ctdb_pid_srvid {
+	pid_t pid;
+	uint64_t srvid;
+};
+
 struct ctdb_req_control_data {
 	uint32_t opcode;
 	union {
@@ -879,6 +885,7 @@ struct ctdb_req_control_data {
 		struct ctdb_uint64_array *u64_array;
 		struct ctdb_traverse_start_ext *traverse_start_ext;
 		struct ctdb_traverse_all_ext *traverse_all_ext;
+		struct ctdb_pid_srvid *pid_srvid;
 	} data;
 };
 

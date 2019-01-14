@@ -36,6 +36,10 @@
 #include "torture/smb2/proto.h"
 #include "torture/vfs/proto.h"
 #include "librpc/gen_ndr/ndr_ioctl.h"
+#include "libcli/security/dom_sid.h"
+#include "../librpc/gen_ndr/ndr_security.h"
+#include "libcli/security/secace.h"
+#include "libcli/security/security_descriptor.h"
 
 #define BASEDIR "vfs_fruit_dir"
 #define FNAME_CC_SRC "testfsctl.dat"
@@ -237,22 +241,107 @@ Offset     : 00000032 : 50
 Length     : 00000EB0 : 3760
 
 -FInfo-----:
-Type       : 54455854 : TEXT
-Creator    : 21526368 : !Rch
-...
+Type       : 54455354 : TEST
+Creator    : 534C4F57 : SLOW
+isAlias    : 0
+Invisible  : 0
+hasBundle  : 0
+nameLocked : 0
+Stationery : 0
+CustomIcon : 0
+Reserved   : 0
+Inited     : 0
+NoINITS    : 0
+Shared     : 0
+SwitchLaunc: 0
+Hidden Ext : 0
+color      : 100      : blue
+isOnDesk   : 0
+Location v : 0000     : 0
+Location h : 0000     : 0
+Fldr       : 0000     : ..
+
+-FXInfo----:
+Rsvd|IconID: 0000     : 0
+Rsvd       : 0000     : ..
+Rsvd       : 0000     : ..
+Rsvd       : 0000     : ..
+AreInvalid : 0
+unknown bit: 0
+unknown bit: 0
+unknown bit: 0
+unknown bit: 0
+unknown bit: 0
+unknown bit: 0
+CustomBadge: 0
+ObjctIsBusy: 0
+unknown bit: 0
+unknown bit: 0
+unknown bit: 0
+unknown bit: 0
+RoutingInfo: 0
+unknown bit: 0
+unknown bit: 0
+Rsvd|commnt: 0000     : 0
+PutAway    : 00000000 : 0
 
 -EA--------:
 pad        : 0000     : ..
 magic      : 41545452 : ATTR
-debug_tag  : 0007F98E : 522638
+debug_tag  : 53D4580C : 1406425100
 total_size : 00000EE2 : 3810
-data_start : 00000078 : 120
-data_length: 00000000 : 0
+data_start : 000000BC : 188
+data_length: 0000005E : 94
 reserved[0]: 00000000 : ....
 reserved[1]: 00000000 : ....
 reserved[2]: 00000000 : ....
 flags      : 0000     : ..
-num_attrs  : 0000     : 0
+num_attrs  : 0002     : 2
+-EA ENTRY--:
+offset     : 000000BC : 188
+length     : 0000005B : 91
+flags      : 0000     : ..
+namelen    : 24       : 36
+-EA NAME---:  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F : (ASCII)
+00000000   : 63 6F 6D 2E 61 70 70 6C 65 2E 6D 65 74 61 64 61 : com.apple.metada
+00000010   : 74 61 3A 5F 6B 4D 44 49 74 65 6D 55 73 65 72 54 : ta:_kMDItemUserT
+00000020   : 61 67 73 00                                     : ags.
+-EA VALUE--:  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F : (ASCII)
+00000000   : 62 70 6C 69 73 74 30 30 A5 01 02 03 04 05 54 74 : bplist00......Tt
+00000010   : 65 73 74 66 00 47 00 72 00 FC 00 6E 00 0A 00 32 : estf.G.r...n...2
+00000020   : 56 4C 69 6C 61 0A 33 56 47 65 6C 62 0A 35 56 42 : VLila.3VGelb.5VB
+00000030   : 6C 61 75 0A 34 08 0E 13 20 27 2E 00 00 00 00 00 : lau.4... '......
+00000040   : 00 01 01 00 00 00 00 00 00 00 06 00 00 00 00 00 : ................
+00000050   : 00 00 00 00 00 00 00 00 00 00 35                : ..........5
+-EA ENTRY--:
+offset     : 00000117 : 279
+length     : 00000003 : 3
+flags      : 0000     : ..
+namelen    : 08       : 8
+-EA NAME---:  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F : (ASCII)
+00000000   : 66 6F 6F 3A 62 61 72 00                         : foo:bar.
+-EA VALUE--:  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F : (ASCII)
+00000000   : 62 61 7A                                        : baz
+
+-RAW DUMP--:  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F : (ASCII)
+00000000   : 54 45 53 54 53 4C 4F 57 00 08 00 00 00 00 00 00 : TESTSLOW........
+00000010   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000020   : 00 00 41 54 54 52 53 D4 58 0C 00 00 0E E2 00 00 : ..ATTRS.X.......
+00000030   : 00 BC 00 00 00 5E 00 00 00 00 00 00 00 00 00 00 : .....^..........
+00000040   : 00 00 00 00 00 02 00 00 00 BC 00 00 00 5B 00 00 : .............[..
+00000050   : 24 63 6F 6D 2E 61 70 70 6C 65 2E 6D 65 74 61 64 : $com.apple.metad
+00000060   : 61 74 61 3A 5F 6B 4D 44 49 74 65 6D 55 73 65 72 : ata:_kMDItemUser
+00000070   : 54 61 67 73 00 00 00 00 01 17 00 00 00 03 00 00 : Tags............
+00000080   : 08 66 6F 6F 3A 62 61 72 00 66 62 70 6C 69 73 74 : .foo:bar.fbplist
+00000090   : 30 30 A5 01 02 03 04 05 54 74 65 73 74 66 00 47 : 00......Ttestf.G
+000000A0   : 00 72 00 FC 00 6E 00 0A 00 32 56 4C 69 6C 61 0A : .r...n...2VLila.
+000000B0   : 33 56 47 65 6C 62 0A 35 56 42 6C 61 75 0A 34 08 : 3VGelb.5VBlau.4.
+000000C0   : 0E 13 20 27 2E 00 00 00 00 00 00 01 01 00 00 00 : .. '............
+000000D0   : 00 00 00 00 06 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000E0   : 00 00 00 00 35 62 61 7A 00 00 00 00 00 00 00 00 : ....5baz........
+000000F0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+... all zeroes ...
+00000EA0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
 
 -------------------------------------------------------------------------------
 Entry ID   : 00000002 : Resource Fork
@@ -264,8 +353,23 @@ Length     : 0000011E : 286
 00000010   : 54 68 69 73 20 72 65 73 6F 75 72 63 65 20 66 6F : This resource fo
 00000020   : 72 6B 20 69 6E 74 65 6E 74 69 6F 6E 61 6C 6C 79 : rk intentionally
 00000030   : 20 6C 65 66 74 20 62 6C 61 6E 6B 20 20 20 00 00 :  left blank   ..
-...
+00000040   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000050   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000060   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000070   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000080   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000090   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000A0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000B0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000C0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000D0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000E0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+000000F0   : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 : ................
+00000100   : 00 00 01 00 00 00 01 00 00 00 00 00 00 00 00 1E : ................
 00000110   : 00 00 00 00 00 00 00 00 00 1C 00 1E FF FF       : ..............
+
+It was created with:
+$ hexdump -ve '"\t" 7/1 "0x%02x, " 1/1 " 0x%02x," "\n"'
 */
 static char osx_adouble_w_xattr[] = {
 	0x00, 0x05, 0x16, 0x07, 0x00, 0x02, 0x00, 0x00,
@@ -274,36 +378,36 @@ static char osx_adouble_w_xattr[] = {
 	0x00, 0x02, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00,
 	0x00, 0x32, 0x00, 0x00, 0x0e, 0xb0, 0x00, 0x00,
 	0x00, 0x02, 0x00, 0x00, 0x0e, 0xe2, 0x00, 0x00,
-	0x01, 0x1e, 0x54, 0x45, 0x58, 0x54, 0x21, 0x52,
-	0x63, 0x68, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x01, 0x1e, 0x54, 0x45, 0x53, 0x54, 0x53, 0x4c,
+	0x4f, 0x57, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x41, 0x54, 0x54, 0x52,
-	0x00, 0x07, 0xf9, 0x8e, 0x00, 0x00, 0x0e, 0xe2,
-	0x00, 0x00, 0x00, 0x78, 0x00, 0x00, 0x00, 0x00,
+	0x53, 0xd4, 0x58, 0x0c, 0x00, 0x00, 0x0e, 0xe2,
+	0x00, 0x00, 0x00, 0xbc, 0x00, 0x00, 0x00, 0x5e,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+	0x00, 0x00, 0x00, 0xbc, 0x00, 0x00, 0x00, 0x5b,
+	0x00, 0x00, 0x24, 0x63, 0x6f, 0x6d, 0x2e, 0x61,
+	0x70, 0x70, 0x6c, 0x65, 0x2e, 0x6d, 0x65, 0x74,
+	0x61, 0x64, 0x61, 0x74, 0x61, 0x3a, 0x5f, 0x6b,
+	0x4d, 0x44, 0x49, 0x74, 0x65, 0x6d, 0x55, 0x73,
+	0x65, 0x72, 0x54, 0x61, 0x67, 0x73, 0x00, 0x00,
+	0x00, 0x00, 0x01, 0x17, 0x00, 0x00, 0x00, 0x03,
+	0x00, 0x00, 0x08, 0x66, 0x6f, 0x6f, 0x3a, 0x62,
+	0x61, 0x72, 0x00, 0x66, 0x62, 0x70, 0x6c, 0x69,
+	0x73, 0x74, 0x30, 0x30, 0xa5, 0x01, 0x02, 0x03,
+	0x04, 0x05, 0x54, 0x74, 0x65, 0x73, 0x74, 0x66,
+	0x00, 0x47, 0x00, 0x72, 0x00, 0xfc, 0x00, 0x6e,
+	0x00, 0x0a, 0x00, 0x32, 0x56, 0x4c, 0x69, 0x6c,
+	0x61, 0x0a, 0x33, 0x56, 0x47, 0x65, 0x6c, 0x62,
+	0x0a, 0x35, 0x56, 0x42, 0x6c, 0x61, 0x75, 0x0a,
+	0x34, 0x08, 0x0e, 0x13, 0x20, 0x27, 0x2e, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x35, 0x62,
+	0x61, 0x7a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -809,7 +913,7 @@ static char *torture_afpinfo_pack(TALLOC_CTX *mem_ctx,
 {
 	char *buf;
 
-	buf = talloc_array(mem_ctx, char, AFP_INFO_SIZE);
+	buf = talloc_zero_array(mem_ctx, char, AFP_INFO_SIZE);
 	if (buf == NULL) {
 		return NULL;
 	}
@@ -1040,7 +1144,7 @@ static bool write_stream(struct smb2_tree *tree,
 	NTSTATUS status;
 	const char *full_name;
 
-	full_name = talloc_asprintf(mem_ctx, "%s%s", fname, sname);
+	full_name = talloc_asprintf(mem_ctx, "%s%s", fname, sname ? sname : "");
 	if (full_name == NULL) {
 	    torture_comment(tctx, "talloc_asprintf error\n");
 	    return false;
@@ -1108,49 +1212,6 @@ static bool torture_setup_local_xattr(struct torture_context *tctx,
 	TALLOC_FREE(path);
 
 	return ret;
-}
-
-static bool torture_setup_local_file(struct torture_context *tctx,
-				     const char *path_option,
-				     const char *name,
-				     const char *buf,
-				     size_t size)
-{
-	int fd;
-	const char *spath;
-	char *path;
-	ssize_t rsize;
-
-	spath = torture_setting_string(tctx, path_option, NULL);
-	if (spath == NULL) {
-		printf("No sharepath for option %s\n", path_option);
-		return false;
-	}
-
-	path = talloc_asprintf(tctx, "%s/%s", spath, name);
-	if (path == NULL) {
-		return false;
-	}
-
-	fd = creat(path, S_IRWXU);
-	TALLOC_FREE(path);
-	if (fd == -1) {
-		return false;
-	}
-
-	if ((buf == NULL) || (size == 0)) {
-		close(fd);
-		return true;
-	}
-
-	rsize = write(fd, buf, size);
-	if (rsize != size) {
-		return false;
-	}
-
-	close(fd);
-
-	return true;
 }
 
 /**
@@ -1533,11 +1594,11 @@ static bool test_write_atalk_rfork_io(struct torture_context *tctx,
 
 	ret &= write_stream(tree, __location__, tctx, mem_ctx,
 			    fname, AFPRESOURCE_STREAM_NAME,
-			    (off_t)1<<32, 10, rfork_content);
+			    (off_t)64*1024*1024, 10, rfork_content);
 
 	ret &= check_stream(tree, __location__, tctx, mem_ctx,
 			    fname, AFPRESOURCE_STREAM_NAME,
-			    (off_t)1<<32, 10, 0, 10, rfork_content);
+			    (off_t)64*1024*1024, 10, 0, 10, rfork_content);
 
 	/* Truncate back to size of 1 byte */
 
@@ -1896,45 +1957,63 @@ static bool test_adouble_conversion(struct torture_context *tctx,
 {
 	TALLOC_CTX *mem_ctx = talloc_new(tctx);
 	const char *fname = BASEDIR "\\test_adouble_conversion";
-	const char *fname_local = BASEDIR "/test_adouble_conversion";
-	const char *adname_local = BASEDIR "/._test_adouble_conversion";
+	const char *adname = BASEDIR "/._test_adouble_conversion";
 	NTSTATUS status;
 	struct smb2_handle testdirh;
 	bool ret = true;
 	const char *data = "This resource fork intentionally left blank";
 	size_t datalen = strlen(data);
-	const char *localdir = NULL;
+	const char *streams[] = {
+		"::$DATA",
+		AFPINFO_STREAM,
+		AFPRESOURCE_STREAM,
+		":com.apple.metadata" "\xef\x80\xa2" "_kMDItemUserTags:$DATA",
+		":foo" "\xef\x80\xa2" "bar:$DATA", /* "foo:bar:$DATA" */
+	};
 
-	localdir = torture_setting_string(tctx, "localdir", NULL);
-	if (localdir == NULL) {
-		torture_skip(tctx, "Need localdir for test");
-	}
-
-	smb2_util_unlink(tree, fname);
+	smb2_deltree(tree, BASEDIR);
 
 	status = torture_smb2_testdir(tree, BASEDIR, &testdirh);
 	CHECK_STATUS(status, NT_STATUS_OK);
 	smb2_util_close(tree, testdirh);
 
-	ret = torture_setup_local_file(tctx, "localdir", fname_local,
-				       NULL, 0);
-	if (ret == false) {
-		goto done;
-	}
+	ret = torture_setup_file(tctx, tree, fname, false);
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "torture_setup_file failed\n");
 
-	ret = torture_setup_local_file(tctx, "localdir", adname_local,
-				       osx_adouble_w_xattr,
-				       sizeof(osx_adouble_w_xattr));
-	if (ret == false) {
-		goto done;
-	}
+	ret = torture_setup_file(tctx, tree, adname, false);
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "torture_setup_file failed\n");
+
+	ret = write_stream(tree, __location__, tctx, mem_ctx,
+			   adname, NULL,
+			   0, sizeof(osx_adouble_w_xattr), osx_adouble_w_xattr);
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "write_stream failed\n");
 
 	torture_comment(tctx, "(%s) test OS X AppleDouble conversion\n",
 	    __location__);
 
-	ret &= check_stream(tree, __location__, tctx, mem_ctx,
-			    fname, AFPRESOURCE_STREAM,
-			    16, datalen, 0, datalen, data);
+	ret = check_stream(tree, __location__, tctx, mem_ctx,
+			   fname, AFPRESOURCE_STREAM,
+			   16, datalen, 0, datalen, data);
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "check AFPRESOURCE_STREAM failed\n");
+
+	ret = check_stream(tree, __location__, tctx, mem_ctx,
+			   fname, AFPINFO_STREAM,
+			   0, 60, 16, 8, "TESTSLOW");
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "check AFPINFO_STREAM failed\n");
+
+	ret = check_stream(tree, __location__, tctx, mem_ctx, fname,
+			   ":foo" "\xef\x80\xa2" "bar:$DATA", /* "foo:bar:$DATA" */
+			   0, 3, 0, 3, "baz");
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "check foo:bar stream failed\n");
+
+	ret = check_stream_list(tree, tctx, fname, 5, streams, false);
+	torture_assert_goto(tctx, ret == true, ret, done, "check_stream_list");
 
 done:
 	smb2_deltree(tree, BASEDIR);
@@ -2762,15 +2841,8 @@ static bool test_stream_names(struct torture_context *tctx,
 	/* UTF8 private use are starts at 0xef 0x80 0x80 (0xf000) */
 	const char *streams[] = {
 		":foo" "\xef\x80\xa2" "bar:$DATA", /* "foo:bar:$DATA" */
-		":bar" "\xef\x80\xa2" "baz:$DATA", /* "bar:baz:$DATA" */
 		"::$DATA"
 	};
-	const char *localdir = NULL;
-
-	localdir = torture_setting_string(tctx, "localdir", NULL);
-	if (localdir == NULL) {
-		torture_skip(tctx, "Need localdir for test");
-	}
 
 	sname1 = talloc_asprintf(mem_ctx, "%s%s", fname, streams[0]);
 
@@ -2799,12 +2871,7 @@ static bool test_stream_names(struct torture_context *tctx,
 	CHECK_STATUS(status, NT_STATUS_OK);
 	smb2_util_close(tree, create.out.file.handle);
 
-	ret = torture_setup_local_xattr(tctx, "localdir", BASEDIR "/stream_names.txt",
-					"user.DosStream.bar:baz:$DATA",
-					"data", strlen("data"));
-	CHECK_VALUE(ret, true);
-
-	ret = check_stream_list(tree, tctx, fname, 3, streams, false);
+	ret = check_stream_list(tree, tctx, fname, 2, streams, false);
 	CHECK_VALUE(ret, true);
 
 done:
@@ -3283,11 +3350,17 @@ static bool test_afpinfo_all0(struct torture_context *tctx,
 {
 	bool ret = true;
 	NTSTATUS status;
-	struct smb2_handle h1;
+	struct smb2_create create;
+	struct smb2_handle h1 = {{0}};
+	struct smb2_handle baseh = {{0}};
+	union smb_setfileinfo setfinfo;
+	union smb_fileinfo getfinfo;
 	TALLOC_CTX *mem_ctx = talloc_new(tctx);
 	const char *fname = BASEDIR "\\file";
+	const char *sname = BASEDIR "\\file" AFPINFO_STREAM;
 	const char *type_creator = "SMB,OLE!";
 	AfpInfo *info = NULL;
+	char *infobuf = NULL;
 	const char *streams_basic[] = {
 		"::$DATA"
 	};
@@ -3318,13 +3391,88 @@ static bool test_afpinfo_all0(struct torture_context *tctx,
 
 	/* Write all 0 to AFP_AfpInfo */
 	memset(info->afpi_FinderInfo, 0, AFP_FinderSize);
-	ret = torture_write_afpinfo(tree, tctx, mem_ctx, fname, info);
-	torture_assert_goto(tctx, ret == true, ret, done, "torture_write_afpinfo failed");
+	infobuf = torture_afpinfo_pack(mem_ctx, info);
+	torture_assert_not_null_goto(tctx, infobuf, ret, done,
+				     "torture_afpinfo_pack failed\n");
+
+	ZERO_STRUCT(create);
+	create.in.desired_access = SEC_FILE_ALL;
+	create.in.file_attributes = FILE_ATTRIBUTE_NORMAL;
+	create.in.create_disposition = NTCREATEX_DISP_OPEN;
+	create.in.share_access = NTCREATEX_SHARE_ACCESS_MASK;
+	create.in.fname = fname;
+
+	status = smb2_create(tree, mem_ctx, &create);
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "smb2_create failed\n");
+	baseh = create.out.file.handle;
+
+	ZERO_STRUCT(create);
+	create.in.desired_access = SEC_FILE_ALL;
+	create.in.file_attributes = FILE_ATTRIBUTE_NORMAL;
+	create.in.create_disposition = NTCREATEX_DISP_OVERWRITE_IF;
+	create.in.fname = sname;
+
+	status = smb2_create(tree, mem_ctx, &create);
+	torture_assert_goto(tctx, ret == true, ret, done,
+			    "smb2_create failed\n");
+	h1 = create.out.file.handle;
+
+	status = smb2_util_write(tree, h1, infobuf, 0, AFP_INFO_SIZE);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"smb2_util_write failed\n");
+
+	/*
+	 * Get stream information on open handle, must return only default
+	 * stream, the AFP_AfpInfo stream must not be returned.
+	 */
+
+	ZERO_STRUCT(getfinfo);
+	getfinfo.generic.level = RAW_FILEINFO_STREAM_INFORMATION;
+	getfinfo.generic.in.file.handle = baseh;
+
+	status = smb2_getinfo_file(tree, tctx, &getfinfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"get stream info\n");
+
+	torture_assert_int_equal_goto(tctx, getfinfo.stream_info.out.num_streams,
+				      1, ret, done, "stream count");
+
+	smb2_util_close(tree, baseh);
+	ZERO_STRUCT(baseh);
+
+	/*
+	 * Try to set some file-basic-info (time) on the stream. This catches
+	 * naive implementation mistakes that simply deleted the backing store
+	 * from the filesystem in the zero-out step.
+	 */
+
+	ZERO_STRUCT(setfinfo);
+	unix_to_nt_time(&setfinfo.basic_info.in.write_time, time(NULL));
+	setfinfo.basic_info.in.attrib = 0x20;
+	setfinfo.generic.level = RAW_SFILEINFO_BASIC_INFORMATION;
+	setfinfo.generic.in.file.handle = h1;
+
+	status = smb2_setinfo_file(tree, &setfinfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"smb2_getinfo_file failed\n");
+
+	ret = check_stream_list(tree, tctx, fname, 1, streams_basic, false);
+	torture_assert_goto(tctx, ret == true, ret, done, "check_stream_list");
+
+	smb2_util_close(tree, h1);
+	ZERO_STRUCT(h1);
 
 	ret = check_stream_list(tree, tctx, fname, 1, streams_basic, false);
 	torture_assert_goto(tctx, ret == true, ret, done, "Bad streams");
 
 done:
+	if (!smb2_util_handle_empty(h1)) {
+		smb2_util_close(tree, h1);
+	}
+	if (!smb2_util_handle_empty(baseh)) {
+		smb2_util_close(tree, baseh);
+	}
 	smb2_util_unlink(tree, fname);
 	smb2_util_rmdir(tree, BASEDIR);
 	return ret;
@@ -3749,7 +3897,6 @@ static bool test_rename_and_read_rsrc(struct torture_context *tctx,
 	const char *fname_renamed = "test_rename_openfile_renamed";
 	const char *data = "1234567890";
 	union smb_setfileinfo sinfo;
-	struct smb2_read r;
 
 	ret = enable_aapl(tctx, tree);
 	torture_assert_goto(tctx, ret == true, ret, done, "enable_aapl failed");
@@ -3801,28 +3948,12 @@ static bool test_rename_and_read_rsrc(struct torture_context *tctx,
 	sinfo.rename_information.in.new_name = fname_renamed;
 
 	status = smb2_setinfo_file(tree, &sinfo);
-	torture_assert_ntstatus_ok_goto(tctx, status, ret, done, "smb2_setinfo_file failed");
-
-	smb2_util_close(tree, h2);
-
-	ZERO_STRUCT(r);
-	r.in.file.handle = h1;
-	r.in.length      = 10;
-	r.in.offset      = 0;
-
-	torture_comment(tctx, "Read resource fork of renamed file\n");
-
-	status = smb2_read(tree, tree, &r);
-	torture_assert_ntstatus_ok_goto(tctx, status, ret, done, "smb2_read failed");
+	torture_assert_ntstatus_equal_goto(
+		tctx, status, NT_STATUS_ACCESS_DENIED, ret, done,
+		"smb2_setinfo_file failed");
 
 	smb2_util_close(tree, h1);
-
-	torture_assert_goto(tctx, r.out.data.length == 10, ret, done,
-			    talloc_asprintf(tctx, "smb2_read returned %jd bytes, expected 10\n",
-					    (intmax_t)r.out.data.length));
-
-	torture_assert_goto(tctx, memcmp(r.out.data.data, data, 10) == 0, ret, done,
-			    talloc_asprintf(tctx, "Bad data in stream\n"));
+	smb2_util_close(tree, h2);
 
 done:
 	smb2_util_unlink(tree, fname);
@@ -3919,6 +4050,9 @@ static bool test_readdir_attr_illegal_ntfs(struct torture_context *tctx,
 
 		if (!strcmp(found, ".") || !strcmp(found, ".."))
 			continue;
+		if (strncmp(found, "._", 2) == 0) {
+			continue;
+		}
 		break;
 	}
 
@@ -4279,6 +4413,413 @@ done:
 }
 
 /*
+ * Ensure this security descriptor has exactly one mode, uid
+ * and gid.
+ */
+
+static NTSTATUS check_nfs_sd(const struct security_descriptor *psd)
+{
+	uint32_t i;
+	bool got_one_mode = false;
+	bool got_one_uid = false;
+	bool got_one_gid = false;
+
+	if (psd->dacl == NULL) {
+		return NT_STATUS_INVALID_SECURITY_DESCR;
+	}
+
+	for (i = 0; i < psd->dacl->num_aces; i++) {
+		if (dom_sid_compare_domain(&global_sid_Unix_NFS_Mode,
+					   &psd->dacl->aces[i].trustee) == 0) {
+			if (got_one_mode == true) {
+				/* Can't have more than one. */
+				return NT_STATUS_INVALID_SECURITY_DESCR;
+			}
+			got_one_mode = true;
+		}
+	}
+	for (i = 0; i < psd->dacl->num_aces; i++) {
+		if (dom_sid_compare_domain(&global_sid_Unix_NFS_Users,
+					   &psd->dacl->aces[i].trustee) == 0) {
+			if (got_one_uid == true) {
+				/* Can't have more than one. */
+				return NT_STATUS_INVALID_SECURITY_DESCR;
+			}
+			got_one_uid = true;
+		}
+	}
+	for (i = 0; i < psd->dacl->num_aces; i++) {
+		if (dom_sid_compare_domain(&global_sid_Unix_NFS_Groups,
+					   &psd->dacl->aces[i].trustee) == 0) {
+			if (got_one_gid == true) {
+				/* Can't have more than one. */
+				return NT_STATUS_INVALID_SECURITY_DESCR;
+			}
+			got_one_gid = true;
+		}
+	}
+	/* Must have at least one of each. */
+	if (got_one_mode == false ||
+			got_one_uid == false ||
+			got_one_gid == false) {
+		return NT_STATUS_INVALID_SECURITY_DESCR;
+	}
+	return NT_STATUS_OK;
+}
+
+static bool test_nfs_aces(struct torture_context *tctx,
+			  struct smb2_tree *tree)
+{
+	TALLOC_CTX *mem_ctx = talloc_new(tctx);
+	struct security_ace ace;
+	struct dom_sid sid;
+	const char *fname = BASEDIR "\\nfs_aces.txt";
+	struct smb2_handle h = {{0}};
+	union smb_fileinfo finfo2;
+	union smb_setfileinfo set;
+	struct security_descriptor *psd = NULL;
+	NTSTATUS status;
+	bool ret = true;
+
+	ret = enable_aapl(tctx, tree);
+	torture_assert(tctx, ret == true, "enable_aapl failed");
+
+	/* clean slate ...*/
+	smb2_util_unlink(tree, fname);
+	smb2_deltree(tree, fname);
+	smb2_deltree(tree, BASEDIR);
+
+	status = torture_smb2_testdir(tree, BASEDIR, &h);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	smb2_util_close(tree, h);
+
+	/* Create a test file. */
+	status = torture_smb2_testfile_access(tree,
+				fname,
+				&h,
+				SEC_STD_READ_CONTROL |
+				SEC_STD_WRITE_DAC |
+				SEC_RIGHTS_FILE_ALL);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	/* Get the ACL. */
+	finfo2.query_secdesc.in.secinfo_flags =
+		SECINFO_OWNER |
+		SECINFO_GROUP |
+		SECINFO_DACL;
+	finfo2.generic.level = RAW_FILEINFO_SEC_DESC;
+	finfo2.generic.in.file.handle = h;
+	status = smb2_getinfo_file(tree, tctx, &finfo2);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	psd = finfo2.query_secdesc.out.sd;
+
+	/* Ensure we have only single mode/uid/gid NFS entries. */
+	status = check_nfs_sd(psd);
+	if (!NT_STATUS_IS_OK(status)) {
+		NDR_PRINT_DEBUG(
+			security_descriptor,
+			discard_const_p(struct security_descriptor, psd));
+	}
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	/* Add a couple of extra NFS uids and gids. */
+	sid_compose(&sid, &global_sid_Unix_NFS_Users, 27);
+	init_sec_ace(&ace, &sid, SEC_ACE_TYPE_ACCESS_DENIED, 0, 0);
+	status = security_descriptor_dacl_add(psd, &ace);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	status = security_descriptor_dacl_add(psd, &ace);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	sid_compose(&sid, &global_sid_Unix_NFS_Groups, 300);
+	init_sec_ace(&ace, &sid, SEC_ACE_TYPE_ACCESS_DENIED, 0, 0);
+	status = security_descriptor_dacl_add(psd, &ace);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	status = security_descriptor_dacl_add(psd, &ace);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	/* Now set on the file handle. */
+	set.set_secdesc.level = RAW_SFILEINFO_SEC_DESC;
+	set.set_secdesc.in.file.handle = h;
+	set.set_secdesc.in.secinfo_flags = SECINFO_DACL;
+	set.set_secdesc.in.sd = psd;
+	status = smb2_setinfo_file(tree, &set);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	/* Get the ACL again. */
+	finfo2.query_secdesc.in.secinfo_flags =
+		SECINFO_OWNER |
+		SECINFO_GROUP |
+		SECINFO_DACL;
+	finfo2.generic.level = RAW_FILEINFO_SEC_DESC;
+	finfo2.generic.in.file.handle = h;
+	status = smb2_getinfo_file(tree, tctx, &finfo2);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	psd = finfo2.query_secdesc.out.sd;
+
+	/* Ensure we have only single mode/uid/gid NFS entries. */
+	status = check_nfs_sd(psd);
+	if (!NT_STATUS_IS_OK(status)) {
+		NDR_PRINT_DEBUG(
+			security_descriptor,
+			discard_const_p(struct security_descriptor, psd));
+	}
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+done:
+	if (!smb2_util_handle_empty(h)) {
+		smb2_util_close(tree, h);
+	}
+	smb2_util_unlink(tree, fname);
+	smb2_deltree(tree, fname);
+	smb2_deltree(tree, BASEDIR);
+	talloc_free(mem_ctx);
+	return ret;
+}
+
+static bool test_setinfo_stream_eof(struct torture_context *tctx,
+				    struct smb2_tree *tree)
+{
+	bool ret = true;
+	NTSTATUS status;
+	struct smb2_create create;
+	union smb_setfileinfo sfinfo;
+	union smb_fileinfo finfo;
+	struct smb2_handle h1;
+	TALLOC_CTX *mem_ctx = talloc_new(tctx);
+	const char *fname = BASEDIR "\\file";
+	const char *sname = BASEDIR "\\file:foo";
+
+	torture_assert_goto(tctx, mem_ctx != NULL, ret, done,
+			    "talloc_new failed\n");
+
+	torture_comment(tctx, "Test setting EOF on a stream\n");
+
+	smb2_deltree(tree, BASEDIR);
+	status = torture_smb2_testdir(tree, BASEDIR, &h1);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testdir\n");
+	smb2_util_close(tree, h1);
+
+	status = torture_smb2_testfile(tree, fname, &h1);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+	smb2_util_close(tree, h1);
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	status = smb2_util_write(tree, h1, "1234567890", 0, 10);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"smb2_util_write failed\n");
+	smb2_util_close(tree, h1);
+
+	/*
+	 * Test setting EOF to 21
+	 */
+
+	torture_comment(tctx, "Setting stream EOF to 21\n");
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(sfinfo);
+	sfinfo.generic.in.file.handle = h1;
+	sfinfo.generic.level = RAW_SFILEINFO_END_OF_FILE_INFORMATION;
+	sfinfo.position_information.in.position = 21;
+	status = smb2_setinfo_file(tree, &sfinfo);
+	torture_assert_ntstatus_ok_goto(tctx, status,
+					ret, done, "set EOF 21 failed\n");
+
+	smb2_util_close(tree, h1);
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(finfo);
+	finfo.generic.level = RAW_FILEINFO_STANDARD_INFORMATION;
+	finfo.generic.in.file.handle = h1;
+	status = smb2_getinfo_file(tree, mem_ctx, &finfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"smb2_getinfo_file failed");
+
+	smb2_util_close(tree, h1);
+
+	torture_assert_goto(tctx, finfo.standard_info.out.size == 21,
+			    ret, done, "size != 21\n");
+
+	/*
+	 * Test setting EOF to 0
+	 */
+
+	torture_comment(tctx, "Setting stream EOF to 0\n");
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(sfinfo);
+	sfinfo.generic.in.file.handle = h1;
+	sfinfo.generic.level = RAW_SFILEINFO_END_OF_FILE_INFORMATION;
+	sfinfo.position_information.in.position = 0;
+	status = smb2_setinfo_file(tree, &sfinfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"set eof 0 failed\n");
+
+	smb2_util_close(tree, h1);
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(finfo);
+	finfo.generic.level = RAW_FILEINFO_STANDARD_INFORMATION;
+	finfo.generic.in.file.handle = h1;
+	status = smb2_getinfo_file(tree, mem_ctx, &finfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"smb2_getinfo_file failed\n");
+
+	smb2_util_close(tree, h1);
+
+	torture_assert_goto(tctx, finfo.standard_info.out.size == 0,
+			    ret, done, "size != 0\n");
+
+	/*
+	 * Test setinfo end-of-file info to 1
+	 */
+
+	torture_comment(tctx, "Setting stream EOF to 1\n");
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(sfinfo);
+	sfinfo.generic.in.file.handle = h1;
+	sfinfo.generic.level = RAW_SFILEINFO_END_OF_FILE_INFORMATION;
+	sfinfo.position_information.in.position = 1;
+	status = smb2_setinfo_file(tree, &sfinfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"set EOF 1 failed\n");
+
+	smb2_util_close(tree, h1);
+
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(finfo);
+	finfo.generic.level = RAW_FILEINFO_STANDARD_INFORMATION;
+	finfo.generic.in.file.handle = h1;
+	status = smb2_getinfo_file(tree, mem_ctx, &finfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"smb2_getinfo_file failed\n");
+
+	smb2_util_close(tree, h1);
+
+	torture_assert_goto(tctx, finfo.standard_info.out.size == 1,
+			    ret, done, "size != 1\n");
+
+	/*
+	 * Test setting EOF to 0 with AAPL enabled, should delete stream
+	 */
+
+	torture_comment(tctx, "Enabling AAPL extensions\n");
+
+	ret = enable_aapl(tctx, tree);
+	torture_assert(tctx, ret == true, "enable_aapl failed\n");
+
+	torture_comment(tctx, "Setting stream EOF to 0\n");
+	status = torture_smb2_testfile_access(tree, sname, &h1,
+					      SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(sfinfo);
+	sfinfo.generic.in.file.handle = h1;
+	sfinfo.generic.level = RAW_SFILEINFO_END_OF_FILE_INFORMATION;
+	sfinfo.position_information.in.position = 0;
+	status = smb2_setinfo_file(tree, &sfinfo);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"set eof 0 failed\n");
+
+	smb2_util_close(tree, h1);
+
+	ZERO_STRUCT(create);
+	create.in.desired_access = SEC_FILE_READ_ATTRIBUTE;
+	create.in.share_access = NTCREATEX_SHARE_ACCESS_MASK;
+	create.in.file_attributes = FILE_ATTRIBUTE_NORMAL;
+	create.in.create_disposition = NTCREATEX_DISP_OPEN;
+	create.in.fname = sname;
+
+	status = smb2_create(tree, tctx, &create);
+	torture_assert_ntstatus_equal_goto(
+		tctx, status, NT_STATUS_OBJECT_NAME_NOT_FOUND, ret, done,
+		"Unexpected status\n");
+
+	torture_comment(
+		tctx, "Setting main file EOF to 1 to force 0-truncate\n");
+
+	status = torture_smb2_testfile_access(
+		tree,
+		fname,
+		&h1,
+		SEC_FILE_WRITE_DATA);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+
+	ZERO_STRUCT(sfinfo);
+	sfinfo.generic.in.file.handle = h1;
+	sfinfo.generic.level = RAW_SFILEINFO_END_OF_FILE_INFORMATION;
+	sfinfo.position_information.in.position = 1;
+	status = smb2_setinfo_file(tree, &sfinfo);
+        torture_assert_ntstatus_ok_goto(
+		tctx,
+		status,
+		ret,
+		done,
+		"set eof 1 failed\n");
+
+	sfinfo.position_information.in.position = 0;
+	status = smb2_setinfo_file(tree, &sfinfo);
+        torture_assert_ntstatus_ok_goto(
+		tctx,
+		status,
+		ret,
+		done,
+		"set eof 0 failed\n");
+
+        smb2_util_close(tree, h1);
+
+	ZERO_STRUCT(create);
+	create.in.desired_access = SEC_FILE_READ_ATTRIBUTE;
+	create.in.share_access = NTCREATEX_SHARE_ACCESS_MASK;
+	create.in.file_attributes = FILE_ATTRIBUTE_NORMAL;
+	create.in.create_disposition = NTCREATEX_DISP_OPEN;
+	create.in.fname = fname;
+
+	status = smb2_create(tree, tctx, &create);
+	torture_assert_ntstatus_ok_goto(tctx, status, ret, done,
+					"torture_smb2_testfile failed\n");
+	smb2_util_close(tree, h1);
+done:
+	smb2_util_unlink(tree, fname);
+	smb2_util_rmdir(tree, BASEDIR);
+	return ret;
+}
+
+/*
  * Note: This test depends on "vfs objects = catia fruit streams_xattr".  For
  * some tests torture must be run on the host it tests and takes an additional
  * argument with the local path to the share:
@@ -4310,6 +4851,7 @@ struct torture_suite *torture_vfs_fruit(TALLOC_CTX *ctx)
 	torture_suite_add_1smb2_test(suite, "create delete-on-close AFP_AfpResource", test_create_delete_on_close_resource);
 	torture_suite_add_1smb2_test(suite, "setinfo delete-on-close AFP_AfpResource", test_setinfo_delete_on_close_resource);
 	torture_suite_add_1smb2_test(suite, "setinfo eof AFP_AfpResource", test_setinfo_eof_resource);
+	torture_suite_add_1smb2_test(suite, "setinfo eof stream", test_setinfo_stream_eof);
 	torture_suite_add_1smb2_test(suite, "null afpinfo", test_null_afpinfo);
 	torture_suite_add_1smb2_test(suite, "delete", test_delete_file_with_rfork);
 	torture_suite_add_1smb2_test(suite, "read open rsrc after rename", test_rename_and_read_rsrc);
@@ -4317,8 +4859,163 @@ struct torture_suite *torture_vfs_fruit(TALLOC_CTX *ctx)
 	torture_suite_add_2ns_smb2_test(suite, "invalid AFP_AfpInfo", test_invalid_afpinfo);
 	torture_suite_add_1smb2_test(suite, "creating rsrc with read-only access", test_rfork_create_ro);
 	torture_suite_add_1smb2_test(suite, "copy-chunk streams", test_copy_chunk_streams);
+	torture_suite_add_1smb2_test(suite, "OS X AppleDouble file conversion", test_adouble_conversion);
+	torture_suite_add_1smb2_test(suite, "NFS ACE entries", test_nfs_aces);
 
 	return suite;
+}
+
+static bool test_stream_names_local(struct torture_context *tctx,
+				    struct smb2_tree *tree)
+{
+	TALLOC_CTX *mem_ctx = talloc_new(tctx);
+	NTSTATUS status;
+	struct smb2_create create;
+	struct smb2_handle h;
+	const char *fname = BASEDIR "\\stream_names.txt";
+	const char *sname1;
+	bool ret;
+	/* UTF8 private use are starts at 0xef 0x80 0x80 (0xf000) */
+	const char *streams[] = {
+		":foo" "\xef\x80\xa2" "bar:$DATA", /* "foo:bar:$DATA" */
+		":bar" "\xef\x80\xa2" "baz:$DATA", /* "bar:baz:$DATA" */
+		"::$DATA"
+	};
+	const char *localdir = NULL;
+
+	localdir = torture_setting_string(tctx, "localdir", NULL);
+	if (localdir == NULL) {
+		torture_skip(tctx, "Need localdir for test");
+	}
+
+	sname1 = talloc_asprintf(mem_ctx, "%s%s", fname, streams[0]);
+
+	/* clean slate ...*/
+	smb2_util_unlink(tree, fname);
+	smb2_deltree(tree, fname);
+	smb2_deltree(tree, BASEDIR);
+
+	status = torture_smb2_testdir(tree, BASEDIR, &h);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	smb2_util_close(tree, h);
+
+	torture_comment(tctx, "(%s) testing stream names\n", __location__);
+	ZERO_STRUCT(create);
+	create.in.desired_access = SEC_FILE_WRITE_DATA;
+	create.in.file_attributes = FILE_ATTRIBUTE_NORMAL;
+	create.in.share_access =
+		NTCREATEX_SHARE_ACCESS_DELETE|
+		NTCREATEX_SHARE_ACCESS_READ|
+		NTCREATEX_SHARE_ACCESS_WRITE;
+	create.in.create_disposition = NTCREATEX_DISP_CREATE;
+	create.in.impersonation_level = SMB2_IMPERSONATION_ANONYMOUS;
+	create.in.fname = sname1;
+
+	status = smb2_create(tree, mem_ctx, &create);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	smb2_util_close(tree, create.out.file.handle);
+
+	ret = torture_setup_local_xattr(tctx, "localdir", BASEDIR "/stream_names.txt",
+					"user.DosStream.bar:baz:$DATA",
+					"data", strlen("data"));
+	CHECK_VALUE(ret, true);
+
+	ret = check_stream_list(tree, tctx, fname, 3, streams, false);
+	CHECK_VALUE(ret, true);
+
+done:
+	status = smb2_util_unlink(tree, fname);
+	smb2_deltree(tree, BASEDIR);
+	talloc_free(mem_ctx);
+
+	return ret;
+}
+
+static bool test_fruit_locking_conflict(struct torture_context *tctx,
+					struct smb2_tree *tree)
+{
+	TALLOC_CTX *mem_ctx;
+	struct smb2_create create;
+	struct smb2_handle h;
+	struct smb2_lock lck;
+	struct smb2_lock_element el;
+	const char *fname = BASEDIR "\\locking_conflict.txt";
+	NTSTATUS status;
+	bool ret = false;
+
+	mem_ctx = talloc_new(tctx);
+	torture_assert_not_null(tctx, mem_ctx, "talloc_new failed");
+
+	/* clean slate ...*/
+	smb2_util_unlink(tree, fname);
+	smb2_deltree(tree, fname);
+	smb2_deltree(tree, BASEDIR);
+
+	status = torture_smb2_testdir(tree, BASEDIR, &h);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	smb2_util_close(tree, h);
+
+	create = (struct smb2_create) {
+		.in.desired_access = SEC_RIGHTS_FILE_READ,
+		.in.file_attributes = FILE_ATTRIBUTE_NORMAL,
+		.in.share_access =
+		NTCREATEX_SHARE_ACCESS_READ|
+		NTCREATEX_SHARE_ACCESS_WRITE,
+		.in.create_disposition = NTCREATEX_DISP_CREATE,
+		.in.impersonation_level = SMB2_IMPERSONATION_ANONYMOUS,
+		.in.fname = fname,
+	};
+
+	status = smb2_create(tree, mem_ctx, &create);
+	CHECK_STATUS(status, NT_STATUS_OK);
+	h = create.out.file.handle;
+
+	el = (struct smb2_lock_element) {
+		.offset = 0xfffffffffffffffc,
+		.length = 1,
+		.flags = SMB2_LOCK_FLAG_EXCLUSIVE,
+	};
+	lck = (struct smb2_lock) {
+		.in.lock_count = 1,
+		.in.file.handle = h,
+		.in.locks = &el,
+	};
+
+	status = smb2_lock(tree, &lck);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	el = (struct smb2_lock_element) {
+		.offset = 0,
+		.length = 0x7fffffffffffffff,
+		.flags = SMB2_LOCK_FLAG_EXCLUSIVE,
+	};
+	status = smb2_lock(tree, &lck);
+	CHECK_STATUS(status, NT_STATUS_OK);
+
+	create = (struct smb2_create) {
+		.in.desired_access =
+		SEC_RIGHTS_FILE_READ|SEC_RIGHTS_FILE_WRITE,
+		.in.file_attributes = FILE_ATTRIBUTE_NORMAL,
+		.in.share_access = NTCREATEX_SHARE_ACCESS_READ,
+		.in.create_disposition = NTCREATEX_DISP_OPEN,
+		.in.impersonation_level = SMB2_IMPERSONATION_ANONYMOUS,
+		.in.fname = fname,
+	};
+
+	status = smb2_create(tree, mem_ctx, &create);
+	CHECK_STATUS(status, NT_STATUS_FILE_LOCK_CONFLICT);
+
+	{
+		struct smb2_close cl = {
+			.level = RAW_CLOSE_SMB2,
+			.in.file.handle = h,
+		};
+		smb2_close(tree, &cl);
+	}
+
+	ret = true;
+done:
+	return ret;
 }
 
 struct torture_suite *torture_vfs_fruit_netatalk(TALLOC_CTX *ctx)
@@ -4329,7 +5026,9 @@ struct torture_suite *torture_vfs_fruit_netatalk(TALLOC_CTX *ctx)
 	suite->description = talloc_strdup(suite, "vfs_fruit tests for Netatalk interop that require fruit:metadata=netatalk");
 
 	torture_suite_add_1smb2_test(suite, "read netatalk metadata", test_read_netatalk_metadata);
-	torture_suite_add_1smb2_test(suite, "OS X AppleDouble file conversion", test_adouble_conversion);
+	torture_suite_add_1smb2_test(suite, "stream names with locally created xattr", test_stream_names_local);
+	torture_suite_add_1smb2_test(
+		suite, "locking conflict", test_fruit_locking_conflict);
 
 	return suite;
 }

@@ -230,7 +230,7 @@ int daemon_check_srvids(struct ctdb_context *ctdb, TDB_DATA indata,
 		return -1;
 	}
 	for (i=0; i<num_ids; i++) {
-		if (srvid_exists(ctdb->srv, ids[i]) == 0) {
+		if (srvid_exists(ctdb->srv, ids[i], NULL) == 0) {
 			results[i/8] |= (1 << (i%8));
 		}
 	}
@@ -1081,12 +1081,6 @@ static void ctdb_setup_event_callback(struct ctdb_context *ctdb, int status,
 	}
 	ctdb_run_notification_script(ctdb, "setup");
 
-	/* tell all other nodes we've just started up */
-	ctdb_daemon_send_control(ctdb, CTDB_BROADCAST_ALL,
-				 0, CTDB_CONTROL_STARTUP, 0,
-				 CTDB_CTRL_FLAG_NOREPLY,
-				 tdb_null, NULL, NULL);
-
 	/* Start the recovery daemon */
 	if (ctdb_start_recoverd(ctdb) != 0) {
 		DEBUG(DEBUG_ALERT,("Failed to start recovery daemon\n"));
@@ -1811,6 +1805,32 @@ int32_t ctdb_control_process_exists(struct ctdb_context *ctdb, pid_t pid)
 	}
 
 	return kill(pid, 0);
+}
+
+int32_t ctdb_control_check_pid_srvid(struct ctdb_context *ctdb,
+				     TDB_DATA indata)
+{
+	struct ctdb_client_pid_list *client_pid;
+	pid_t pid;
+	uint64_t srvid;
+	int ret;
+
+	pid = *(pid_t *)indata.dptr;
+	srvid = *(uint64_t *)(indata.dptr + sizeof(pid_t));
+
+	for (client_pid = ctdb->client_pids;
+	     client_pid != NULL;
+	     client_pid = client_pid->next) {
+		if (client_pid->pid == pid) {
+			ret = srvid_exists(ctdb->srv, srvid,
+					   client_pid->client);
+			if (ret == 0) {
+				return 0;
+			}
+		}
+	}
+
+	return -1;
 }
 
 int ctdb_control_getnodesfile(struct ctdb_context *ctdb, uint32_t opcode, TDB_DATA indata, TDB_DATA *outdata)

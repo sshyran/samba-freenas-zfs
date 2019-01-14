@@ -513,7 +513,7 @@ static void wb_lookupsids_single_done(struct tevent_req *subreq)
 		req, struct wb_lookupsids_state);
 	const char *domain_name = NULL;
 	const char *name = NULL;
-	enum lsa_SidType type;
+	enum lsa_SidType type = SID_NAME_UNKNOWN;
 	uint32_t res_sid_index;
 	uint32_t src_rid;
 
@@ -545,7 +545,9 @@ static void wb_lookupsids_single_done(struct tevent_req *subreq)
 		 */
 
 		sid_copy(&src_domain_sid, &state->sids[res_sid_index]);
-		sid_split_rid(&src_domain_sid, &src_rid);
+		if (type != SID_NAME_DOMAIN) {
+			sid_split_rid(&src_domain_sid, &src_rid);
+		}
 
 		src_domain.name.string = domain_name;
 		src_domain.sid = &src_domain_sid;

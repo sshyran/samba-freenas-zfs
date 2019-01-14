@@ -43,6 +43,7 @@
 #include "../libcli/smb/smbXcli_base.h"
 #include "lib/util/sys_rw_data.h"
 #include "lib/util/base64.h"
+#include "lib/crypto/md5.h"
 
 extern char *optarg;
 extern int optind;
@@ -9166,6 +9167,157 @@ static bool run_cli_echo(int dummy)
 	return NT_STATUS_IS_OK(status);
 }
 
+static int splice_status(off_t written, void *priv)
+{
+        return true;
+}
+
+static bool run_cli_splice(int dummy)
+{
+	uint8_t *buf = NULL;
+	struct cli_state *cli1 = NULL;
+	bool correct = false;
+	const char *fname_src = "\\splice_src.dat";
+	const char *fname_dst = "\\splice_dst.dat";
+	NTSTATUS status;
+	uint16_t fnum1 = UINT16_MAX;
+	uint16_t fnum2 = UINT16_MAX;
+	size_t file_size = 2*1024*1024;
+	size_t splice_size = 1*1024*1024 + 713;
+	MD5_CTX md5_ctx;
+	uint8_t digest1[16], digest2[16];
+	off_t written = 0;
+	size_t nread = 0;
+	TALLOC_CTX *frame = talloc_stackframe();
+
+	printf("starting cli_splice test\n");
+
+	if (!torture_open_connection(&cli1, 0)) {
+		goto out;
+	}
+
+	cli_unlink(cli1, fname_src,
+		FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+	cli_unlink(cli1, fname_dst,
+		FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+
+	/* Create a file */
+	status = cli_ntcreate(cli1, fname_src, 0, GENERIC_ALL_ACCESS,
+			FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF,
+			0, 0, &fnum1, NULL);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("open %s failed: %s\n", fname_src, nt_errstr(status));
+		goto out;
+	}
+
+	/* Write file_size bytes - must be bigger than splice_size. */
+	buf = talloc_zero_array(frame, uint8_t, file_size);
+	if (buf == NULL) {
+		d_printf("talloc_fail\n");
+		goto out;
+	}
+
+	/* Fill it with random numbers. */
+	generate_random_buffer(buf, file_size);
+
+	/* MD5 the first 1MB + 713 bytes. */
+	MD5Init(&md5_ctx);
+	MD5Update(&md5_ctx, buf, splice_size);
+	MD5Final(digest1, &md5_ctx);
+
+	status = cli_writeall(cli1,
+			      fnum1,
+			      0,
+			      buf,
+			      0,
+			      file_size,
+			      NULL);
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("cli_writeall failed: %s\n", nt_errstr(status));
+		goto out;
+	}
+
+	status = cli_ntcreate(cli1, fname_dst, 0, GENERIC_ALL_ACCESS,
+			FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF,
+			0, 0, &fnum2, NULL);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("open %s failed: %s\n", fname_dst, nt_errstr(status));
+		goto out;
+	}
+
+	/* Now splice 1MB + 713 bytes. */
+	status = cli_splice(cli1,
+				cli1,
+				fnum1,
+				fnum2,
+				splice_size,
+				0,
+				0,
+				&written,
+				splice_status,
+				NULL);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("cli_splice failed: %s\n", nt_errstr(status));
+		goto out;
+	}
+
+	/* Clear the old buffer. */
+	memset(buf, '\0', file_size);
+
+	/* Read the new file. */
+	status = cli_read(cli1, fnum2, (char *)buf, 0, splice_size, &nread);
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("cli_read failed: %s\n", nt_errstr(status));
+		goto out;
+	}
+	if (nread != splice_size) {
+		d_printf("bad read of 0x%x, should be 0x%x\n",
+			(unsigned int)nread,
+			(unsigned int)splice_size);
+		goto out;
+	}
+
+	/* MD5 the first 1MB + 713 bytes. */
+	MD5Init(&md5_ctx);
+	MD5Update(&md5_ctx, buf, splice_size);
+	MD5Final(digest2, &md5_ctx);
+
+	/* Must be the same. */
+	if (memcmp(digest1, digest2, 16) != 0) {
+		d_printf("bad MD5 compare\n");
+		goto out;
+	}
+
+	correct = true;
+	printf("Success on cli_splice test\n");
+
+  out:
+
+	if (cli1) {
+		if (fnum1 != UINT16_MAX) {
+			cli_close(cli1, fnum1);
+		}
+		if (fnum2 != UINT16_MAX) {
+			cli_close(cli1, fnum2);
+		}
+
+		cli_unlink(cli1, fname_src,
+			FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+		cli_unlink(cli1, fname_dst,
+			FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+
+		if (!torture_close_connection(cli1)) {
+			correct = false;
+		}
+	}
+
+	TALLOC_FREE(frame);
+	return correct;
+}
+
 static bool run_uid_regression_test(int dummy)
 {
 	static struct cli_state *cli;
@@ -10034,7 +10186,7 @@ static bool run_local_gencache(int dummy)
 	blob = data_blob_string_const_null("bar");
 	tm = time(NULL) + 60;
 
-	if (!gencache_set_data_blob("foo", &blob, tm)) {
+	if (!gencache_set_data_blob("foo", blob, tm)) {
 		d_printf("%s: gencache_set_data_blob() failed\n", __location__);
 		return False;
 	}
@@ -10073,7 +10225,7 @@ static bool run_local_gencache(int dummy)
 	blob.data = (uint8_t *)&v;
 	blob.length = sizeof(v);
 
-	if (!gencache_set_data_blob("blob", &blob, tm)) {
+	if (!gencache_set_data_blob("blob", blob, tm)) {
 		d_printf("%s: gencache_set_data_blob() failed\n",
 			 __location__);
 		return false;
@@ -11114,17 +11266,17 @@ static bool run_local_dbtrans(int dummy)
 
 /*
  * Just a dummy test to be run under a debugger. There's no real way
- * to inspect the tevent_select specific function from outside of
- * tevent_select.c.
+ * to inspect the tevent_poll specific function from outside of
+ * tevent_poll.c.
  */
 
-static bool run_local_tevent_select(int dummy)
+static bool run_local_tevent_poll(int dummy)
 {
 	struct tevent_context *ev;
 	struct tevent_fd *fd1, *fd2;
 	bool result = false;
 
-	ev = tevent_context_init_byname(NULL, "select");
+	ev = tevent_context_init_byname(NULL, "poll");
 	if (ev == NULL) {
 		d_fprintf(stderr, "tevent_context_init_byname failed\n");
 		goto fail;
@@ -11632,6 +11784,7 @@ static struct {
 	{ "NTTRANS-CREATE", run_nttrans_create, 0},
 	{ "NTTRANS-FSCTL", run_nttrans_fsctl, 0},
 	{ "CLI_ECHO", run_cli_echo, 0},
+	{ "CLI_SPLICE", run_cli_splice, 0},
 	{ "GETADDRINFO", run_getaddrinfo_send, 0},
 	{ "TLDAP", run_tldap },
 	{ "STREAMERROR", run_streamerror },
@@ -11644,11 +11797,13 @@ static struct {
 	{ "NOTIFY-ONLINE", run_notify_online },
 	{ "SMB2-BASIC", run_smb2_basic },
 	{ "SMB2-NEGPROT", run_smb2_negprot },
+	{ "SMB2-ANONYMOUS", run_smb2_anonymous },
 	{ "SMB2-SESSION-RECONNECT", run_smb2_session_reconnect },
 	{ "SMB2-TCON-DEPENDENCE", run_smb2_tcon_dependence },
 	{ "SMB2-MULTI-CHANNEL", run_smb2_multi_channel },
 	{ "SMB2-SESSION-REAUTH", run_smb2_session_reauth },
 	{ "SMB2-FTRUNCATE", run_smb2_ftruncate },
+	{ "SMB2-DIR-FSYNC", run_smb2_dir_fsync },
 	{ "CLEANUP1", run_cleanup1 },
 	{ "CLEANUP2", run_cleanup2 },
 	{ "CLEANUP3", run_cleanup3 },
@@ -11677,7 +11832,7 @@ static struct {
 	{ "LOCAL-sid_to_string", run_local_sid_to_string, 0},
 	{ "LOCAL-binary_to_sid", run_local_binary_to_sid, 0},
 	{ "LOCAL-DBTRANS", run_local_dbtrans, 0},
-	{ "LOCAL-TEVENT-SELECT", run_local_tevent_select, 0},
+	{ "LOCAL-TEVENT-POLL", run_local_tevent_poll, 0},
 	{ "LOCAL-CONVERT-STRING", run_local_convert_string, 0},
 	{ "LOCAL-CONV-AUTH-INFO", run_local_conv_auth_info, 0},
 	{ "LOCAL-hex_encode_buf", run_local_hex_encode_buf, 0},
@@ -11693,18 +11848,10 @@ static struct {
 	{ "LOCAL-G-LOCK3", run_g_lock3, 0 },
 	{ "LOCAL-G-LOCK4", run_g_lock4, 0 },
 	{ "LOCAL-G-LOCK5", run_g_lock5, 0 },
+	{ "LOCAL-G-LOCK6", run_g_lock6, 0 },
 	{ "LOCAL-CANONICALIZE-PATH", run_local_canonicalize_path, 0 },
 	{ "qpathinfo-bufsize", run_qpathinfo_bufsize, 0 },
 	{NULL, NULL, 0}};
-
-/*
- * dummy function to satisfy linker dependency
- */
-struct tevent_context *winbind_event_context(void);
-struct tevent_context *winbind_event_context(void)
-{
-	return NULL;
-}
 
 /****************************************************************************
 run a specified test or "ALL"

@@ -28,6 +28,9 @@
 #include "rpc_server/srv_pipe_hnd.h"
 #include "lib/util/sys_rw_data.h"
 
+#undef DBGC_CLASS
+#define DBGC_CLASS DBGC_SMB2
+
 static struct tevent_req *smbd_smb2_read_send(TALLOC_CTX *mem_ctx,
 					      struct tevent_context *ev,
 					      struct smbd_smb2_request *smb2req,
@@ -350,7 +353,7 @@ static NTSTATUS schedule_smb2_sendfile_read(struct smbd_smb2_request *smb2req,
 	if (!lp__use_sendfile(SNUM(fsp->conn)) ||
 	    smb2req->do_signing ||
 	    smb2req->do_encryption ||
-	    smb2req->in.vector_count >= (2*SMBD_SMB2_NUM_IOV_PER_REQ) ||
+	    smbd_smb2_is_compound(smb2req) ||
 	    (fsp->base_fsp != NULL) ||
 	    (fsp->wcp != NULL) ||
 	    (!S_ISREG(fsp->fsp_name->st.st_ex_mode)) ||
