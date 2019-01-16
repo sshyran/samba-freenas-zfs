@@ -158,7 +158,7 @@ bool setup_named_pipe_socket(const char *pipe_name,
 		goto out;
 	}
 
-	rc = listen(state->fd, 5);
+	rc = listen(state->fd, DEFAULT_LISTEN_BACKLOG);
 	if (rc < 0) {
 		DEBUG(0, ("Failed to listen on pipe socket %s: %s\n",
 			  pipe_name, strerror(errno)));
@@ -828,7 +828,7 @@ bool setup_dcerpc_ncalrpc_socket(struct tevent_context *ev_ctx,
 		goto out;
 	}
 
-	rc = listen(state->fd, 5);
+	rc = listen(state->fd, DEFAULT_LISTEN_BACKLOG);
 	if (rc < 0) {
 		DEBUG(0, ("Failed to listen on ncalrpc socket %s: %s\n",
 			  name, strerror(errno)));
