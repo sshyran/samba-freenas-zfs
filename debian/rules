@@ -261,7 +261,7 @@ else
 endif
 
 override_dh_gencontrol:
-	dh_gencontrol --package=libparse-pidl-perl -- -v$(DEB_VERSION_UPSTREAM_REVISION)+really0.02
+	dh_gencontrol --package=libparse-pidl-perl -- -v$(DEB_VERSION)+really0.02
 	dh_gencontrol --remaining-packages -- -Vldb:Depends=$(LDB_DEPENDS)
 
 override_dh_auto_clean:
