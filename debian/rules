@@ -261,7 +261,9 @@ else
 endif
 
 override_dh_gencontrol:
+ifneq (,$(filter libparse-pidl-perl, $(shell dh_listpackages)))
 	dh_gencontrol --package=libparse-pidl-perl -- -v$(DEB_VERSION)+really0.02
+endif
 	dh_gencontrol --remaining-packages -- -Vldb:Depends=$(LDB_DEPENDS)
 
 override_dh_auto_clean:
