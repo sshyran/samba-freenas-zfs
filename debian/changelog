@@ -1,3 +1,9 @@
+samba (2:4.9.4+dfsg-3) UNRELEASED; urgency=medium
+
+  * Remove myself from uploaders
+
+ -- Ivo De Decker <ivodd@debian.org>  Sat, 26 Jan 2019 15:44:35 +0100
+
 samba (2:4.9.4+dfsg-2) unstable; urgency=medium
 
   * Append +really0.02 to libparse-pidl-perl version (Closes: #918564)
