@@ -1,8 +1,15 @@
-samba (2:4.9.4+dfsg-3) UNRELEASED; urgency=medium
+samba (2:4.9.4+dfsg-3) unstable; urgency=medium
 
+  [ Ivo De Decker ]
   * Remove myself from uploaders
 
- -- Ivo De Decker <ivodd@debian.org>  Sat, 26 Jan 2019 15:44:35 +0100
+  [ Mathieu Parent ]
+  * Update debian/gitlab-ci.yml
+  * Standards-Version: 4.3.0
+  * Add upstream patch for python-gpg support
+  * Replace Suggests: python-gpgme by Recommends: python-gpg (Closes: #876984)
+
+ -- Mathieu Parent <sathieu@debian.org>  Fri, 15 Feb 2019 11:14:10 +0100
 
 samba (2:4.9.4+dfsg-2) unstable; urgency=medium
 
