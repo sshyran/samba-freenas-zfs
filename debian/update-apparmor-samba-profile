@@ -8,7 +8,7 @@
 # - "/" - if someone is insane enough to share his complete filesystem, he'll have
 #   to modify the apparmor profile himself
 
-# (c) Christian Boltz 2011-2016
+# (c) Christian Boltz 2011-2019
 # This script is licensed under the GPL v2 or, at your choice, any later version.
 
 
@@ -25,7 +25,7 @@ verboseexit() {
 }
 
 # if you change this script, _always_ update the version to force an update of the profile sniplet
-versionstring="${0##*/} 1.1"
+versionstring="${0##*/} 1.2"
 
 aastatus="/usr/sbin/aa-status"
 aaparser="/sbin/apparmor_parser"
@@ -66,7 +66,7 @@ diff "$profilesniplet" "$tmp_profilesniplet" >/dev/null && {
 
 mv -f "$tmp_profilesniplet" "$profilesniplet"
 
-grep -q '^/usr/sbin/smbd (' /sys/kernel/security/apparmor/profiles || silentexit "smbd profile not loaded"
+grep -q '^/usr/sbin/smbd (\|^smbd (' /sys/kernel/security/apparmor/profiles || silentexit "smbd profile not loaded"
 
 echo "Reloading updated AppArmor profile for Samba..."
 
