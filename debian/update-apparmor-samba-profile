@@ -25,7 +25,7 @@ verboseexit() {
 }
 
 # if you change this script, _always_ update the version to force an update of the profile sniplet
-versionstring="${0##*/} 1.2"
+versionstring="${0##*/} 1.2+deb"
 
 aastatus="/usr/sbin/aa-status"
 aaparser="/sbin/apparmor_parser"
@@ -33,13 +33,13 @@ loadedprofiles="/sys/kernel/security/apparmor/profiles"
 
 smbconf="/etc/samba/smb.conf"
 smbd_profile="/etc/apparmor.d/usr.sbin.smbd"
-profilesniplet="/etc/apparmor.d/local/usr.sbin.smbd-shares"
-tmp_profilesniplet="/etc/apparmor.d/local/usr.sbin.smbd-shares.new"
+profilesniplet="/etc/apparmor.d/samba/smbd-shares"
+tmp_profilesniplet="/etc/apparmor.d/samba/smbd-shares.new"
 
 # test -x "$aastatus" || silentexit "apparmor not installed"
 # "$aastatus" --enabled || silentexit "apparmor not loaded (or not running as root)"
 test -e "$loadedprofiles" || silentexit "apparmor not loaded"
-test -e "$profilesniplet" || silentexit "apparmor profile snippet not available"
+test -d "/etc/apparmor.d/samba" || silentexit "directory for samba profile snippet doesn't exist"
 test -r "$loadedprofiles" || verboseexit "no read permissions for $loadedprofiles - not running as root?"
 
 widelinks=$(testparm -s --parameter-name "wide links" 2>/dev/null)
