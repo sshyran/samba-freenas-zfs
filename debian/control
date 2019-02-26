@@ -141,6 +141,7 @@ Depends: python,
          ${misc:Depends},
          ${python:Depends},
          ${shlibs:Depends}
+Recommends: samba-dsdb-modules
 Suggests: heimdal-clients
 Description: Samba common files used by both the server and the client
  Samba is an implementation of the SMB/CIFS protocol for Unix systems,
