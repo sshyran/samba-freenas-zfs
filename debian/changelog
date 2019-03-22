@@ -1,3 +1,11 @@
+samba (2:4.10.0+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+    - Update patches
+    - Drop nsswitch-Add-try_authtok-option-to-pam_winbind.patch, merged
+
+ -- Mathieu Parent <sathieu@debian.org>  Fri, 22 Mar 2019 07:57:22 +0100
+
 samba (2:4.9.5+dfsg-1) experimental; urgency=medium
 
   * New upstream release
