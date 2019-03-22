@@ -29,13 +29,14 @@ from samba.tests import RpcInterfaceTestCase, env_get_var_value
 from samba.netcmd.dns import ARecord, AAAARecord, PTRRecord, CNameRecord, NSRecord, MXRecord, SRVRecord, TXTRecord
 from samba import sd_utils, descriptor
 
+
 class DnsserverTests(RpcInterfaceTestCase):
 
     @classmethod
     def setUpClass(cls):
         good_dns = ["SAMDOM.EXAMPLE.COM",
                     "1.EXAMPLE.COM",
-                    "%sEXAMPLE.COM" % ("1."*100),
+                    "%sEXAMPLE.COM" % ("1." * 100),
                     "EXAMPLE",
                     "\n.COM",
                     "!@#$%^&*()_",
@@ -103,7 +104,7 @@ class DnsserverTests(RpcInterfaceTestCase):
         # actually create these records.
         invalid_mx = ["SAMDOM.EXAMPLE.COM -1",
                       "SAMDOM.EXAMPLE.COM 65536",
-                      "%s 1" % "A"*256]
+                      "%s 1" % ("A" * 256)]
         invalid_srv = ["SAMDOM.EXAMPLE.COM 0 65536 0",
                        "SAMDOM.EXAMPLE.COM 0 0 65536",
                        "SAMDOM.EXAMPLE.COM 65536 0 0"]
@@ -121,10 +122,9 @@ class DnsserverTests(RpcInterfaceTestCase):
                                         self.get_credentials())
 
         self.samdb = SamDB(url="ldap://%s" % os.environ["DC_SERVER_IP"],
-                           lp = self.get_loadparm(),
+                           lp=self.get_loadparm(),
                            session_info=system_session(),
                            credentials=self.get_credentials())
-
 
         self.custom_zone = "zone"
         zone_create_info = dnsserver.DNS_RPC_ZONE_CREATE_INFO_LONGHORN()
@@ -172,7 +172,7 @@ class DnsserverTests(RpcInterfaceTestCase):
         self.add_record(self.custom_zone, "testrecord", record_type_str, record_str)
 
         dn, record = self.get_record_from_db(self.custom_zone, "testrecord")
-        record.rank = 0 # DNS_RANK_NONE
+        record.rank = 0  # DNS_RANK_NONE
         res = self.samdb.dns_replace_by_dn(dn, [record])
         if res is not None:
             self.fail("Unable to update dns record to have DNS_RANK_NONE.")
@@ -516,7 +516,7 @@ class DnsserverTests(RpcInterfaceTestCase):
         """
         for record_type_str in self.good_records:
             for i in range(1, len(self.good_records[record_type_str])):
-                record1 = self.good_records[record_type_str][i-1]
+                record1 = self.good_records[record_type_str][i - 1]
                 record2 = self.good_records[record_type_str][i]
 
                 if record_type_str == 'CNAME':
@@ -673,12 +673,12 @@ class DnsserverTests(RpcInterfaceTestCase):
 
         try:
             self.conn.DnssrvUpdateRecord2(client_version,
-                                                   0,
-                                                   self.server,
-                                                   zone,
-                                                   name,
-                                                   None,
-                                                   del_rec_buf)
+                                          0,
+                                          self.server,
+                                          zone,
+                                          name,
+                                          None,
+                                          del_rec_buf)
             if not assertion:
                 raise AssertionError("Successfully deleted record '%s' of type '%s', which should have failed." % (record_str, record_type_str))
         except RuntimeError as e:
@@ -720,16 +720,16 @@ class DnsserverTests(RpcInterfaceTestCase):
 
         # Create zone
         self.conn.DnssrvOperation2(client_version,
-                                    0,
-                                    self.server,
-                                    None,
-                                    0,
-                                    'ZoneCreate',
-                                    dnsserver.DNSSRV_TYPEID_ZONE_CREATE,
-                                    zone_create)
+                                   0,
+                                   self.server,
+                                   None,
+                                   0,
+                                   'ZoneCreate',
+                                   dnsserver.DNSSRV_TYPEID_ZONE_CREATE,
+                                   zone_create)
 
         request_filter = (dnsserver.DNS_ZONE_REQUEST_REVERSE |
-                            dnsserver.DNS_ZONE_REQUEST_PRIMARY)
+                          dnsserver.DNS_ZONE_REQUEST_PRIMARY)
         _, zones = self.conn.DnssrvComplexOperation2(client_version,
                                                      0,
                                                      self.server,
@@ -741,48 +741,47 @@ class DnsserverTests(RpcInterfaceTestCase):
 
         # Delete zone
         self.conn.DnssrvOperation2(client_version,
-                                    0,
-                                    self.server,
-                                    rev_zone,
-                                    0,
-                                    'DeleteZoneFromDs',
-                                    dnsserver.DNSSRV_TYPEID_NULL,
-                                    None)
+                                   0,
+                                   self.server,
+                                   rev_zone,
+                                   0,
+                                   'DeleteZoneFromDs',
+                                   dnsserver.DNSSRV_TYPEID_NULL,
+                                   None)
 
         typeid, zones = self.conn.DnssrvComplexOperation2(client_version,
-                                                            0,
-                                                            self.server,
-                                                            None,
-                                                            'EnumZones',
-                                                            dnsserver.DNSSRV_TYPEID_DWORD,
-                                                            request_filter)
+                                                          0,
+                                                          self.server,
+                                                          None,
+                                                          'EnumZones',
+                                                          dnsserver.DNSSRV_TYPEID_DWORD,
+                                                          request_filter)
         self.assertEquals(0, zones.dwZoneCount)
-
 
     def test_complexoperation2(self):
         client_version = dnsserver.DNS_CLIENT_VERSION_LONGHORN
         request_filter = (dnsserver.DNS_ZONE_REQUEST_FORWARD |
-                            dnsserver.DNS_ZONE_REQUEST_PRIMARY)
+                          dnsserver.DNS_ZONE_REQUEST_PRIMARY)
 
         typeid, zones = self.conn.DnssrvComplexOperation2(client_version,
-                                                            0,
-                                                            self.server,
-                                                            None,
-                                                            'EnumZones',
-                                                            dnsserver.DNSSRV_TYPEID_DWORD,
-                                                            request_filter)
+                                                          0,
+                                                          self.server,
+                                                          None,
+                                                          'EnumZones',
+                                                          dnsserver.DNSSRV_TYPEID_DWORD,
+                                                          request_filter)
         self.assertEquals(dnsserver.DNSSRV_TYPEID_ZONE_LIST, typeid)
         self.assertEquals(3, zones.dwZoneCount)
 
         request_filter = (dnsserver.DNS_ZONE_REQUEST_REVERSE |
-                            dnsserver.DNS_ZONE_REQUEST_PRIMARY)
+                          dnsserver.DNS_ZONE_REQUEST_PRIMARY)
         typeid, zones = self.conn.DnssrvComplexOperation2(client_version,
-                                                            0,
-                                                            self.server,
-                                                            None,
-                                                            'EnumZones',
-                                                            dnsserver.DNSSRV_TYPEID_DWORD,
-                                                            request_filter)
+                                                          0,
+                                                          self.server,
+                                                          None,
+                                                          'EnumZones',
+                                                          dnsserver.DNSSRV_TYPEID_DWORD,
+                                                          request_filter)
         self.assertEquals(dnsserver.DNSSRV_TYPEID_ZONE_LIST, typeid)
         self.assertEquals(0, zones.dwZoneCount)
 
@@ -816,12 +815,12 @@ class DnsserverTests(RpcInterfaceTestCase):
         add_rec_buf = dnsserver.DNS_RPC_RECORD_BUF()
         add_rec_buf.rec = rec
         self.conn.DnssrvUpdateRecord2(client_version,
-                                        0,
-                                        self.server,
-                                        self.zone,
-                                        name,
-                                        add_rec_buf,
-                                        None)
+                                      0,
+                                      self.server,
+                                      self.zone,
+                                      name,
+                                      add_rec_buf,
+                                      None)
 
         _, result = self.conn.DnssrvEnumRecords2(client_version,
                                                  0,
@@ -844,23 +843,23 @@ class DnsserverTests(RpcInterfaceTestCase):
         del_rec_buf = dnsserver.DNS_RPC_RECORD_BUF()
         del_rec_buf.rec = rec
         self.conn.DnssrvUpdateRecord2(client_version,
-                                        0,
-                                        self.server,
-                                        self.zone,
-                                        name,
-                                        add_rec_buf,
-                                        del_rec_buf)
+                                      0,
+                                      self.server,
+                                      self.zone,
+                                      name,
+                                      add_rec_buf,
+                                      del_rec_buf)
 
         buflen, result = self.conn.DnssrvEnumRecords2(client_version,
-                                                        0,
-                                                        self.server,
-                                                        self.zone,
-                                                        name,
-                                                        None,
-                                                        record_type,
-                                                        select_flags,
-                                                        None,
-                                                        None)
+                                                      0,
+                                                      self.server,
+                                                      self.zone,
+                                                      name,
+                                                      None,
+                                                      record_type,
+                                                      select_flags,
+                                                      None,
+                                                      None)
         self.assertEquals(1, result.count)
         self.assertEquals(1, result.rec[0].wRecordCount)
         self.assertEquals(dnsp.DNS_TYPE_A, result.rec[0].records[0].wType)
@@ -870,24 +869,24 @@ class DnsserverTests(RpcInterfaceTestCase):
         del_rec_buf = dnsserver.DNS_RPC_RECORD_BUF()
         del_rec_buf.rec = rec2
         self.conn.DnssrvUpdateRecord2(client_version,
-                                        0,
-                                        self.server,
-                                        self.zone,
-                                        name,
-                                        None,
-                                        del_rec_buf)
+                                      0,
+                                      self.server,
+                                      self.zone,
+                                      name,
+                                      None,
+                                      del_rec_buf)
 
         self.assertRaises(RuntimeError, self.conn.DnssrvEnumRecords2,
-                                        client_version,
-                                        0,
-                                        self.server,
-                                        self.zone,
-                                        name,
-                                        None,
-                                        record_type,
-                                        select_flags,
-                                        None,
-                                        None)
+                          client_version,
+                          0,
+                          self.server,
+                          self.zone,
+                          name,
+                          None,
+                          record_type,
+                          select_flags,
+                          None,
+                          None)
 
     # The following tests do not pass against Samba because the owner and
     # group are not consistent with Windows, as well as some ACEs.
@@ -922,11 +921,11 @@ class DnsserverTests(RpcInterfaceTestCase):
 
         dns_admin = str(ndr_unpack(security.dom_sid, res[0]['objectSid'][0]))
 
-        packed_sd = descriptor.sddl2binary("O:SYG:BA" \
-                                           "D:AI(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)" \
-                                           "(A;;CC;;;AU)" \
-                                           "(A;;RPLCLORC;;;WD)" \
-                                           "(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;SY)" \
+        packed_sd = descriptor.sddl2binary("O:SYG:BA"
+                                           "D:AI(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)"
+                                           "(A;;CC;;;AU)"
+                                           "(A;;RPLCLORC;;;WD)"
+                                           "(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;SY)"
                                            "(A;CI;RPWPCRCCDCLCRCWOWDSDDTSW;;;ED)",
                                            domain_sid, {"DnsAdmins": dns_admin})
         expected_sd = descriptor.get_clean_sd(ndr_unpack(security.descriptor, packed_sd))
@@ -982,11 +981,11 @@ class DnsserverTests(RpcInterfaceTestCase):
 
         dns_admin = str(ndr_unpack(security.dom_sid, res[0]['objectSid'][0]))
 
-        packed_sd = descriptor.sddl2binary("O:DAG:DA" \
-                                           "D:AI(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)" \
-                                           "(A;;CC;;;AU)" \
-                                           "(A;;RPLCLORC;;;WD)" \
-                                           "(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;SY)" \
+        packed_sd = descriptor.sddl2binary("O:DAG:DA"
+                                           "D:AI(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)"
+                                           "(A;;CC;;;AU)"
+                                           "(A;;RPLCLORC;;;WD)"
+                                           "(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;SY)"
                                            "(A;CI;RPWPCRCCDCLCRCWOWDSDDTSW;;;ED)",
                                            domain_sid, {"DnsAdmins": dns_admin})
         expected_sd = descriptor.get_clean_sd(ndr_unpack(security.descriptor, packed_sd))
@@ -1000,7 +999,7 @@ class DnsserverTests(RpcInterfaceTestCase):
                                                               packed_part_sd))
         try:
             msdns_dn = ldb.Dn(self.samdb, "CN=MicrosoftDNS,%s" % str(partition_dn))
-            security_desc_dict = [(current_dn.get_linearized(),  expected_sd),
+            security_desc_dict = [(current_dn.get_linearized(), expected_sd),
                                   (msdns_dn.get_linearized(), expected_msdns_sd),
                                   (partition_dn.get_linearized(), expected_part_sd)]
 
@@ -1054,11 +1053,11 @@ class DnsserverTests(RpcInterfaceTestCase):
 
         dns_admin = str(ndr_unpack(security.dom_sid, res[0]['objectSid'][0]))
 
-        packed_sd = descriptor.sddl2binary("O:DAG:DA" \
-                                           "D:AI(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)" \
-                                           "(A;;CC;;;AU)" \
-                                           "(A;;RPLCLORC;;;WD)" \
-                                           "(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;SY)" \
+        packed_sd = descriptor.sddl2binary("O:DAG:DA"
+                                           "D:AI(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;DA)"
+                                           "(A;;CC;;;AU)"
+                                           "(A;;RPLCLORC;;;WD)"
+                                           "(A;;RPWPCRCCDCLCLORCWOWDSDDTSW;;;SY)"
                                            "(A;CI;RPWPCRCCDCLCRCWOWDSDDTSW;;;ED)",
                                            domain_sid, {"DnsAdmins": dns_admin})
         expected_sd = descriptor.get_clean_sd(ndr_unpack(security.descriptor, packed_sd))
@@ -1072,7 +1071,7 @@ class DnsserverTests(RpcInterfaceTestCase):
                                                               packed_part_sd))
 
         msdns_dn = ldb.Dn(self.samdb, "CN=MicrosoftDNS,%s" % str(partition_dn))
-        security_desc_dict = [(current_dn.get_linearized(),  expected_sd),
+        security_desc_dict = [(current_dn.get_linearized(), expected_sd),
                               (msdns_dn.get_linearized(), expected_msdns_sd),
                               (partition_dn.get_linearized(), expected_part_sd)]
 

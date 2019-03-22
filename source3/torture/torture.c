@@ -44,6 +44,8 @@
 #include "lib/util/sys_rw_data.h"
 #include "lib/util/base64.h"
 #include "lib/util/time.h"
+#include "lib/crypto/md5.h"
+#include "lib/gencache.h"
 
 extern char *optarg;
 extern int optind;
@@ -8320,6 +8322,7 @@ static bool run_chain1(int dummy)
 	struct tevent_req *reqs[3], *smbreqs[3];
 	bool done = false;
 	const char *str = "foobar";
+	const char *fname = "\\test_chain";
 	NTSTATUS status;
 
 	printf("starting chain1 test\n");
@@ -8329,7 +8332,9 @@ static bool run_chain1(int dummy)
 
 	smbXcli_conn_set_sockopt(cli1->conn, sockops);
 
-	reqs[0] = cli_openx_create(talloc_tos(), evt, cli1, "\\test",
+	cli_unlink(cli1, fname, FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+
+	reqs[0] = cli_openx_create(talloc_tos(), evt, cli1, fname,
 				  O_CREAT|O_RDWR, 0, &smbreqs[0]);
 	if (reqs[0] == NULL) return false;
 	tevent_req_set_callback(reqs[0], chain1_open_completion, NULL);
@@ -8445,7 +8450,8 @@ static struct tevent_req *torture_createdel_send(TALLOC_CTX *mem_ctx,
 		FILE_READ_DATA|FILE_WRITE_DATA|DELETE_ACCESS,
 		FILE_ATTRIBUTE_NORMAL,
 		FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-		FILE_OPEN_IF, FILE_DELETE_ON_CLOSE, 0);
+		FILE_OPEN_IF, FILE_DELETE_ON_CLOSE,
+		SMB2_IMPERSONATION_IMPERSONATION, 0);
 
 	if (tevent_req_nomem(subreq, req)) {
 		return tevent_req_post(req, ev);
@@ -9441,6 +9447,157 @@ static bool run_cli_echo(int dummy)
 	return NT_STATUS_IS_OK(status);
 }
 
+static int splice_status(off_t written, void *priv)
+{
+        return true;
+}
+
+static bool run_cli_splice(int dummy)
+{
+	uint8_t *buf = NULL;
+	struct cli_state *cli1 = NULL;
+	bool correct = false;
+	const char *fname_src = "\\splice_src.dat";
+	const char *fname_dst = "\\splice_dst.dat";
+	NTSTATUS status;
+	uint16_t fnum1 = UINT16_MAX;
+	uint16_t fnum2 = UINT16_MAX;
+	size_t file_size = 2*1024*1024;
+	size_t splice_size = 1*1024*1024 + 713;
+	MD5_CTX md5_ctx;
+	uint8_t digest1[16], digest2[16];
+	off_t written = 0;
+	size_t nread = 0;
+	TALLOC_CTX *frame = talloc_stackframe();
+
+	printf("starting cli_splice test\n");
+
+	if (!torture_open_connection(&cli1, 0)) {
+		goto out;
+	}
+
+	cli_unlink(cli1, fname_src,
+		FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+	cli_unlink(cli1, fname_dst,
+		FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+
+	/* Create a file */
+	status = cli_ntcreate(cli1, fname_src, 0, GENERIC_ALL_ACCESS,
+			FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF,
+			0, 0, &fnum1, NULL);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("open %s failed: %s\n", fname_src, nt_errstr(status));
+		goto out;
+	}
+
+	/* Write file_size bytes - must be bigger than splice_size. */
+	buf = talloc_zero_array(frame, uint8_t, file_size);
+	if (buf == NULL) {
+		d_printf("talloc_fail\n");
+		goto out;
+	}
+
+	/* Fill it with random numbers. */
+	generate_random_buffer(buf, file_size);
+
+	/* MD5 the first 1MB + 713 bytes. */
+	MD5Init(&md5_ctx);
+	MD5Update(&md5_ctx, buf, splice_size);
+	MD5Final(digest1, &md5_ctx);
+
+	status = cli_writeall(cli1,
+			      fnum1,
+			      0,
+			      buf,
+			      0,
+			      file_size,
+			      NULL);
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("cli_writeall failed: %s\n", nt_errstr(status));
+		goto out;
+	}
+
+	status = cli_ntcreate(cli1, fname_dst, 0, GENERIC_ALL_ACCESS,
+			FILE_ATTRIBUTE_NORMAL, 0, FILE_OVERWRITE_IF,
+			0, 0, &fnum2, NULL);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("open %s failed: %s\n", fname_dst, nt_errstr(status));
+		goto out;
+	}
+
+	/* Now splice 1MB + 713 bytes. */
+	status = cli_splice(cli1,
+				cli1,
+				fnum1,
+				fnum2,
+				splice_size,
+				0,
+				0,
+				&written,
+				splice_status,
+				NULL);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("cli_splice failed: %s\n", nt_errstr(status));
+		goto out;
+	}
+
+	/* Clear the old buffer. */
+	memset(buf, '\0', file_size);
+
+	/* Read the new file. */
+	status = cli_read(cli1, fnum2, (char *)buf, 0, splice_size, &nread);
+	if (!NT_STATUS_IS_OK(status)) {
+		d_printf("cli_read failed: %s\n", nt_errstr(status));
+		goto out;
+	}
+	if (nread != splice_size) {
+		d_printf("bad read of 0x%x, should be 0x%x\n",
+			(unsigned int)nread,
+			(unsigned int)splice_size);
+		goto out;
+	}
+
+	/* MD5 the first 1MB + 713 bytes. */
+	MD5Init(&md5_ctx);
+	MD5Update(&md5_ctx, buf, splice_size);
+	MD5Final(digest2, &md5_ctx);
+
+	/* Must be the same. */
+	if (memcmp(digest1, digest2, 16) != 0) {
+		d_printf("bad MD5 compare\n");
+		goto out;
+	}
+
+	correct = true;
+	printf("Success on cli_splice test\n");
+
+  out:
+
+	if (cli1) {
+		if (fnum1 != UINT16_MAX) {
+			cli_close(cli1, fnum1);
+		}
+		if (fnum2 != UINT16_MAX) {
+			cli_close(cli1, fnum2);
+		}
+
+		cli_unlink(cli1, fname_src,
+			FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+		cli_unlink(cli1, fname_dst,
+			FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+
+		if (!torture_close_connection(cli1)) {
+			correct = false;
+		}
+	}
+
+	TALLOC_FREE(frame);
+	return correct;
+}
+
 static bool run_uid_regression_test(int dummy)
 {
 	static struct cli_state *cli;
@@ -9806,8 +9963,8 @@ https://bugzilla.samba.org/show_bug.cgi?id=7084
 static bool run_dir_createtime(int dummy)
 {
 	struct cli_state *cli;
-	const char *dname = "\\testdir";
-	const char *fname = "\\testdir\\testfile";
+	const char *dname = "\\testdir_createtime";
+	const char *fname = "\\testdir_createtime\\testfile";
 	NTSTATUS status;
 	struct timespec create_time;
 	struct timespec create_time1;
@@ -9874,9 +10031,9 @@ static bool run_dir_createtime(int dummy)
 static bool run_streamerror(int dummy)
 {
 	struct cli_state *cli;
-	const char *dname = "\\testdir";
+	const char *dname = "\\testdir_streamerror";
 	const char *streamname =
-		"testdir:{4c8cc155-6c1e-11d1-8e41-00c04fb9386d}:$DATA";
+		"testdir_streamerror:{4c8cc155-6c1e-11d1-8e41-00c04fb9386d}:$DATA";
 	NTSTATUS status;
 	time_t change_time, access_time, write_time;
 	off_t size;
@@ -9887,7 +10044,7 @@ static bool run_streamerror(int dummy)
 		return false;
 	}
 
-	cli_unlink(cli, "\\testdir\\*", FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
+	cli_unlink(cli, "\\testdir_streamerror\\*", FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN);
 	cli_rmdir(cli, dname);
 
 	status = cli_mkdir(cli, dname);
@@ -10287,7 +10444,9 @@ static bool run_local_base64(int dummy)
 	return ret;
 }
 
-static void parse_fn(time_t timeout, DATA_BLOB blob, void *private_data)
+static void parse_fn(const struct gencache_timeout *t,
+		     DATA_BLOB blob,
+		     void *private_data)
 {
 	return;
 }
@@ -10681,8 +10840,9 @@ static bool run_local_string_to_sid(int dummy) {
 		return false;
 	}
 	if (!dom_sid_equal(&sid, &global_sid_Builtin_Users)) {
+		struct dom_sid_buf buf;
 		printf("mis-parsed S-1-5-32-545 as %s\n",
-		       sid_string_tos(&sid));
+		       dom_sid_str_buf(&sid, &buf));
 		return false;
 	}
 	return true;
@@ -11853,6 +12013,7 @@ static struct {
 	{ "NTTRANS-CREATE", run_nttrans_create, 0},
 	{ "NTTRANS-FSCTL", run_nttrans_fsctl, 0},
 	{ "CLI_ECHO", run_cli_echo, 0},
+	{ "CLI_SPLICE", run_cli_splice, 0},
 	{ "TLDAP", run_tldap },
 	{ "STREAMERROR", run_streamerror },
 	{ "NOTIFY-BENCH", run_notify_bench },
@@ -11920,7 +12081,9 @@ static struct {
 	{ "LOCAL-G-LOCK-PING-PONG", run_g_lock_ping_pong, 0 },
 	{ "LOCAL-CANONICALIZE-PATH", run_local_canonicalize_path, 0 },
 	{ "LOCAL-NAMEMAP-CACHE1", run_local_namemap_cache1, 0 },
+	{ "LOCAL-IDMAP-CACHE1", run_local_idmap_cache1, 0 },
 	{ "qpathinfo-bufsize", run_qpathinfo_bufsize, 0 },
+	{ "hide-new-files-timeout", run_hidenewfiles, 0 },
 	{NULL, NULL, 0}};
 
 /****************************************************************************

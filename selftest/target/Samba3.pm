@@ -3,6 +3,9 @@
 # Copyright (C) 2005-2007 Jelmer Vernooij <jelmer@samba.org>
 # Published under the GNU GPL, v3 or later.
 
+# NOTE: Refer to the README for more details about the various testenvs,
+# and tips about adding new testenvs.
+
 package Samba3;
 
 use strict;
@@ -324,7 +327,8 @@ sub setup_nt4_member
 	}
 
 	my $net = Samba::bindir_path($self, "net");
-	my $cmd = "";
+	# Add hosts file for name lookups
+	my $cmd = "NSS_WRAPPER_HOSTS='$ret->{NSS_WRAPPER_HOSTS}' ";
 	$cmd .= "SOCKET_WRAPPER_DEFAULT_IFACE=\"$ret->{SOCKET_WRAPPER_DEFAULT_IFACE}\" ";
 	$cmd .= "SELFTEST_WINBINDD_SOCKET_DIR=\"$ret->{SELFTEST_WINBINDD_SOCKET_DIR}\" ";
 	$cmd .= "$net rpc join $ret->{CONFIGURATION} $nt4_dc_vars->{DOMAIN} member";
@@ -335,7 +339,8 @@ sub setup_nt4_member
 	    return undef;
 	}
 
-	my $cmd = "";
+	# Add hosts file for name lookups
+	my $cmd = "NSS_WRAPPER_HOSTS='$ret->{NSS_WRAPPER_HOSTS}' ";
 	$cmd .= "SOCKET_WRAPPER_DEFAULT_IFACE=\"$ret->{SOCKET_WRAPPER_DEFAULT_IFACE}\" ";
 	$cmd .= "SELFTEST_WINBINDD_SOCKET_DIR=\"$ret->{SELFTEST_WINBINDD_SOCKET_DIR}\" ";
 	$cmd .= "$net $ret->{CONFIGURATION} primarytrust dumpinfo | grep -q 'REDACTED SECRET VALUES'";
@@ -446,9 +451,11 @@ sub setup_ad_member
 	Samba::mk_krb5_conf($ctx, "");
 
 	$ret->{KRB5_CONFIG} = $ctx->{krb5_conf};
+	$ret->{RESOLV_CONF} = $dcvars->{RESOLV_CONF};
 
 	my $net = Samba::bindir_path($self, "net");
-	my $cmd = "";
+	# Add hosts file for name lookups
+	my $cmd = "NSS_WRAPPER_HOSTS='$ret->{NSS_WRAPPER_HOSTS}' ";
 	$cmd .= "SOCKET_WRAPPER_DEFAULT_IFACE=\"$ret->{SOCKET_WRAPPER_DEFAULT_IFACE}\" ";
 	if (defined($ret->{RESOLV_WRAPPER_CONF})) {
 		$cmd .= "RESOLV_WRAPPER_CONF=\"$ret->{RESOLV_WRAPPER_CONF}\" ";
@@ -540,9 +547,11 @@ sub setup_ad_member_rfc2307
 	Samba::mk_krb5_conf($ctx, "");
 
 	$ret->{KRB5_CONFIG} = $ctx->{krb5_conf};
+	$ret->{RESOLV_CONF} = $dcvars->{RESOLV_CONF};
 
 	my $net = Samba::bindir_path($self, "net");
-	my $cmd = "";
+	# Add hosts file for name lookups
+	my $cmd = "NSS_WRAPPER_HOSTS='$ret->{NSS_WRAPPER_HOSTS}' ";
 	$cmd .= "SOCKET_WRAPPER_DEFAULT_IFACE=\"$ret->{SOCKET_WRAPPER_DEFAULT_IFACE}\" ";
 	if (defined($ret->{RESOLV_WRAPPER_CONF})) {
 		$cmd .= "RESOLV_WRAPPER_CONF=\"$ret->{RESOLV_WRAPPER_CONF}\" ";
@@ -597,6 +606,9 @@ sub setup_ad_member_idmap_rid
 	idmap config * : range = 1000000-1999999
 	idmap config $dcvars->{DOMAIN} : backend = rid
 	idmap config $dcvars->{DOMAIN} : range = 2000000-2999999
+	# Prevent overridding the provisioned lib/krb5.conf which sets certain
+	# values required for tests to succeed
+	create krb5 conf = no
 ";
 
 	my $ret = $self->provision($prefix, $dcvars->{DOMAIN},
@@ -626,9 +638,11 @@ sub setup_ad_member_idmap_rid
 	Samba::mk_krb5_conf($ctx, "");
 
 	$ret->{KRB5_CONFIG} = $ctx->{krb5_conf};
+	$ret->{RESOLV_CONF} = $dcvars->{RESOLV_CONF};
 
 	my $net = Samba::bindir_path($self, "net");
-	my $cmd = "";
+	# Add hosts file for name lookups
+	my $cmd = "NSS_WRAPPER_HOSTS='$ret->{NSS_WRAPPER_HOSTS}' ";
 	$cmd .= "SOCKET_WRAPPER_DEFAULT_IFACE=\"$ret->{SOCKET_WRAPPER_DEFAULT_IFACE}\" ";
 	if (defined($ret->{RESOLV_WRAPPER_CONF})) {
 		$cmd .= "RESOLV_WRAPPER_CONF=\"$ret->{RESOLV_WRAPPER_CONF}\" ";
@@ -713,9 +727,11 @@ sub setup_ad_member_idmap_ad
 	Samba::mk_krb5_conf($ctx, "");
 
 	$ret->{KRB5_CONFIG} = $ctx->{krb5_conf};
+	$ret->{RESOLV_CONF} = $dcvars->{RESOLV_CONF};
 
 	my $net = Samba::bindir_path($self, "net");
-	my $cmd = "";
+	# Add hosts file for name lookups
+	my $cmd = "NSS_WRAPPER_HOSTS='$ret->{NSS_WRAPPER_HOSTS}' ";
 	$cmd .= "SOCKET_WRAPPER_DEFAULT_IFACE=\"$ret->{SOCKET_WRAPPER_DEFAULT_IFACE}\" ";
 	if (defined($ret->{RESOLV_WRAPPER_CONF})) {
 		$cmd .= "RESOLV_WRAPPER_CONF=\"$ret->{RESOLV_WRAPPER_CONF}\" ";
@@ -771,6 +787,49 @@ sub setup_simpleserver
 	read only = no
 	vfs objects = aio_pthread
 	aio_pthread:aio open = yes
+	smbd:async dosmode = no
+
+[vfs_aio_pthread_async_dosmode_default1]
+	path = $prefix_abs/share
+	read only = no
+	vfs objects = aio_pthread
+	store dos attributes = yes
+	aio_pthread:aio open = yes
+	smbd:async dosmode = yes
+
+[vfs_aio_pthread_async_dosmode_default2]
+	path = $prefix_abs/share
+	read only = no
+	vfs objects = aio_pthread xattr_tdb
+	store dos attributes = yes
+	aio_pthread:aio open = yes
+	smbd:async dosmode = yes
+
+[vfs_aio_pthread_async_dosmode_force_sync1]
+	path = $prefix_abs/share
+	read only = no
+	vfs objects = aio_pthread
+	store dos attributes = yes
+	aio_pthread:aio open = yes
+	smbd:async dosmode = yes
+	# This simulates non linux systems
+	smbd:force sync user path safe threadpool = yes
+	smbd:force sync user chdir safe threadpool = yes
+	smbd:force sync root path safe threadpool = yes
+	smbd:force sync root chdir safe threadpool = yes
+
+[vfs_aio_pthread_async_dosmode_force_sync2]
+	path = $prefix_abs/share
+	read only = no
+	vfs objects = aio_pthread xattr_tdb
+	store dos attributes = yes
+	aio_pthread:aio open = yes
+	smbd:async dosmode = yes
+	# This simulates non linux systems
+	smbd:force sync user path safe threadpool = yes
+	smbd:force sync user chdir safe threadpool = yes
+	smbd:force sync root path safe threadpool = yes
+	smbd:force sync root chdir safe threadpool = yes
 
 [vfs_aio_fork]
 	path = $prefix_abs/share
@@ -789,6 +848,10 @@ sub setup_simpleserver
 	path = $prefix_abs/share
 	vfs objects =
 	smb encrypt = desired
+
+[hidenewfiles]
+	path = $prefix_abs/share
+	hide new files timeout = 5
 ";
 
 	my $vars = $self->provision($path, "WORKGROUP",
@@ -904,12 +967,6 @@ sub setup_fileserver
 	force group = everyone
 	write list = force_user
 
-# BUG: https://bugzilla.samba.org/show_bug.cgi?id=13690
-[force_group_test]
-	path = $share_dir
-	comment = force group test
-#	force group = everyone
-
 [smbget]
 	path = $smbget_sharedir
 	comment = smb username is [%U]
@@ -927,6 +984,15 @@ sub setup_fileserver
 	comment = inherit only unix owner
 	inherit owner = unix only
 	acl_xattr:ignore system acls = yes
+# BUG: https://bugzilla.samba.org/show_bug.cgi?id=13690
+[force_group_test]
+	path = $share_dir
+	comment = force group test
+#	force group = everyone
+[homes]
+	comment = Home directories
+	browseable = No
+	read only = No
 ";
 
 	my $vars = $self->provision($path, "WORKGROUP",
@@ -1588,6 +1654,8 @@ sub provision($$$$$$$$$)
 
 	my $conffile="$libdir/server.conf";
 	my $dfqconffile="$libdir/dfq.conf";
+	my $errorinjectconf="$libdir/error_inject.conf";
+	my $delayinjectconf="$libdir/delay_inject.conf";
 
 	my $nss_wrapper_pl = "$ENV{PERL} $self->{srcdir}/third_party/nss_wrapper/nss_wrapper.pl";
 	my $nss_wrapper_passwd = "$privatedir/passwd";
@@ -1616,8 +1684,11 @@ sub provision($$$$$$$$$)
 	my ($gid_force_user);
 	my ($uid_user1);
 	my ($uid_user2);
+	my ($uid_gooduser);
+	my ($uid_eviluser);
+	my ($uid_slashuser);
 
-	if ($unix_uid < 0xffff - 10) {
+	if ($unix_uid < 0xffff - 13) {
 		$max_uid = 0xffff;
 	} else {
 		$max_uid = $unix_uid;
@@ -1633,6 +1704,9 @@ sub provision($$$$$$$$$)
 	$uid_smbget = $max_uid - 8;
 	$uid_user1 = $max_uid - 9;
 	$uid_user2 = $max_uid - 10;
+	$uid_gooduser = $max_uid - 11;
+	$uid_eviluser = $max_uid - 12;
+	$uid_slashuser = $max_uid - 13;
 
 	if ($unix_gids[0] < 0xffff - 8) {
 		$max_gid = 0xffff;
@@ -2207,7 +2281,7 @@ sub provision($$$$$$$$$)
 [error_inject]
 	copy = tmp
 	vfs objects = error_inject
-	include = $libdir/error_inject.conf
+	include = $errorinjectconf
 
 [delay_inject]
 	copy = tmp
@@ -2215,7 +2289,7 @@ sub provision($$$$$$$$$)
 	kernel share modes = no
 	kernel oplocks = no
 	posix locking = no
-	include = $libdir/delay_inject.conf
+	include = $delayinjectconf
 
 [aio_delay_inject]
 	copy = tmp
@@ -2238,6 +2312,18 @@ sub provision($$$$$$$$$)
 	    warn("Join failed\n$cmd");
 	    return undef;
 	}
+
+	unless (open(ERRORCONF, ">$errorinjectconf")) {
+		warn("Unable to open $errorinjectconf");
+		return undef;
+	}
+	close(ERRORCONF);
+
+	unless (open(DELAYCONF, ">$delayinjectconf")) {
+		warn("Unable to open $delayinjectconf");
+		return undef;
+	}
+	close(DELAYCONF);
 
 	unless (open(DFQCONF, ">$dfqconffile")) {
 	        warn("Unable to open $dfqconffile");
@@ -2263,6 +2349,9 @@ force_user:x:$uid_force_user:$gid_force_user:force user gecos:$prefix_abs:/bin/f
 smbget_user:x:$uid_smbget:$gid_domusers:smbget_user gecos:$prefix_abs:/bin/false
 user1:x:$uid_user1:$gid_nogroup:user1 gecos:$prefix_abs:/bin/false
 user2:x:$uid_user2:$gid_nogroup:user2 gecos:$prefix_abs:/bin/false
+gooduser:x:$uid_gooduser:$gid_domusers:gooduser gecos:$prefix_abs:/bin/false
+eviluser:x:$uid_eviluser:$gid_domusers:eviluser gecos::/bin/false
+slashuser:x:$uid_slashuser:$gid_domusers:slashuser gecos:/:/bin/false
 ";
 	if ($unix_uid != 0) {
 		print PASSWD "root:x:$uid_root:$gid_root:root gecos:$prefix_abs:/bin/false
@@ -2339,6 +2428,9 @@ force_user:x:$gid_force_user:
 	createuser($self, "smbget_user", $password, $conffile, \%createuser_env) || die("Unable to create smbget_user");
 	createuser($self, "user1", $password, $conffile, \%createuser_env) || die("Unable to create user1");
 	createuser($self, "user2", $password, $conffile, \%createuser_env) || die("Unable to create user2");
+	createuser($self, "gooduser", $password, $conffile, \%createuser_env) || die("Unable to create gooduser");
+	createuser($self, "eviluser", $password, $conffile, \%createuser_env) || die("Unable to create eviluser");
+	createuser($self, "slashuser", $password, $conffile, \%createuser_env) || die("Unable to create slashuser");
 
 	open(DNS_UPDATE_LIST, ">$prefix/dns_update_list") or die("Unable to open $$prefix/dns_update_list");
 	print DNS_UPDATE_LIST "A $server. $server_ip\n";

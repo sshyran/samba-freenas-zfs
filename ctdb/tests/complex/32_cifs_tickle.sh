@@ -32,14 +32,11 @@ EOF
 
 set -e
 
-ctdb_test_init "$@"
+ctdb_test_init
 
 ctdb_test_check_real_cluster
 
 cluster_is_healthy
-
-# Reset configuration
-ctdb_restart_when_done
 
 # We need this for later, so we know how long to sleep.
 try_command_on_node 0 $CTDB getvar MonitorInterval
@@ -69,8 +66,7 @@ echo "$out"
 if [ "${out/SRC: ${src_socket} /}" != "$out" ] ; then
     echo "GOOD: CIFS connection tracked OK by CTDB."
 else
-    echo "BAD: Socket not tracked by CTDB."
-    testfailures=1
+    die "BAD: Socket not tracked by CTDB."
 fi
 
 # This is almost immediate.  However, it is sent between nodes

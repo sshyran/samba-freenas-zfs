@@ -334,7 +334,7 @@ PyObject *py_dcerpc_syntax_init_helper(PyTypeObject *type, PyObject *args, PyObj
 		return NULL;
 	}
 
-	obj = (struct ndr_syntax_id *)pytalloc_get_ptr(ret);
+	obj = pytalloc_get_type(ret, struct ndr_syntax_id);
 	*obj = *syntax;
 
 	return ret;
@@ -447,4 +447,33 @@ void *pyrpc_export_union(PyTypeObject *type, TALLOC_CTX *mem_ctx, int level,
 	ret = _pytalloc_get_type(ret_obj, typename);
 	Py_XDECREF(ret_obj);
 	return ret;
+}
+
+PyObject *py_dcerpc_ndr_pointer_deref(PyTypeObject *type, PyObject *obj)
+{
+	if (!PyObject_TypeCheck(obj, type)) {
+		PyErr_Format(PyExc_TypeError,
+			     "Expected type '%s' but got type '%s'",
+			     (type)->tp_name, Py_TYPE(obj)->tp_name);
+		return NULL;
+	}
+
+	return PyObject_GetAttrString(obj, discard_const_p(char, "value"));
+}
+
+PyObject *py_dcerpc_ndr_pointer_wrap(PyTypeObject *type, PyObject *obj)
+{
+	PyObject *args = NULL;
+	PyObject *ret_obj = NULL;
+
+	args = PyTuple_New(1);
+	if (args == NULL) {
+		return NULL;
+	}
+	Py_XINCREF(obj);
+	PyTuple_SetItem(args, 0, obj);
+
+	ret_obj = PyObject_Call((PyObject *)type, args, NULL);
+	Py_XDECREF(args);
+	return ret_obj;
 }

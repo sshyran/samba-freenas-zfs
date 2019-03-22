@@ -362,6 +362,11 @@ static int vfs_gluster_connect(struct vfs_handle_struct *handle,
 	 */
 	lp_do_parameter(SNUM(handle->conn), "shadow:mountpoint", "/");
 
+	/*
+	 * Unless we have an async implementation of getxattrat turn this off.
+	 */
+	lp_do_parameter(SNUM(handle->conn), "smbd:async dosmode", "false");
+
 done:
 	if (ret < 0) {
 		if (fs)
@@ -772,16 +777,7 @@ static bool init_gluster_aio(struct vfs_handle_struct *handle)
 	read_fd = fds[0];
 	write_fd = fds[1];
 
-	/*
-	 * We use the raw tevent context here,
-	 * as this is a global event handler.
-	 *
-	 * The tevent_req_defer_callback()
-	 * calls will make sure the results
-	 * of async calls are propagated
-	 * to the correct tevent_context.
-	 */
-	aio_read_event = tevent_add_fd(handle->conn->sconn->raw_ev_ctx,
+	aio_read_event = tevent_add_fd(handle->conn->sconn->ev_ctx,
 					NULL,
 					read_fd,
 					TEVENT_FD_READ,
@@ -1679,6 +1675,8 @@ static struct vfs_fn_pointers glusterfs_fns = {
 
 	/* EA Operations */
 	.getxattr_fn = vfs_gluster_getxattr,
+	.getxattrat_send_fn = vfs_not_implemented_getxattrat_send,
+	.getxattrat_recv_fn = vfs_not_implemented_getxattrat_recv,
 	.fgetxattr_fn = vfs_gluster_fgetxattr,
 	.listxattr_fn = vfs_gluster_listxattr,
 	.flistxattr_fn = vfs_gluster_flistxattr,

@@ -38,6 +38,7 @@
 #include "../lib/tsocket/tsocket.h"
 #include "rpc_client/util_netlogon.h"
 #include "source4/auth/auth.h"
+#include "auth/auth_util.h"
 
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_AUTH
@@ -411,6 +412,7 @@ static NTSTATUS log_nt_token(struct security_token *token)
 	TALLOC_CTX *frame = talloc_stackframe();
 	char *command;
 	char *group_sidstr;
+	struct dom_sid_buf buf;
 	size_t i;
 
 	if ((lp_log_nt_token_command(frame) == NULL) ||
@@ -423,12 +425,12 @@ static NTSTATUS log_nt_token(struct security_token *token)
 	for (i=1; i<token->num_sids; i++) {
 		group_sidstr = talloc_asprintf(
 			frame, "%s %s", group_sidstr,
-			sid_string_talloc(frame, &token->sids[i]));
+			dom_sid_str_buf(&token->sids[i], &buf));
 	}
 
 	command = talloc_string_sub(
 		frame, lp_log_nt_token_command(frame),
-		"%s", sid_string_talloc(frame, &token->sids[0]));
+		"%s", dom_sid_str_buf(&token->sids[0], &buf));
 	command = talloc_string_sub(frame, command, "%t", group_sidstr);
 
 	if (command == NULL) {
@@ -605,9 +607,10 @@ NTSTATUS create_local_token(TALLOC_CTX *mem_ctx,
 
 		if (ids[i].type != ID_TYPE_GID &&
 		    ids[i].type != ID_TYPE_BOTH) {
+			struct dom_sid_buf buf;
 			DEBUG(10, ("Could not convert SID %s to gid, "
 				   "ignoring it\n",
-				   sid_string_dbg(&t->sids[i])));
+				   dom_sid_str_buf(&t->sids[i], &buf)));
 			continue;
 		}
 		if (!add_gid_to_array_unique(session_info->unix_token,
@@ -1082,10 +1085,11 @@ NTSTATUS auth3_session_info_create(TALLOC_CTX *mem_ctx,
 		    ids[i].type != ID_TYPE_BOTH) {
 			struct security_token *nt_token =
 				session_info->security_token;
+			struct dom_sid_buf buf;
 
 			DEBUG(10, ("Could not convert SID %s to gid, "
 				   "ignoring it\n",
-				   sid_string_dbg(&nt_token->sids[i])));
+				   dom_sid_str_buf(&nt_token->sids[i], &buf)));
 			continue;
 		}
 
@@ -1671,44 +1675,6 @@ static struct auth_serversupplied_info *copy_session_info_serverinfo_guest(TALLO
 	}
 
 	dst->cached_session_info = src;
-	return dst;
-}
-
-struct auth_session_info *copy_session_info(TALLOC_CTX *mem_ctx,
-					     const struct auth_session_info *src)
-{
-	struct auth_session_info *dst;
-	DATA_BLOB blob;
-	enum ndr_err_code ndr_err;
-
-	ndr_err = ndr_push_struct_blob(
-		&blob, talloc_tos(), src,
-		(ndr_push_flags_fn_t)ndr_push_auth_session_info);
-	if (!NDR_ERR_CODE_IS_SUCCESS(ndr_err)) {
-		DEBUG(0, ("copy_session_info(): ndr_push_auth_session_info failed: "
-			   "%s\n", ndr_errstr(ndr_err)));
-		return NULL;
-	}
-
-	dst = talloc(mem_ctx, struct auth_session_info);
-	if (dst == NULL) {
-		DEBUG(0, ("talloc failed\n"));
-		TALLOC_FREE(blob.data);
-		return NULL;
-	}
-
-	ndr_err = ndr_pull_struct_blob(
-		&blob, dst, dst,
-		(ndr_pull_flags_fn_t)ndr_pull_auth_session_info);
-	TALLOC_FREE(blob.data);
-
-	if (!NDR_ERR_CODE_IS_SUCCESS(ndr_err)) {
-		DEBUG(0, ("copy_session_info(): ndr_pull_auth_session_info failed: "
-			   "%s\n", ndr_errstr(ndr_err)));
-		TALLOC_FREE(dst);
-		return NULL;
-	}
-
 	return dst;
 }
 

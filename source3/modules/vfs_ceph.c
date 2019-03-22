@@ -132,6 +132,11 @@ static int cephwrap_connect(struct vfs_handle_struct *handle,  const char *servi
 	handle->data = cmount;
 	cmount_cnt++;
 
+	/*
+	 * Unless we have an async implementation of getxattrat turn this off.
+	 */
+	lp_do_parameter(SNUM(handle->conn), "smbd:async dosmode", "false");
+
 	return 0;
 
 err_cm_release:
@@ -1466,6 +1471,8 @@ static struct vfs_fn_pointers ceph_fns = {
 
 	/* EA operations. */
 	.getxattr_fn = cephwrap_getxattr,
+	.getxattrat_send_fn = vfs_not_implemented_getxattrat_send,
+	.getxattrat_recv_fn = vfs_not_implemented_getxattrat_recv,
 	.fgetxattr_fn = cephwrap_fgetxattr,
 	.listxattr_fn = cephwrap_listxattr,
 	.flistxattr_fn = cephwrap_flistxattr,

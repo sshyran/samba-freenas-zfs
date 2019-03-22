@@ -117,12 +117,10 @@ static bool Ucrit_addPid( struct server_id pid )
 	return True;
 }
 
-static int print_share_mode(const struct share_mode_entry *e,
-			    const struct file_id *id,
-			    const char *sharepath,
-			    const char *fname,
-			    const char *sname,
-			    void *dummy)
+static int print_share_mode(struct file_id fid,
+			    const struct share_mode_data *d,
+			    const struct share_mode_entry *e,
+			    void *private_data)
 {
 	static int count;
 
@@ -183,7 +181,8 @@ static int print_share_mode(const struct share_mode_entry *e,
 		} else if (e->op_type & LEVEL_II_OPLOCK) {
 			d_printf("LEVEL_II        ");
 		} else if (e->op_type == LEASE_OPLOCK) {
-			uint32_t lstate = e->lease->current_state;
+			struct share_mode_lease *l = &d->leases[e->lease_idx];
+			uint32_t lstate = l->current_state;
 			d_printf("LEASE(%s%s%s)%s%s%s      ",
 				 (lstate & SMB2_LEASE_READ)?"R":"",
 				 (lstate & SMB2_LEASE_WRITE)?"W":"",
@@ -196,8 +195,8 @@ static int print_share_mode(const struct share_mode_entry *e,
 		}
 
 		d_printf(" %s   %s%s   %s",
-			 sharepath, fname,
-			 sname ? sname : "",
+			 d->servicepath, d->base_name,
+			 (d->stream_name != NULL) ? d->stream_name : "",
 			 time_to_asc((time_t)e->time.tv_sec));
 	}
 
@@ -667,7 +666,7 @@ int main(int argc, const char *argv[])
 		int result;
 		struct db_context *db;
 
-		db_path = lock_path("locking.tdb");
+		db_path = lock_path(talloc_tos(), "locking.tdb");
 		if (db_path == NULL) {
 			d_printf("Out of memory - exiting\n");
 			ret = -1;

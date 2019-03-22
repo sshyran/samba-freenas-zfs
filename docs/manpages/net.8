@@ -2,12 +2,12 @@
 .\"     Title: net
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 03/12/2019
+.\"      Date: 03/19/2019
 .\"    Manual: System Administration tools
-.\"    Source: Samba 4.9.5
+.\"    Source: Samba 4.10.0
 .\"  Language: English
 .\"
-.TH "NET" "8" "03/12/2019" "Samba 4\&.9\&.5" "System Administration tools"
+.TH "NET" "8" "03/19/2019" "Samba 4\&.10\&.0" "System Administration tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@
 net \- Tool for administration of Samba and remote CIFS servers\&.
 .SH "SYNOPSIS"
 .HP \w'\ 'u
-net {<ads|rap|rpc>} [\-h|\-\-help] [\-w|\-\-workgroup\ workgroup] [\-W|\-\-myworkgroup\ myworkgroup] [\-U|\-\-user\ user] [\-I|\-\-ipaddress\ ip\-address] [\-p|\-\-port\ port] [\-n\ myname] [\-s\ conffile] [\-S|\-\-server\ server] [\-l|\-\-long] [\-v|\-\-verbose] [\-f|\-\-force] [\-P|\-\-machine\-pass] [\-d\ debuglevel] [\-V] [\-\-request\-timeout\ seconds] [\-t|\-\-timeout\ seconds] [\-i|\-\-stdin] [\-\-tallocreport]
+net {<ads|rap|rpc>} [\-h|\-\-help] [\-w|\-\-workgroup\ workgroup] [\-W|\-\-myworkgroup\ myworkgroup] [\-U|\-\-user\ user] [\-A|\-\-authentication\-file\ authfile] [\-I|\-\-ipaddress\ ip\-address] [\-p|\-\-port\ port] [\-n\ myname] [\-s\ conffile] [\-S|\-\-server\ server] [\-l|\-\-long] [\-v|\-\-verbose] [\-f|\-\-force] [\-P|\-\-machine\-pass] [\-d\ debuglevel] [\-V] [\-\-request\-timeout\ seconds] [\-t|\-\-timeout\ seconds] [\-i|\-\-stdin] [\-\-tallocreport]
 .SH "DESCRIPTION"
 .PP
 This tool is part of the
@@ -569,6 +569,18 @@ Give IP\*(Aqs of Domain Controllers for specified
 Give IP of master browser for specified
 \fIDOMAIN\fR
 or workgroup\&. Defaults to local domain\&.
+.SS "LOOKUP NAME [NAME]"
+.PP
+Lookup username\*(Aqs sid and type for specified
+\fINAME\fR
+.SS "LOOKUP SID [SID]"
+.PP
+Give sid\*(Aqs name and type for specified
+\fISID\fR
+.SS "LOOKUP DSGETDCNAME [NAME] [FLAGS] [SITENAME]"
+.PP
+Give Domain Controller information for specified domain
+\fINAME\fR
 .SS "CACHE"
 .PP
 Samba uses a general caching interface called \*(Aqgencache\*(Aq\&. It can be controlled using \*(AqNET CACHE\*(Aq\&.
@@ -1253,9 +1265,9 @@ Something we failed to parse\&. Default action is to "edit" it in interactive an
 .RE
 .SS "USERSHARE"
 .PP
-Starting with version 3\&.0\&.23, a Samba server now supports the ability for non\-root users to add user-defined shares to be exported using the "net usershare" commands\&.
+Starting with version 3\&.0\&.23, a Samba server now supports the ability for non\-root users to add user defined shares to be exported using the "net usershare" commands\&.
 .PP
-Members of the UNIX group "sambashare" can create user-defined shares on demand using the commands below\&.
+To set this up, first set up your smb\&.conf by adding to the [global] section: usershare path = /usr/local/samba/lib/usershares Next create the directory /usr/local/samba/lib/usershares, change the owner to root and set the group owner to the UNIX group who should have the ability to create usershares, for example a group called "serverops"\&. Set the permissions on /usr/local/samba/lib/usershares to 01770\&. (Owner and group all access, no access for others, plus the sticky bit, which means that a file in that directory can be renamed or deleted only by the owner of the file)\&. Finally, tell smbd how many usershares you will allow by adding to the [global] section of smb\&.conf a line such as : usershare max shares = 100\&. To allow 100 usershare definitions\&. Now, members of the UNIX group "serverops" can create user defined shares on demand using the commands below\&.
 .PP
 The usershare commands are:
 .RS 4

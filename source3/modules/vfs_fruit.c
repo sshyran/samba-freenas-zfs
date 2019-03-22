@@ -2612,7 +2612,7 @@ static off_t access_to_netatalk_brl(enum apple_fork fork_type,
 static off_t denymode_to_netatalk_brl(enum apple_fork fork_type,
 				      uint32_t deny_mode)
 {
-	off_t offset;
+	off_t offset = 0;
 
 	switch (deny_mode) {
 	case DENY_READ:
@@ -5275,6 +5275,7 @@ static int fruit_fstat_meta_stream(vfs_handle_struct *handle,
 				   SMB_STRUCT_STAT *sbuf)
 {
 	struct fio *fio = (struct fio *)VFS_FETCH_FSP_EXTENSION(handle, fsp);
+	struct smb_filename smb_fname;
 	ino_t ino;
 	int ret;
 
@@ -5294,11 +5295,15 @@ static int fruit_fstat_meta_stream(vfs_handle_struct *handle,
 		return 0;
 	}
 
-	ret = fruit_stat_base(handle, fsp->base_fsp->fsp_name, false);
+	smb_fname = (struct smb_filename) {
+		.base_name = fsp->fsp_name->base_name,
+	};
+
+	ret = fruit_stat_base(handle, &smb_fname, false);
 	if (ret != 0) {
 		return -1;
 	}
-	*sbuf = fsp->base_fsp->fsp_name->st;
+	*sbuf = smb_fname.st;
 
 	ino = fruit_inode(sbuf, fsp->fsp_name->stream_name);
 

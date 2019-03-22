@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Unix SMB/CIFS implementation.
@@ -34,7 +34,6 @@ import samba.tests
 
 from ldb import SCOPE_BASE, LdbError
 
-import samba.tests
 import samba.dcerpc.drsuapi
 from samba.dcerpc.drsblobs import schemaInfoBlob
 from samba.ndr import ndr_unpack
@@ -112,7 +111,7 @@ objectClass: attributeSchema
 adminDescription: """ + attr_name + """
 adminDisplayName: """ + attr_name + """
 cn: """ + attr_name + """
-attributeId: 1.3.6.1.4.1.7165.4.6.1.7.%d.""" % sub_oid + str(random.randint(1,100000)) + """
+attributeId: 1.3.6.1.4.1.7165.4.6.1.7.%d.""" % sub_oid + str(random.randint(1, 100000)) + """
 attributeSyntax: 2.5.5.12
 omSyntax: 64
 instanceType: 4
@@ -149,7 +148,6 @@ systemOnly: FALSE
         self._checkSchemaInfo(schi_before, schi_after)
         pass
 
-
     def _make_class_ldif(self, class_name, class_dn, sub_oid):
         ldif = """
 dn: """ + class_dn + """
@@ -158,7 +156,7 @@ objectClass: classSchema
 adminDescription: """ + class_name + """
 adminDisplayName: """ + class_name + """
 cn: """ + class_name + """
-governsId: 1.3.6.1.4.1.7165.4.6.2.7.%d.""" % sub_oid + str(random.randint(1,100000)) + """
+governsId: 1.3.6.1.4.1.7165.4.6.2.7.%d.""" % sub_oid + str(random.randint(1, 100000)) + """
 instanceType: 4
 objectClassCategory: 1
 subClassOf: organizationalPerson
@@ -194,4 +192,3 @@ systemOnly: FALSE
         # compare resulting schemaInfo
         schi_after = self._getSchemaInfo()
         self._checkSchemaInfo(schi_before, schi_after)
-

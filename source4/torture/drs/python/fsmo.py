@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Unix SMB/CIFS implementation.
@@ -36,6 +36,7 @@ from ldb import SCOPE_BASE
 
 import drs_base
 
+
 class DrsFsmoTestCase(drs_base.DrsBaseTestCase):
 
     def setUp(self):
@@ -67,12 +68,11 @@ class DrsFsmoTestCase(drs_base.DrsBaseTestCase):
                                             cmd_line_auth)
 
         self.assertCmdSuccess(result, out, err)
-        self.assertEquals(err,"","Shouldn't be any error messages")
-        if noop == False:
+        self.assertEquals(err, "", "Shouldn't be any error messages")
+        if not noop:
             self.assertTrue("FSMO transfer of '%s' role successful" % role in out)
         else:
             self.assertTrue("This DC already has the '%s' FSMO role" % role in out)
-
 
     def _wait_for_role_transfer(self, ldb_dc, role_dn, master):
         """Wait for role transfer for certain amount of time
@@ -107,7 +107,7 @@ class DrsFsmoTestCase(drs_base.DrsBaseTestCase):
                                                      role_dn=role_dn,
                                                      master=self.dsServiceName_dc2)
         self.assertTrue(res,
-                        "Transferring %s role to %s has failed, master is: %s!"%(role, self.dsServiceName_dc2, master))
+                        "Transferring %s role to %s has failed, master is: %s!" % (role, self.dsServiceName_dc2, master))
 
         # dc1 gets back the role from dc2
         print("Testing for %s role transfer from %s to %s" % (role, self.dnsname_dc2, self.dnsname_dc1))
@@ -117,7 +117,7 @@ class DrsFsmoTestCase(drs_base.DrsBaseTestCase):
                                                      role_dn=role_dn,
                                                      master=self.dsServiceName_dc1)
         self.assertTrue(res,
-                        "Transferring %s role to %s has failed, master is: %s!"%(role, self.dsServiceName_dc1, master))
+                        "Transferring %s role to %s has failed, master is: %s!" % (role, self.dsServiceName_dc1, master))
 
         # dc1 keeps the role
         print("Testing for no-op %s role transfer from %s to %s" % (role, self.dnsname_dc2, self.dnsname_dc1))
@@ -127,7 +127,7 @@ class DrsFsmoTestCase(drs_base.DrsBaseTestCase):
                                                      role_dn=role_dn,
                                                      master=self.dsServiceName_dc1)
         self.assertTrue(res,
-                        "Transferring %s role to %s has failed, master is: %s!"%(role, self.dsServiceName_dc1, master))
+                        "Transferring %s role to %s has failed, master is: %s!" % (role, self.dsServiceName_dc1, master))
 
     def test_SchemaMasterTransfer(self):
         self._role_transfer(role="schema", role_dn=self.schema_dn)

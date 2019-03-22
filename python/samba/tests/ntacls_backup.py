@@ -19,15 +19,14 @@
 """Tests for samba ntacls backup"""
 import os
 
-from samba import smb
+from samba.samba3 import libsmb_samba_internal as libsmb
 from samba.samba3 import smbd
 from samba import samdb
 from samba import ntacls
 
 from samba.auth import system_session
-from samba.param import LoadParm
 from samba.dcerpc import security
-from samba.tests import TestCaseInTempDir
+from samba.tests import TestCaseInTempDir, env_loadparm
 
 
 class NtaclsBackupRestoreTests(TestCaseInTempDir):
@@ -39,7 +38,7 @@ class NtaclsBackupRestoreTests(TestCaseInTempDir):
         super(NtaclsBackupRestoreTests, self).setUp()
 
         self.server = os.environ["SERVER"]  # addc
-        samdb_url='ldap://' + self.server
+        samdb_url = 'ldap://' + self.server
 
         self.service = 'test1'  # service/share to test
         # root path for service
@@ -47,22 +46,21 @@ class NtaclsBackupRestoreTests(TestCaseInTempDir):
             os.environ["LOCAL_PATH"], self.service)
 
         self.smb_conf_path = os.environ['SMB_CONF_PATH']
-        self.dom_sid = security.dom_sid(os.environ['DOMSID'])
-
         self.creds = self.insta_creds(template=self.get_credentials())
+
+        self.samdb_conn = samdb.SamDB(
+            url=samdb_url, session_info=system_session(),
+            credentials=self.creds, lp=env_loadparm())
+
+        self.dom_sid = security.dom_sid(self.samdb_conn.get_domain_sid())
 
         # helper will load conf into lp, that's how smbd can find services.
         self.ntacls_helper = ntacls.NtaclsHelper(self.service,
                                                  self.smb_conf_path,
                                                  self.dom_sid)
-
         self.lp = self.ntacls_helper.lp
 
-        self.samdb_conn = samdb.SamDB(
-            url=samdb_url, session_info=system_session(),
-            credentials=self.creds, lp=self.lp)
-
-        self.smb_conn = smb.SMB(
+        self.smb_conn = libsmb.Conn(
             self.server, self.service, lp=self.lp, creds=self.creds)
 
         self.smb_helper = ntacls.SMBHelper(self.smb_conn, self.dom_sid)
