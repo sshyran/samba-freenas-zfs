@@ -267,18 +267,34 @@ static int32_t ctdb_control_dispatch(struct ctdb_context *ctdb,
 	}
 
 	case CTDB_CONTROL_DB_ATTACH:
-	  return ctdb_control_db_attach(ctdb, indata, outdata, 0, client_id,
-					c, async_reply);
+	  return ctdb_control_db_attach(ctdb,
+					indata,
+					outdata,
+					0,
+					srcnode,
+					client_id,
+					c,
+					async_reply);
 
 	case CTDB_CONTROL_DB_ATTACH_PERSISTENT:
-	  return ctdb_control_db_attach(ctdb, indata, outdata,
-					CTDB_DB_FLAGS_PERSISTENT, client_id,
-					c, async_reply);
+	  return ctdb_control_db_attach(ctdb,
+					indata,
+					outdata,
+					CTDB_DB_FLAGS_PERSISTENT,
+					srcnode,
+					client_id,
+					c,
+					async_reply);
 
 	case CTDB_CONTROL_DB_ATTACH_REPLICATED:
-	  return ctdb_control_db_attach(ctdb, indata, outdata,
-					CTDB_DB_FLAGS_REPLICATED, client_id,
-					c, async_reply);
+	  return ctdb_control_db_attach(ctdb,
+					indata,
+					outdata,
+					CTDB_DB_FLAGS_REPLICATED,
+					srcnode,
+					client_id,
+					c,
+					async_reply);
 
 	case CTDB_CONTROL_SET_CALL:
 		return control_not_implemented("SET_CALL", NULL);
@@ -701,6 +717,10 @@ static int32_t ctdb_control_dispatch(struct ctdb_context *ctdb,
 		return 0;
 	}
 
+	case CTDB_CONTROL_CHECK_PID_SRVID:
+		CHECK_CONTROL_DATA_SIZE((sizeof(pid_t) + sizeof(uint64_t)));
+		return ctdb_control_check_pid_srvid(ctdb, indata);
+
 	default:
 		DEBUG(DEBUG_CRIT,(__location__ " Unknown CTDB control opcode %u\n", opcode));
 		return -1;
@@ -855,7 +875,7 @@ int ctdb_daemon_send_control(struct ctdb_context *ctdb, uint32_t destnode,
 		return -1;
 	}
 
-	if (((destnode == CTDB_BROADCAST_VNNMAP) || 
+	if (((destnode == CTDB_BROADCAST_ACTIVE) ||
 	     (destnode == CTDB_BROADCAST_ALL) ||
 	     (destnode == CTDB_BROADCAST_CONNECTED)) && 
 	    !(flags & CTDB_CTRL_FLAG_NOREPLY)) {
@@ -863,7 +883,7 @@ int ctdb_daemon_send_control(struct ctdb_context *ctdb, uint32_t destnode,
 		return -1;
 	}
 
-	if (destnode != CTDB_BROADCAST_VNNMAP && 
+	if (destnode != CTDB_BROADCAST_ACTIVE &&
 	    destnode != CTDB_BROADCAST_ALL && 
 	    destnode != CTDB_BROADCAST_CONNECTED && 
 	    (!ctdb_validate_pnn(ctdb, destnode) || 

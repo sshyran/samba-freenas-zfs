@@ -643,13 +643,17 @@ test_backup_privilege_list()
 {
     tmpfile=$PREFIX/smbclient_backup_privilege_list
 
+    # selftest uses the forward slash as a separator, but "net sam rights
+    # grant" requires the backslash separator
+    USER_TMP=$(printf '%s' "$USERNAME" | tr '/' '\\')
+
     # If we don't have a DOMAIN component to the username, add it.
-    echo "$USERNAME" | grep '\\' 2>&1
+    printf '%s' "$USER_TMP" | grep '\\' 2>&1
     ret=$?
     if [ $ret != 0 ] ; then
-	priv_username="$DOMAIN\\$USERNAME"
+	priv_username="$DOMAIN\\$USER_TMP"
     else
-	priv_username=$USERNAME
+	priv_username="$USER_TMP"
     fi
 
     $NET sam rights grant $priv_username SeBackupPrivilege 2>&1
@@ -1414,6 +1418,78 @@ EOF
     fi
 }
 
+# Test smbclient renames with pathnames containing '..'
+test_rename_dotdot()
+{
+    tmpfile=$PREFIX/smbclient_interactive_prompt_commands
+
+cat > $tmpfile <<EOF
+deltree dotdot_test
+mkdir dotdot_test
+cd dotdot_test
+mkdir dir1
+mkdir dir2
+cd dir1
+put ${SMBCLIENT} README
+rename README ..\\dir2\\README
+cd ..
+cd dir2
+allinfo README
+cd \\
+deltree dotdot_test
+quit
+EOF
+    cmd='CLI_FORCE_INTERACTIVE=yes $SMBCLIENT "$@" -U$USERNAME%$PASSWORD //$SERVER/tmp -I $SERVER_IP $ADDARGS < $tmpfile 2>&1'
+    eval echo "$cmd"
+    out=`eval $cmd`
+    ret=$?
+
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed rename_dotdot test with output $ret"
+	false
+	return
+    fi
+
+    # We are allowed to get NT_STATUS_NO_SUCH_FILE listing \dotdot_test
+    # as the top level directory should not exist, but no other errors.
+
+    error_str=`echo $out | grep NT_STATUS | grep -v "NT_STATUS_NO_SUCH_FILE listing .dotdot_test"`
+    if [ "$error_str" != "" ]; then
+        echo "failed - unexpected NT_STATUS error in $out"
+        false
+        return
+    fi
+}
+
+# Test doing a volume command.
+test_volume()
+{
+    tmpfile=$PREFIX/smbclient_interactive_prompt_commands
+    cat > $tmpfile <<EOF
+volume
+quit
+EOF
+    cmd='CLI_FORCE_INTERACTIVE=yes $SMBCLIENT "$@" -U$USERNAME%$PASSWORD //$SERVER/tmp -I $SERVER_IP $ADDARGS < $tmpfile 2>&1'
+    eval echo "$cmd"
+    out=`eval $cmd`
+    ret=$?
+    rm -f $tmpfile
+
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed doing volume command with error $ret"
+	return 1
+    fi
+
+    echo "$out" | grep '^Volume: |tmp| serial number'
+    ret=$?
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed doing volume command"
+	return 1
+    fi
+}
 
 test_server_os_message()
 {
@@ -1445,6 +1521,78 @@ EOF
     return 0
 }
 
+# Test xattr_stream correctly reports mode.
+# BUG: https://bugzilla.samba.org/show_bug.cgi?id=13380
+
+test_stream_directory_xattr()
+{
+    tmpfile=$PREFIX/smbclient_interactive_prompt_commands
+#
+# Test against streams_xattr
+#
+    cat > $tmpfile <<EOF
+deltree foo
+mkdir foo
+put ${PREFIX}/smbclient_interactive_prompt_commands foo:bar
+setmode foo -a
+allinfo foo:bar
+deltree foo
+quit
+EOF
+    cmd='CLI_FORCE_INTERACTIVE=yes $SMBCLIENT "$@" -U$USERNAME%$PASSWORD //$SERVER/streams_xattr -I $SERVER_IP $ADDARGS < $tmpfile 2>&1'
+    eval echo "$cmd"
+    out=`eval $cmd`
+    ret=$?
+    rm -f $tmpfile
+
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed checking attributes on xattr stream foo:bar with error $ret"
+	return 1
+    fi
+
+    echo "$out" | grep "attributes:.*80"
+    ret=$?
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed checking attributes on xattr stream foo:bar"
+	return 1
+    fi
+
+#
+# Test against streams_depot
+#
+    cat > $tmpfile <<EOF
+deltree foo
+mkdir foo
+put ${PREFIX}/smbclient_interactive_prompt_commands foo:bar
+setmode foo -a
+allinfo foo:bar
+deltree foo
+quit
+EOF
+    cmd='CLI_FORCE_INTERACTIVE=yes $SMBCLIENT "$@" -U$USERNAME%$PASSWORD //$SERVER/tmp -I $SERVER_IP $ADDARGS < $tmpfile 2>&1'
+    eval echo "$cmd"
+    out=`eval $cmd`
+    ret=$?
+    rm -f $tmpfile
+
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed checking attributes on depot stream foo:bar with error $ret"
+	return 1
+    fi
+
+    echo "$out" | grep "attributes:.*80"
+    ret=$?
+    if [ $ret != 0 ] ; then
+	echo "$out"
+	echo "failed checking attributes on depot stream foo:bar"
+	return 1
+    fi
+}
+
+#
 LOGDIR_PREFIX=test_smbclient_s3
 
 # possibly remove old logdirs:
@@ -1544,6 +1692,10 @@ testit "streams_depot can delete correctly" \
     test_streams_depot_delete || \
     failed=`expr $failed + 1`
 
+testit "stream_xattr attributes" \
+    test_stream_directory_xattr || \
+    failed=`expr $failed + 1`
+
 testit "follow symlinks = no" \
     test_nosymlinks || \
     failed=`expr $failed + 1`
@@ -1562,6 +1714,14 @@ testit "server os message" \
 
 testit "setmode test" \
     test_setmode || \
+    failed=`expr $failed + 1`
+
+testit "rename_dotdot" \
+    test_rename_dotdot || \
+    failed=`expr $failed + 1`
+
+testit "volume" \
+    test_volume || \
     failed=`expr $failed + 1`
 
 testit "rm -rf $LOGDIR" \

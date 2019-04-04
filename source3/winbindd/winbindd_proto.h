@@ -24,7 +24,6 @@
 #define _WINBINDD_PROTO_H_
 
 /* The following definitions come from winbindd/winbindd.c  */
-struct messaging_context *winbind_messaging_context(void);
 struct imessaging_context *winbind_imessaging_context(void);
 void request_error(struct winbindd_cli_state *state);
 void request_ok(struct winbindd_cli_state *state);
@@ -34,7 +33,6 @@ bool winbindd_setup_sig_hup_handler(const char *lfile);
 bool winbindd_use_idmap_cache(void);
 bool winbindd_use_cache(void);
 char *get_winbind_priv_pipe_dir(void);
-struct tevent_context *winbind_event_context(void);
 
 /* The following definitions come from winbindd/winbindd_ads.c  */
 
@@ -297,7 +295,6 @@ void setup_domain_child(struct winbindd_domain *domain);
 /* The following definitions come from winbindd/winbindd_dual.c  */
 
 struct dcerpc_binding_handle *dom_child_handle(struct winbindd_domain *domain);
-struct winbindd_child *choose_domain_child(struct winbindd_domain *domain);
 
 struct tevent_req *wb_child_request_send(TALLOC_CTX *mem_ctx,
 					 struct tevent_context *ev,
@@ -323,6 +320,11 @@ void winbind_msg_debug(struct messaging_context *msg_ctx,
 			 uint32_t msg_type,
 			 struct server_id server_id,
 			 DATA_BLOB *data);
+void winbind_disconnect_dc_parent(struct messaging_context *msg_ctx,
+				  void *private_data,
+				  uint32_t msg_type,
+				  struct server_id server_id,
+				  DATA_BLOB *data);
 void winbind_msg_offline(struct messaging_context *msg_ctx,
 			 void *private_data,
 			 uint32_t msg_type,
@@ -353,6 +355,11 @@ void winbind_msg_ip_dropped(struct messaging_context *msg_ctx,
 			    uint32_t msg_type,
 			    struct server_id server_id,
 			    DATA_BLOB *data);
+void winbind_msg_disconnect_dc(struct messaging_context *msg_ctx,
+			       void *private_data,
+			       uint32_t msg_type,
+			       struct server_id server_id,
+			       DATA_BLOB *data);
 void winbind_msg_ip_dropped_parent(struct messaging_context *msg_ctx,
 				   void *private_data,
 				   uint32_t msg_type,
@@ -374,6 +381,7 @@ NTSTATUS winbindd_print_groupmembers(struct talloc_dict *members,
 
 void init_idmap_child(void);
 struct winbindd_child *idmap_child(void);
+struct dcerpc_binding_handle *idmap_child_handle(void);
 struct idmap_domain *idmap_find_domain_with_sid(const char *domname,
 						const struct dom_sid *sid);
 const char *idmap_config_const_string(const char *domname, const char *option,
@@ -389,6 +397,7 @@ bool lp_scan_idmap_domains(bool (*fn)(const char *domname,
 
 void init_locator_child(void);
 struct winbindd_child *locator_child(void);
+struct dcerpc_binding_handle *locator_child_handle(void);
 
 /* The following definitions come from winbindd/winbindd_misc.c  */
 
@@ -479,7 +488,6 @@ bool parse_domain_user(const char *domuser, fstring domain, fstring user);
 bool parse_domain_user_talloc(TALLOC_CTX *mem_ctx, const char *domuser,
 			      char **domain, char **user);
 bool canonicalize_username(fstring username_inout, fstring domain, fstring user);
-void fill_domain_username(fstring name, const char *domain, const char *user, bool can_assume);
 char *fill_domain_username_talloc(TALLOC_CTX *ctx,
 				  const char *domain,
 				  const char *user,
@@ -497,7 +505,7 @@ NTSTATUS lookup_usergroups_cached(TALLOC_CTX *mem_ctx,
 				  uint32_t *p_num_groups, struct dom_sid **user_sids);
 
 NTSTATUS normalize_name_map(TALLOC_CTX *mem_ctx,
-			     struct winbindd_domain *domain,
+			     const char *domain_name,
 			     const char *name,
 			     char **normalized);
 NTSTATUS normalize_name_unmap(TALLOC_CTX *mem_ctx,
@@ -960,5 +968,10 @@ NTSTATUS wb_irpc_register(void);
 
 /* The following definitions come from winbindd/winbindd_reconnect.c  */
 bool reconnect_need_retry(NTSTATUS status, struct winbindd_domain *domain);
+
+/* The following comes from winbindd/winbindd_dual_srv.c */
+bool reset_cm_connection_on_error(struct winbindd_domain *domain,
+				  struct dcerpc_binding_handle *b,
+				  NTSTATUS status);
 
 #endif /*  _WINBINDD_PROTO_H_  */

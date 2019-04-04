@@ -38,7 +38,7 @@
 #include "includes.h"
 #include "smbd/smbd.h"
 #include <stdio.h>
-#include "api/glfs.h"
+#include <glusterfs/api/glfs.h>
 #include "lib/util/dlinklist.h"
 #include "lib/util/tevent_unix.h"
 #include "smbd/globals.h"
@@ -352,6 +352,16 @@ static int vfs_gluster_connect(struct vfs_handle_struct *handle,
 			  volume, strerror(errno)));
 		goto done;
 	}
+
+	/*
+	 * The shadow_copy2 module will fail to export subdirectories
+	 * of a gluster volume unless we specify the mount point,
+	 * because the detection fails if the file system is not
+	 * locally mounted:
+	 * https://bugzilla.samba.org/show_bug.cgi?id=13091
+	 */
+	lp_do_parameter(SNUM(handle->conn), "shadow:mountpoint", "/");
+
 done:
 	if (ret < 0) {
 		if (fs)
@@ -954,7 +964,7 @@ static struct tevent_req *vfs_gluster_fsync_send(struct vfs_handle_struct
 
 	PROFILE_TIMESTAMP(&state->start);
 	ret = glfs_fsync_async(*(glfs_fd_t **)VFS_FETCH_FSP_EXTENSION(handle,
-				fsp), aio_glusterfs_done, req);
+				fsp), aio_glusterfs_done, state);
 	if (ret < 0) {
 		tevent_req_error(req, -ret);
 		return tevent_req_post(req, ev);
@@ -1089,8 +1099,9 @@ static struct smb_filename *vfs_gluster_getwd(struct vfs_handle_struct *handle,
 	}
 
 	ret = glfs_getcwd(handle->data, cwd, PATH_MAX - 1);
-	if (ret == 0) {
+	if (ret == NULL) {
 		free(cwd);
+		return NULL;
 	}
 	smb_fname = synthetic_smb_fname(ctx,
 					ret,

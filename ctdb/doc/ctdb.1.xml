@@ -292,10 +292,9 @@
 	<title>Virtual Node Number (VNN) map</title>
 	<para>
 	  Consists of the number of virtual nodes and mapping from
-	  virtual node numbers to physical node numbers.  Virtual
-	  nodes host CTDB databases.  Only nodes that are
-	  participating in the VNN map can become lmaster or dmaster
-	  for database records.
+	  virtual node numbers to physical node numbers.  Only nodes
+	  that are participating in the VNN map can become lmaster for
+	  database records.
 	</para>
       </refsect3>
 
@@ -1681,9 +1680,13 @@ RUNNING
     </refsect2>
 
     <refsect2>
-      <title>process-exists <parameter>PID</parameter></title>
+      <title>process-exists <parameter>PID</parameter> <parameter>[SRVID]</parameter></title>
       <para>
-	This command checks if a specific process exists on the CTDB host. This is mainly used by Samba to check if remote instances of samba are still running or not.
+	This command checks if a specific process exists on the CTDB
+	host. This is mainly used by Samba to check if remote instances
+	of samba are still running or not.  When the optional SRVID
+	argument is specified, the command check if a specific process
+	exists on the CTDB host and has registered for specified SRVID.
       </para>
     </refsect2>
 

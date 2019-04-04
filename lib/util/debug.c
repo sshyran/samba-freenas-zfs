@@ -541,6 +541,8 @@ static const char *default_classname_table[] = {
 	[DBGC_AUTH_AUDIT_JSON] = "auth_json_audit",
 	[DBGC_KERBEROS] =       "kerberos",
 	[DBGC_DRS_REPL] =       "drs_repl",
+	[DBGC_SMB2] =           "smb2",
+	[DBGC_SMB2_CREDITS] =   "smb2_credits",
 };
 
 /*
@@ -1067,8 +1069,11 @@ bool reopen_logs_internal(void)
 	force_check_log_size();
 	(void)umask(oldumask);
 
-	/* Take over stderr to catch output into logs */
-	if (state.fd > 0) {
+	/*
+	 * If log file was opened or created successfully, take over stderr to
+	 * catch output into logs.
+	 */
+	if (new_fd != -1) {
 		if (dup2(state.fd, 2) == -1) {
 			/* Close stderr too, if dup2 can't point it -
 			   at the logfile.  There really isn't much

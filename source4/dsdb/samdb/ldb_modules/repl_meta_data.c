@@ -2090,6 +2090,37 @@ static int get_parsed_dns_trusted(struct ldb_module *module,
 }
 
 /*
+   Return LDB_SUCCESS if a parsed_dn list contains no duplicate values,
+   otherwise an error code. For compatibility the error code differs depending
+   on whether or not the attribute is "member".
+
+   As always, the parsed_dn list is assumed to be sorted.
+ */
+static int check_parsed_dn_duplicates(struct ldb_module *module,
+				      struct ldb_message_element *el,
+				      struct parsed_dn *pdn)
+{
+	unsigned int i;
+	struct ldb_context *ldb = ldb_module_get_ctx(module);
+
+	for (i = 1; i < el->num_values; i++) {
+		struct parsed_dn *p = &pdn[i];
+		if (parsed_dn_compare(p, &pdn[i - 1]) == 0) {
+			ldb_asprintf_errstring(ldb,
+					       "Linked attribute %s has "
+					       "multiple identical values",
+					       el->name);
+			if (ldb_attr_cmp(el->name, "member") == 0) {
+				return LDB_ERR_ENTRY_ALREADY_EXISTS;
+			} else {
+				return LDB_ERR_ATTRIBUTE_OR_VALUE_EXISTS;
+			}
+		}
+	}
+	return LDB_SUCCESS;
+}
+
+/*
   build a new extended DN, including all meta data fields
 
   RMD_FLAGS           = DSDB_RMD_FLAG_* bits
@@ -2806,11 +2837,23 @@ static int replmd_modify_la_delete(struct ldb_module *module,
 
 	if (vanish_links) {
 		unsigned j = 0;
+		struct ldb_val *tmp_vals = NULL;
+
+		tmp_vals = talloc_array(tmp_ctx, struct ldb_val,
+					old_el->num_values);
+		if (tmp_vals == NULL) {
+			talloc_free(tmp_ctx);
+			return ldb_module_oom(module);
+		}
 		for (i = 0; i < old_el->num_values; i++) {
-			if (old_dns[i].v != NULL) {
-				old_el->values[j] = *old_dns[i].v;
-				j++;
+			if (old_dns[i].v == NULL) {
+				continue;
 			}
+			tmp_vals[j] = *old_dns[i].v;
+			j++;
+		}
+		for (i = 0; i < j; i++) {
+			old_el->values[i] = tmp_vals[i];
 		}
 		old_el->num_values = j;
 	}
@@ -2895,6 +2938,12 @@ static int replmd_modify_la_replace(struct ldb_module *module,
 	}
 
 	ret = get_parsed_dns(module, tmp_ctx, el, &dns, ldap_oid, parent);
+	if (ret != LDB_SUCCESS) {
+		talloc_free(tmp_ctx);
+		return ret;
+	}
+
+	ret = check_parsed_dn_duplicates(module, el, dns);
 	if (ret != LDB_SUCCESS) {
 		talloc_free(tmp_ctx);
 		return ret;
@@ -3129,9 +3178,22 @@ static int replmd_modify_handle_linked_attribs(struct ldb_module *module,
 			continue;
 		}
 		if ((schema_attr->linkID & 1) == 1) {
-			if (parent && ldb_request_get_control(parent, DSDB_CONTROL_DBCHECK)) {
-				continue;
+			if (parent) {
+				struct ldb_control *ctrl;
+
+				ctrl = ldb_request_get_control(parent,
+						DSDB_CONTROL_REPLMD_VANISH_LINKS);
+				if (ctrl != NULL) {
+					ctrl->critical = false;
+					continue;
+				}
+				ctrl = ldb_request_get_control(parent,
+						DSDB_CONTROL_DBCHECK);
+				if (ctrl != NULL) {
+					continue;
+				}
 			}
+
 			/* Odd is for the target.  Illegal to modify */
 			ldb_asprintf_errstring(ldb,
 					       "attribute %s must not be modified directly, it is a linked attribute", el->name);
@@ -3260,6 +3322,7 @@ static int replmd_modify(struct ldb_module *module, struct ldb_request *req)
 	unsigned int functional_level;
 	const struct ldb_message_element *guid_el = NULL;
 	struct ldb_control *sd_propagation_control;
+	struct ldb_control *fix_links_control = NULL;
 	struct replmd_private *replmd_private =
 		talloc_get_type(ldb_module_get_private(module), struct replmd_private);
 
@@ -3284,6 +3347,39 @@ static int replmd_modify(struct ldb_module *module, struct ldb_request *req)
 	}
 
 	ldb = ldb_module_get_ctx(module);
+
+	fix_links_control = ldb_request_get_control(req,
+					DSDB_CONTROL_DBCHECK_FIX_DUPLICATE_LINKS);
+	if (fix_links_control != NULL) {
+		struct dsdb_schema *schema = NULL;
+		const struct dsdb_attribute *sa = NULL;
+
+		if (req->op.mod.message->num_elements != 1) {
+			return ldb_module_operr(module);
+		}
+
+		if (req->op.mod.message->elements[0].flags != LDB_FLAG_MOD_REPLACE) {
+			return ldb_module_operr(module);
+		}
+
+		schema = dsdb_get_schema(ldb, req);
+		if (schema == NULL) {
+			return ldb_module_operr(module);
+		}
+
+		sa = dsdb_attribute_by_lDAPDisplayName(schema,
+				req->op.mod.message->elements[0].name);
+		if (sa == NULL) {
+			return ldb_module_operr(module);
+		}
+
+		if (sa->linkID == 0) {
+			return ldb_module_operr(module);
+		}
+
+		fix_links_control->critical = false;
+		return ldb_next_request(module, req);
+	}
 
 	ldb_debug(ldb, LDB_DEBUG_TRACE, "replmd_modify\n");
 
@@ -3715,7 +3811,8 @@ static int replmd_delete_remove_link(struct ldb_module *module,
 		ret = dsdb_module_search_dn(module, tmp_ctx, &link_res,
 					    msg->dn, attrs,
 					    DSDB_FLAG_NEXT_MODULE |
-					    DSDB_SEARCH_SHOW_EXTENDED_DN,
+					    DSDB_SEARCH_SHOW_EXTENDED_DN |
+					    DSDB_SEARCH_SHOW_RECYCLED,
 					    parent);
 
 		if (ret != LDB_SUCCESS) {
@@ -4198,6 +4295,7 @@ static int replmd_delete_internals(struct ldb_module *module, struct ldb_request
 				/* don't remove the rDN */
 				continue;
 			}
+
 			if (sa->linkID & 1) {
 				/*
 				  we have a backlink in this object
@@ -4211,7 +4309,16 @@ static int replmd_delete_internals(struct ldb_module *module, struct ldb_request
 								replmd_private,
 								old_dn, &guid,
 								el, sa, req);
-				if (ret != LDB_SUCCESS) {
+				if (ret == LDB_SUCCESS) {
+					/*
+					 * now we continue, which means we
+					 * won't remove this backlink
+					 * directly
+					 */
+					continue;
+				}
+
+				if (ret != LDB_ERR_NO_SUCH_ATTRIBUTE) {
 					const char *old_dn_str
 						= ldb_dn_get_linearized(old_dn);
 					ldb_asprintf_errstring(ldb,
@@ -4224,11 +4331,16 @@ static int replmd_delete_internals(struct ldb_module *module, struct ldb_request
 					talloc_free(tmp_ctx);
 					return LDB_ERR_OPERATIONS_ERROR;
 				}
-				/* now we continue, which means we
-				   won't remove this backlink
-				   directly
-				*/
-				continue;
+
+				/*
+				 * Otherwise vanish the link, we are
+				 * out of sync and the controlling
+				 * object does not have the source
+				 * link any more
+				 */
+
+				dsdb_flags |= DSDB_REPLMD_VANISH_LINKS;
+
 			} else if (sa->linkID == 0) {
 				if (ldb_attr_in_list(preserved_attrs, el->name)) {
 					continue;

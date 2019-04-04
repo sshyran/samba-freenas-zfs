@@ -15,7 +15,7 @@ def configure(conf):
                 print("Compiling with Intel AES instructions")
                 conf.DEFINE('HAVE_AESNI_INTEL', 1)
             else:
-                raise Utils.WafError('--aes-accel=intelaesni selected and non x86_64 CPU')
+                raise Utils.WafError('--accel-aes=intelaesni selected and non x86_64 CPU')
         else:
             raise Utils.WafError('--aes-accel=intelaesni selected and compiler rejects ' + str(asm_flags))
 

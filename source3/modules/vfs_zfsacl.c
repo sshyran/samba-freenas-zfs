@@ -132,26 +132,45 @@ static struct SMB4ACL_T *zfsacl_defaultacl(TALLOC_CTX *mem_ctx)
  */
 static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 				      TALLOC_CTX *mem_ctx,
-				      const char *name,
+				      const struct smb_filename *smb_fname,
 				      struct SMB4ACL_T **ppacl)
 {
 	int naces, i;
 	ace_t *acebuf;
 	struct SMB4ACL_T *pacl;
-	bool inherited_present;
+	bool inherited_present = false;
+	SMB_STRUCT_STAT sbuf;
+	const SMB_STRUCT_STAT *psbuf = NULL;
+	int ret;
+	bool is_dir;
+
+	if (VALID_STAT(smb_fname->st)) {
+		psbuf = &smb_fname->st;
+	}
+
+	if (psbuf == NULL) {
+		ret = vfs_stat_smb_basename(conn, smb_fname, &sbuf);
+		if (ret != 0) {
+			DBG_INFO("stat [%s]failed: %s\n",
+				 smb_fname_str_dbg(smb_fname), strerror(errno));
+			return map_nt_error_from_unix(errno);
+		}
+		psbuf = &sbuf;
+	}
+	is_dir = S_ISDIR(psbuf->st_ex_mode);
 
 	/* read the number of file aces */
-	if((naces = acl(name, ACE_GETACLCNT, 0, NULL)) == -1) {
+	if((naces = acl(smb_fname->base_name, ACE_GETACLCNT, 0, NULL)) == -1) {
 		if(errno == ENOSYS) {
 			DEBUG(9, ("acl(ACE_GETACLCNT, %s): Operation is not "
 				  "supported on the filesystem where the file "
-				  "reside\n", name));
+				  "reside\n", smb_fname->base_name));
                         if(lp_parm_bool(conn->params->service, "zfsacl", "expose_snapdir", false)) {
                                 *ppacl = zfsacl_defaultacl(mem_ctx);
                                 return NT_STATUS_OK;
 			}
 		} else {
-			DEBUG(9, ("acl(ACE_GETACLCNT, %s): %s ", name,
+			DEBUG(9, ("acl(ACE_GETACLCNT, %s): %s ", smb_fname->base_name,
 					strerror(errno)));
 		}
 		return map_nt_error_from_unix(errno);
@@ -163,8 +182,8 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
 		return NT_STATUS_NO_MEMORY;
 	}
 	/* read the aces into the field */
-	if(acl(name, ACE_GETACL, naces, acebuf) < 0) {
-		DEBUG(9, ("acl(ACE_GETACL, %s): %s ", name,
+	if(acl(smb_fname->base_name, ACE_GETACL, naces, acebuf) < 0) {
+		DEBUG(9, ("acl(ACE_GETACL, %s): %s ", smb_fname->base_name,
 				strerror(errno)));
 		return map_nt_error_from_unix(errno);
 	}
@@ -189,6 +208,19 @@ static NTSTATUS zfs_get_nt_acl_common(struct connection_struct *conn,
  			inherited_present = true;
 		}
 		
+		/*
+		 * Windows clients expect SYNC on acls to correctly allow
+		 * rename, cf bug #7909. But not on DENY ace entries, cf bug
+		 * #8442.
+		 */
+		if (aceprop.aceType == SMB_ACE4_ACCESS_ALLOWED_ACE_TYPE) {
+			aceprop.aceMask |= SMB_ACE4_SYNCHRONIZE;
+		}
+
+		if (is_dir && (aceprop.aceMask & SMB_ACE4_ADD_FILE)) {
+			aceprop.aceMask |= SMB_ACE4_DELETE_CHILD;
+		}
+
 		if(aceprop.aceFlags & ACE_OWNER) {
 			aceprop.flags = SMB_ACE4_ID_SPECIAL;
 			aceprop.who.special_id = SMB_ACE4_WHO_OWNER;
@@ -319,8 +351,7 @@ static NTSTATUS zfsacl_fget_nt_acl(struct vfs_handle_struct *handle,
 	TALLOC_CTX *frame = talloc_stackframe();
 
 	status = zfs_get_nt_acl_common(handle->conn, frame,
-				       fsp->fsp_name->base_name,
-				       &pacl);
+				       fsp->fsp_name, &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
 		return status;
@@ -342,9 +373,7 @@ static NTSTATUS zfsacl_get_nt_acl(struct vfs_handle_struct *handle,
 	NTSTATUS status;
 	TALLOC_CTX *frame = talloc_stackframe();
 
-	status = zfs_get_nt_acl_common(handle->conn, frame,
-					smb_fname->base_name,
-					&pacl);
+	status = zfs_get_nt_acl_common(handle->conn, frame, smb_fname, &pacl);
 	if (!NT_STATUS_IS_OK(status)) {
 		TALLOC_FREE(frame);
 		return status;

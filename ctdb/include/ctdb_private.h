@@ -584,6 +584,8 @@ struct ctdb_client *ctdb_find_client_by_pid(struct ctdb_context *ctdb,
 					    pid_t pid);
 
 int32_t ctdb_control_process_exists(struct ctdb_context *ctdb, pid_t pid);
+int32_t ctdb_control_check_pid_srvid(struct ctdb_context *ctdb,
+				     TDB_DATA indata);
 
 int ctdb_control_getnodesfile(struct ctdb_context *ctdb, uint32_t opcode,
 			      TDB_DATA indata, TDB_DATA *outdata);
@@ -722,9 +724,12 @@ int ctdb_set_db_readonly(struct ctdb_context *ctdb,
 
 int ctdb_process_deferred_attach(struct ctdb_context *ctdb);
 
-int32_t ctdb_control_db_attach(struct ctdb_context *ctdb, TDB_DATA indata,
+int32_t ctdb_control_db_attach(struct ctdb_context *ctdb,
+			       TDB_DATA indata,
 			       TDB_DATA *outdata,
-			       uint8_t db_flags, uint32_t client_id,
+			       uint8_t db_flags,
+			       uint32_t srcnode,
+			       uint32_t client_id,
 			       struct ctdb_req_control_old *c,
 			       bool *async_reply);
 int32_t ctdb_control_db_detach(struct ctdb_context *ctdb, TDB_DATA indata,

@@ -63,8 +63,8 @@ static void wb_getpwsid_queryuser_done(struct tevent_req *subreq)
 		req, struct wb_getpwsid_state);
 	struct winbindd_pw *pw = state->pw;
 	struct wbint_userinfo *info;
-	struct winbindd_domain *domain = NULL;
-	fstring acct_name, output_username;
+	fstring acct_name;
+	const char *output_username = NULL;
 	char *mapped_name = NULL;
 	char *tmp;
 	NTSTATUS status;
@@ -85,11 +85,6 @@ static void wb_getpwsid_queryuser_done(struct tevent_req *subreq)
 		return;
 	}
 
-	domain = find_domain_from_name_noinit(info->domain_name);
-	if (tevent_req_nomem(domain, req)) {
-		return;
-	}
-
 	/*
 	 * TODO:
 	 * This function should be called in 'idmap winbind child'. It shouldn't
@@ -97,20 +92,20 @@ static void wb_getpwsid_queryuser_done(struct tevent_req *subreq)
 	 * winbind.idl. This is a fix which can be backported for now.
 	 */
 	status = normalize_name_map(state,
-				    domain,
+				    info->domain_name,
 				    acct_name,
 				    &mapped_name);
-	if (NT_STATUS_IS_OK(status)) {
-		fill_domain_username(output_username,
-				     info->domain_name,
-				     mapped_name, true);
+	if (NT_STATUS_IS_OK(status) ||
+	    NT_STATUS_EQUAL(status, NT_STATUS_FILE_RENAMED)) {
 		fstrcpy(acct_name, mapped_name);
-	} else if (NT_STATUS_EQUAL(status, NT_STATUS_FILE_RENAMED)) {
-		fstrcpy(acct_name, mapped_name);
-	} else {
-		fill_domain_username(output_username,
-				     info->domain_name,
-				     acct_name, true);
+	}
+	output_username = fill_domain_username_talloc(state,
+						      info->domain_name,
+						      acct_name,
+						      true);
+	if (output_username == NULL) {
+		tevent_req_nterror(req, NT_STATUS_NO_MEMORY);
+		return;
 	}
 
 	strlcpy(pw->pw_name, output_username, sizeof(pw->pw_name));

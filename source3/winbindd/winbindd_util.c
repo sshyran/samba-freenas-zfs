@@ -222,6 +222,18 @@ add_trusted_domain_from_tdc(const struct winbindd_tdc_domain *tdc)
 		return NULL;
 	}
 
+	domain->queue = tevent_queue_create(domain, "winbind_domain");
+	if (domain->queue == NULL) {
+		TALLOC_FREE(domain);
+		return NULL;
+	}
+
+	domain->binding_handle = wbint_binding_handle(domain, domain, NULL);
+	if (domain->binding_handle == NULL) {
+		TALLOC_FREE(domain);
+		return NULL;
+	}
+
 	domain->name = talloc_strdup(domain, domain_name);
 	if (domain->name == NULL) {
 		TALLOC_FREE(domain);
@@ -321,7 +333,7 @@ static void add_trusted_domains( struct winbindd_domain *domain )
 	state->request.length = sizeof(state->request);
 	state->request.cmd = WINBINDD_LIST_TRUSTDOM;
 
-	req = wb_domain_request_send(state, winbind_event_context(),
+	req = wb_domain_request_send(state, server_event_context(),
 				     domain, &state->request);
 	if (req == NULL) {
 		DEBUG(1, ("wb_domain_request_send failed\n"));
@@ -653,7 +665,12 @@ enum winbindd_result winbindd_dual_init_connection(struct winbindd_domain *domai
 		[sizeof(state->request->data.init_conn.dcname)-1]='\0';
 
 	if (strlen(state->request->data.init_conn.dcname) > 0) {
-		fstrcpy(domain->dcname, state->request->data.init_conn.dcname);
+		TALLOC_FREE(domain->dcname);
+		domain->dcname = talloc_strdup(domain,
+				state->request->data.init_conn.dcname);
+		if (domain->dcname == NULL) {
+			return WINBINDD_ERROR;
+		}
 	}
 
 	init_dc_connection(domain, false);
@@ -1173,26 +1190,6 @@ bool canonicalize_username(fstring username_inout, fstring domain, fstring user)
 
     We always canonicalize as UPPERCASE DOMAIN, lowercase username.
 */
-void fill_domain_username(fstring name, const char *domain, const char *user, bool can_assume)
-{
-	fstring tmp_user;
-
-	if (lp_server_role() == ROLE_ACTIVE_DIRECTORY_DC) {
-		can_assume = false;
-	}
-
-	fstrcpy(tmp_user, user);
-	(void)strlower_m(tmp_user);
-
-	if (can_assume && assume_domain(domain)) {
-		strlcpy(name, tmp_user, sizeof(fstring));
-	} else {
-		slprintf(name, sizeof(fstring) - 1, "%s%c%s",
-			 domain, *lp_winbind_separator(),
-			 tmp_user);
-	}
-}
-
 /**
  * talloc version of fill_domain_username()
  * return NULL on talloc failure.
@@ -1339,10 +1336,11 @@ NTSTATUS lookup_usergroups_cached(TALLOC_CTX *mem_ctx,
 ********************************************************************/
 
 NTSTATUS normalize_name_map(TALLOC_CTX *mem_ctx,
-			     struct winbindd_domain *domain,
+			     const char *domain_name,
 			     const char *name,
 			     char **normalized)
 {
+	struct winbindd_domain *domain = NULL;
 	NTSTATUS nt_status;
 
 	if (!name || !normalized) {
@@ -1351,6 +1349,12 @@ NTSTATUS normalize_name_map(TALLOC_CTX *mem_ctx,
 
 	if (!lp_winbind_normalize_names()) {
 		return NT_STATUS_PROCEDURE_NOT_FOUND;
+	}
+
+	domain = find_domain_from_name_noinit(domain_name);
+	if (domain == NULL) {
+		DBG_ERR("Failed to find domain '%s'\n",	domain_name);
+		return NT_STATUS_NO_SUCH_DOMAIN;
 	}
 
 	/* Alias support and whitespace replacement are mutually

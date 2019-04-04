@@ -700,13 +700,9 @@ sub setup_simpleserver($$)
 	my $simpleserver_options = "
 	lanman auth = yes
 	ntlm auth = yes
-	vfs objects = xattr_tdb streams_depot time_audit full_audit
+	vfs objects = xattr_tdb streams_depot
 	change notify = no
 	smb encrypt = off
-
-	full_audit:syslog = no
-	full_audit:success = none
-	full_audit:failure = none
 
 [vfs_aio_fork]
 	path = $prefix_abs/share
@@ -795,6 +791,8 @@ sub setup_fileserver($$)
 	push(@dirs,$usershare_sharedir);
 
 	my $fileserver_options = "
+	kernel change notify = yes
+
 	usershare path = $usershare_dir
 	usershare max shares = 10
 	usershare allow guests = yes
@@ -1639,7 +1637,11 @@ sub provision($$$$$$$$$)
 	dos filemode = yes
 	strict rename = yes
 	strict sync = yes
-	vfs objects = acl_xattr fake_acls xattr_tdb streams_depot
+	vfs objects = acl_xattr fake_acls xattr_tdb streams_depot time_audit full_audit
+
+	full_audit:syslog = no
+	full_audit:success = none
+	full_audit:failure = none
 
 	printing = vlp
 	print command = $bindir_abs/vlp tdbfile=$lockdir/vlp.tdb print %p %s
@@ -1802,31 +1804,44 @@ sub provision($$$$$$$$$)
 
 [vfs_fruit]
 	path = $shrdir
+	vfs objects = catia fruit streams_xattr acl_xattr xattr_tdb
+	fruit:resource = file
+	fruit:metadata = netatalk
+	fruit:locking = netatalk
+	fruit:encoding = native
+	fruit:veto_appledouble = no
+
+[vfs_fruit_xattr]
+	path = $shrdir
+        # This is used by vfs.fruit tests that require real fs xattr
 	vfs objects = catia fruit streams_xattr acl_xattr
 	fruit:resource = file
 	fruit:metadata = netatalk
 	fruit:locking = netatalk
 	fruit:encoding = native
+	fruit:veto_appledouble = no
 
 [vfs_fruit_metadata_stream]
 	path = $shrdir
-	vfs objects = fruit streams_xattr acl_xattr
+	vfs objects = fruit streams_xattr acl_xattr xattr_tdb
 	fruit:resource = file
 	fruit:metadata = stream
+	fruit:veto_appledouble = no
 
 [vfs_fruit_stream_depot]
 	path = $shrdir
-	vfs objects = fruit streams_depot acl_xattr
+	vfs objects = fruit streams_depot acl_xattr xattr_tdb
 	fruit:resource = stream
 	fruit:metadata = stream
+	fruit:veto_appledouble = no
 
 [vfs_wo_fruit]
 	path = $shrdir
-	vfs objects = streams_xattr acl_xattr
+	vfs objects = streams_xattr acl_xattr xattr_tdb
 
 [vfs_wo_fruit_stream_depot]
 	path = $shrdir
-	vfs objects = streams_depot acl_xattr
+	vfs objects = streams_depot acl_xattr xattr_tdb
 
 [badname-tmp]
 	path = $badnames_shrdir
@@ -1992,6 +2007,12 @@ sub provision($$$$$$$$$)
 	vfs objects = acl_xattr fake_acls xattr_tdb fake_dfq
 	admin users = $unix_name
 	include = $dfqconffile
+[dfq_cache]
+	path = $shrdir/dfree
+	vfs objects = acl_xattr fake_acls xattr_tdb fake_dfq
+	admin users = $unix_name
+	include = $dfqconffile
+	dfree cache time = 60
 [dfq_owner]
 	path = $shrdir/dfree
 	vfs objects = acl_xattr fake_acls xattr_tdb fake_dfq
@@ -2025,9 +2046,25 @@ sub provision($$$$$$$$$)
 	kernel oplocks = yes
 	vfs objects = streams_xattr xattr_tdb
 
+[streams_xattr]
+	copy = tmp
+	vfs objects = streams_xattr xattr_tdb
+
 [compound_find]
 	copy = tmp
 	smbd:find async delay usec = 10000
+[error_inject]
+	copy = tmp
+	vfs objects = error_inject
+	include = $libdir/error_inject.conf
+
+[delay_inject]
+	copy = tmp
+	vfs objects = delay_inject
+	kernel share modes = no
+	kernel oplocks = no
+	posix locking = no
+	include = $libdir/delay_inject.conf
 	";
 	close(CONF);
 
