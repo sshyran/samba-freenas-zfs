@@ -1,3 +1,13 @@
+samba (2:4.9.5+dfsg-3) unstable; urgency=high
+
+  * This is a security release in order to address the following defects:
+    - CVE-2019-3870 pysmbd:missing restoration of original umask after umask(0)
+    - CVE-2019-3880 Save registry file outside share as unprivileged user
+  * samba-libs: Fix Breaks+Replaces: libndr-standard0 (<< 2:4.0.9)
+    (Closes: #910242)
+
+ -- Mathieu Parent <sathieu@debian.org>  Fri, 05 Apr 2019 16:49:01 +0200
+
 samba (2:4.9.5+dfsg-2) unstable; urgency=medium
 
   * Upload to unstable
