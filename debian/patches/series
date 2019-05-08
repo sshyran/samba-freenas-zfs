@@ -10,3 +10,4 @@ nsswitch-Add-try_authtok-option-to-pam_winbind.patch
 smbd.service-Run-update-apparmor-samba-profile-befor.patch
 CVE-2019-3880-v4-9-02.patch
 CVE-2019-3870-v4-9-04.patch
+CVE-2018-16860-v4-9-06.patch
