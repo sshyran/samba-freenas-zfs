@@ -1,3 +1,12 @@
+samba (2:4.9.5+dfsg-5) unstable; urgency=high
+
+  * This is a security release in order to address the following defect:
+    - CVE-2019-12435 zone operations can crash rpc server
+  * Add missing Breaks+Replace found by piuparts (Closes: #929217)
+    Thanks Andreas Beckmann!
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 20 Jun 2019 07:53:26 +0200
+
 samba (2:4.9.5+dfsg-4) unstable; urgency=high
 
   * This is a security release in order to address the following defect:
