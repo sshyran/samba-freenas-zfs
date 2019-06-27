@@ -1,0 +1,38 @@
+From d493f99928004fd2415ccca6702f8aa990addcf7 Mon Sep 17 00:00:00 2001
+From: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
+Date: Thu, 27 Jun 2019 20:12:25 +0000
+Subject: [PATCH] ctdb-config: depend on /etc/ctdb/nodes file
+
+BUG: https://bugzilla.samba.org/show_bug.cgi?id=14017
+
+CTDB should start as a disabled unit (systemd) in most of the
+distributions and, when trying to enable it for the first time, user
+should get an unconfigured, or similar, error.
+
+Depending on /etc/ctdb/nodes file will give a clear direction to final
+user on what is needed in order to get cluster up and running. It should
+work like previous ENABLED=NO variables in SySV like initialization
+scripts.
+
+Signed-off-by: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
+Reviewed-by: Martin Schwenke <martin@meltin.net>
+Reviewed-by: Amitay Isaacs <amitay@gmail.com>
+---
+ ctdb/config/ctdb.service | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ctdb/config/ctdb.service b/ctdb/config/ctdb.service
+index 675b3147417..fd81c38e26d 100644
+--- a/ctdb/config/ctdb.service
++++ b/ctdb/config/ctdb.service
+@@ -2,6 +2,7 @@
+ Description=CTDB
+ Documentation=man:ctdbd(1) man:ctdb(7)
+ After=network-online.target time-sync.target
++ConditionFileNotEmpty=/etc/ctdb/nodes
+ 
+ [Service]
+ Type=forking
+-- 
+2.20.1
+
