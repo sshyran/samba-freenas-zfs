@@ -1,0 +1,97 @@
+Description: fix nfs service name to nfs-kernel-server
+
+Upstream code used to comment in/out service script names related to a specific
+distribution. Recently, they've changed this to a method of detecting on which
+distribution ctdb is running, and then setting the systemd unit file name, for
+example.
+
+Because of this new detection mechanism, it is impossible to suggest upstream a
+change like this patch and, at the same time, backporting this new code could
+bring more problems. Instead, this patch should be kept until a new merge with
+upstream is done.
+
+This temporary patch fixes the NFS service name for Debian & Ubuntu.
+
+Signed-off-by: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
+
+Author: Rafael David Tinoco <rafaeldtinoco@gmail.com>
+Bug-Debian: https://bugs.debian.org/929931
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/722201
+Last-Update: 2018-06-26
+
+---
+ ctdb/config/events/legacy/60.nfs.script |  4 ++--
+ ctdb/config/nfs-linux-kernel-callout    | 12 ++++++------
+ ctdb/config/statd-callout               |  4 ++--
+ 3 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/ctdb/config/events/legacy/60.nfs.script b/ctdb/config/events/legacy/60.nfs.script
+index 2eb90b421..5c6a09033 100755
+--- a/ctdb/config/events/legacy/60.nfs.script
++++ b/ctdb/config/events/legacy/60.nfs.script
+@@ -6,9 +6,9 @@
+ 
+ . "${CTDB_BASE}/functions"
+ 
+-service_name="nfs"
++service_name="nfs-kernel-server"
+ 
+-load_system_config "nfs"
++load_system_config "nfs-kernel-server"
+ 
+ load_script_options
+ 
+diff --git a/ctdb/config/nfs-linux-kernel-callout b/ctdb/config/nfs-linux-kernel-callout
+index 9b72446b4..3acd43fee 100755
+--- a/ctdb/config/nfs-linux-kernel-callout
++++ b/ctdb/config/nfs-linux-kernel-callout
+@@ -13,9 +13,9 @@ set -e
+ nfs_exports_file="${CTDB_NFS_EXPORTS_FILE:-/var/lib/nfs/etab}"
+ 
+ # Red Hat
+-nfs_service="nfs"
+-nfslock_service="nfslock"
+-nfs_config="/etc/sysconfig/nfs"
++#nfs_service="nfs"
++#nfslock_service="nfslock"
++#nfs_config="/etc/sysconfig/nfs"
+ 
+ # SUSE
+ #nfs_service="nfsserver"
+@@ -23,9 +23,9 @@ nfs_config="/etc/sysconfig/nfs"
+ #nfs_config="/etc/sysconfig/nfs"
+ 
+ # Debian
+-#nfs_service="nfs-kernel-server"
+-#nfslock_service=""
+-#nfs_config="/etc/default/nfs-kernel-server"
++nfs_service="nfs-kernel-server"
++nfslock_service=""
++nfs_config="/etc/default/nfs-kernel-server"
+ 
+ # Override for unit testing
+ if [ -z "$PROCFS_PATH" ] ; then
+diff --git a/ctdb/config/statd-callout b/ctdb/config/statd-callout
+index bf18b5586..d0c807ee3 100755
+--- a/ctdb/config/statd-callout
++++ b/ctdb/config/statd-callout
+@@ -20,14 +20,14 @@ die ()
+     exit 1
+ }
+ 
+-load_system_config "nfs"
++load_system_config "nfs-kernel-server"
+ 
+ [ -n "$NFS_HOSTNAME" ] || \
+     die "NFS_HOSTNAME is not configured. statd-callout failed"
+ 
+ ############################################################
+ 
+-ctdb_setup_state_dir "service" "nfs"
++ctdb_setup_state_dir "service" "nfs-kernel-server"
+ 
+ # script_state_dir set by ctdb_setup_state_dir()
+ # shellcheck disable=SC2154
+-- 
+2.20.1
+
