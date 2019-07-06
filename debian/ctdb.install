@@ -23,6 +23,7 @@ usr/lib/*/ctdb/ctdb_recovery_helper
 usr/lib/*/ctdb/ctdb_takeover_helper
 usr/lib/*/ctdb/smnotify
 usr/lib/*/samba/libctdb-event-client.so.0
+usr/lib/tmpfiles.d/ctdb.conf
 usr/sbin/ctdbd
 usr/sbin/ctdbd_wrapper
 usr/share/ctdb/events/legacy/*.script

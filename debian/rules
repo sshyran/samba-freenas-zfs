@@ -171,6 +171,7 @@ endif
 	# such as OpenRC's opentmpfiles
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	echo "d /run/samba 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/samba.conf
+	echo "d /run/ctdb 0755 root root -" > $(DESTDIR)/usr/lib/tmpfiles.d/ctdb.conf
 
 override_dh_installdocs-arch:
 	cp ctdb/config/events/README ctdb/README.eventscripts
