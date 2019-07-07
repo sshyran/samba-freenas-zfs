@@ -77,7 +77,20 @@ ctdb_test_init ()
 
 ########################################
 
-# Sets: $out
+# Sets: $out, $outfile
+# * The first 1KB of output is put into $out
+# * Tests should use $outfile for handling large output
+# * $outfile is removed after each test
+out=""
+outfile="${TEST_VAR_DIR}/try_command_on_node.out"
+
+outfile_cleanup ()
+{
+	rm -f "$outfile"
+}
+
+ctdb_test_exit_hook_add outfile_cleanup
+
 try_command_on_node ()
 {
     local nodespec="$1" ; shift
@@ -96,16 +109,19 @@ try_command_on_node ()
 
     local cmd="$*"
 
-    out=$(onnode -q $onnode_opts "$nodespec" "$cmd" 2>&1) || {
+    local status=0
+    onnode -q $onnode_opts "$nodespec" "$cmd" >"$outfile" 2>&1 || status=$?
+    out=$(dd if="$outfile" bs=1k count=1 2>/dev/null)
 
+    if [ $status -ne 0 ] ; then
 	echo "Failed to execute \"$cmd\" on node(s) \"$nodespec\""
-	echo "$out"
+	cat "$outfile"
 	return 1
-    }
+    fi
 
     if $verbose ; then
 	echo "Output of \"$cmd\":"
-	echo "$out"
+	cat "$outfile"
     fi
 }
 
@@ -113,11 +129,10 @@ sanity_check_output ()
 {
     local min_lines="$1"
     local regexp="$2" # Should be anchored as necessary.
-    local output="$3"
 
     local ret=0
 
-    local num_lines=$(echo "$output" | wc -l)
+    local num_lines=$(wc -l <"$outfile")
     echo "There are $num_lines lines of output"
     if [ $num_lines -lt $min_lines ] ; then
 	echo "BAD: that's less than the required number (${min_lines})"
@@ -126,7 +141,7 @@ sanity_check_output ()
 
     local status=0
     local unexpected # local doesn't pass through status of command on RHS.
-    unexpected=$(echo "$output" | egrep -v "$regexp") || status=$?
+    unexpected=$(grep -Ev "$regexp" "$outfile") || status=$?
 
     # Note that this is reversed.
     if [ $status -eq 0 ] ; then
@@ -140,30 +155,7 @@ sanity_check_output ()
     return $ret
 }
 
-sanity_check_ips ()
-{
-    local ips="$1" # list of "ip node" lines
-
-    echo "Sanity checking IPs..."
-
-    local x ipp prev
-    prev=""
-    while read x ipp ; do
-	[ "$ipp" = "-1" ] && break
-	if [ -n "$prev" -a "$ipp" != "$prev" ] ; then
-	    echo "OK"
-	    return 0
-	fi
-	prev="$ipp"
-    done <<<"$ips"
-
-    echo "BAD: a node was -1 or IPs are only assigned to one node:"
-    echo "$ips"
-    echo "Are you running an old version of CTDB?"
-    return 1
-}
-
-# This returns a list of "ip node" lines in $out
+# This returns a list of "ip node" lines in $outfile
 all_ips_on_node()
 {
     local node="$1"
@@ -184,9 +176,9 @@ _select_test_node_and_ips ()
 	    test_node="$pnn"
 	fi
 	if [ "$pnn" = "$test_node" ] ; then
-            test_node_ips="${test_node_ips}${test_node_ips:+ }${ip}"
+	    test_node_ips="${test_node_ips}${test_node_ips:+ }${ip}"
 	fi
-    done <<<"$out" # bashism to avoid problem setting variable in pipeline.
+    done <"$outfile"
 
     echo "Selected node ${test_node} with IPs: ${test_node_ips}."
     test_ip="${test_node_ips%% *}"
@@ -256,7 +248,7 @@ delete_ip_from_all_nodes ()
 	    if [ "$_ip" = "$_i" ] ; then
 		_nodes="${_nodes}${_nodes:+,}${_pnn}"
 	    fi
-	done <<<"$out" # bashism
+	done <"$outfile"
     done
 
     try_command_on_node -pq "$_nodes" "$CTDB delip $_ip"
@@ -426,7 +418,7 @@ ips_are_on_node ()
 	    if $negating ; then
 		ips="${ips/${check}}"
 	    fi
-	done <<<"$out" # bashism to avoid problem setting variable in pipeline.
+	done <"$outfile"
     done
 
     ips="${ips// }" # Remove any spaces.
@@ -468,7 +460,7 @@ node_has_some_ips ()
 	if [ "$node" = "$pnn" ] ; then
 	    return 0
 	fi
-    done <<<"$out" # bashism to avoid problem setting variable in pipeline.
+    done <"$outfile"
 
     return 1
 }
@@ -610,7 +602,8 @@ wait_for_monitor_event ()
 	return 1
     }
 
-    local ctdb_scriptstatus_original="$out"
+    mv "$outfile" "${outfile}.orig"
+
     wait_until 120 _ctdb_scriptstatus_changed
 }
 
@@ -621,7 +614,7 @@ _ctdb_scriptstatus_changed ()
 	return 1
     }
 
-    [ "$out" != "$ctdb_scriptstatus_original" ]
+    ! diff "$outfile" "${outfile}.orig" >/dev/null
 }
 
 #######################################

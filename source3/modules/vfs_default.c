@@ -1630,6 +1630,8 @@ static struct tevent_req *vfswrap_offload_write_send(
 {
 	struct tevent_req *req;
 	struct vfswrap_offload_write_state *state = NULL;
+	/* off_t is signed! */
+	off_t max_offset = INT64_MAX - to_copy;
 	size_t num = MIN(to_copy, COPYCHUNK_MAX_TOTAL_LEN);
 	files_struct *src_fsp = NULL;
 	NTSTATUS status;
@@ -1681,6 +1683,35 @@ static struct tevent_req *vfswrap_offload_write_send(
 		return tevent_req_post(req, ev);
 	}
 
+	if (state->src_off > max_offset) {
+		/*
+		 * Protect integer checks below.
+		 */
+		tevent_req_nterror(req, NT_STATUS_INVALID_PARAMETER);
+		return tevent_req_post(req, ev);
+	}
+	if (state->src_off < 0) {
+		/*
+		 * Protect integer checks below.
+		 */
+		tevent_req_nterror(req, NT_STATUS_INVALID_PARAMETER);
+		return tevent_req_post(req, ev);
+	}
+	if (state->dst_off > max_offset) {
+		/*
+		 * Protect integer checks below.
+		 */
+		tevent_req_nterror(req, NT_STATUS_INVALID_PARAMETER);
+		return tevent_req_post(req, ev);
+	}
+	if (state->dst_off < 0) {
+		/*
+		 * Protect integer checks below.
+		 */
+		tevent_req_nterror(req, NT_STATUS_INVALID_PARAMETER);
+		return tevent_req_post(req, ev);
+	}
+
 	status = vfs_offload_token_db_fetch_fsp(vfswrap_offload_ctx,
 						token, &src_fsp);
 	if (tevent_req_nterror(req, status)) {
@@ -1704,17 +1735,12 @@ static struct tevent_req *vfswrap_offload_write_send(
 	state->src_ev = src_fsp->conn->user_ev_ctx;
 	state->src_fsp = src_fsp;
 
-	state->buf = talloc_array(state, uint8_t, num);
-	if (tevent_req_nomem(state->buf, req)) {
-		return tevent_req_post(req, ev);
-	}
-
 	status = vfs_stat_fsp(src_fsp);
 	if (tevent_req_nterror(req, status)) {
 		return tevent_req_post(req, ev);
 	}
 
-	if (src_fsp->fsp_name->st.st_ex_size < state->src_off + num) {
+	if (src_fsp->fsp_name->st.st_ex_size < state->src_off + to_copy) {
 		/*
 		 * [MS-SMB2] 3.3.5.15.6 Handling a Server-Side Data Copy Request
 		 *   If the SourceOffset or SourceOffset + Length extends beyond
@@ -1725,6 +1751,11 @@ static struct tevent_req *vfswrap_offload_write_send(
 		 *   STATUS_INVALID_VIEW_SIZE instead of STATUS_END_OF_FILE.
 		 */
 		tevent_req_nterror(req, NT_STATUS_INVALID_VIEW_SIZE);
+		return tevent_req_post(req, ev);
+	}
+
+	state->buf = talloc_array(state, uint8_t, num);
+	if (tevent_req_nomem(state->buf, req)) {
 		return tevent_req_post(req, ev);
 	}
 
@@ -1797,7 +1828,7 @@ static void vfswrap_offload_write_read_done(struct tevent_req *subreq)
 	nread = SMB_VFS_PREAD_RECV(subreq, &aio_state);
 	TALLOC_FREE(subreq);
 	if (nread == -1) {
-		DBG_ERR("read failed: %s\n", strerror(errno));
+		DBG_ERR("read failed: %s\n", strerror(aio_state.error));
 		tevent_req_nterror(req, map_nt_error_from_unix(aio_state.error));
 		return;
 	}
@@ -1858,7 +1889,7 @@ static void vfswrap_offload_write_write_done(struct tevent_req *subreq)
 	nwritten = SMB_VFS_PWRITE_RECV(subreq, &aio_state);
 	TALLOC_FREE(subreq);
 	if (nwritten == -1) {
-		DBG_ERR("write failed: %s\n", strerror(errno));
+		DBG_ERR("write failed: %s\n", strerror(aio_state.error));
 		tevent_req_nterror(req, map_nt_error_from_unix(aio_state.error));
 		return;
 	}

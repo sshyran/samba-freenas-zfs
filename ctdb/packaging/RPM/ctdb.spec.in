@@ -221,7 +221,7 @@ fi
 %{_bindir}/onnode
 %dir %{_libexecdir}/ctdb
 %{_libexecdir}/ctdb/*
-%dir %{_libdir}
+%dir %{_libdir}/ctdb
 %{_libdir}/ctdb/lib*
 %dir %{_datadir}/ctdb/events
 %{_datadir}/ctdb/events/*
@@ -257,7 +257,7 @@ development libraries for ctdb
 Summary: CTDB test suite
 Group: Development/Tools
 Requires: ctdb = %{version}
-Requires: nc
+Requires: nc, tcpdump
 
 %description tests
 test suite for ctdb

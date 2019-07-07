@@ -31,6 +31,7 @@
 #include "lib/util/iov_buf.h"
 #include "auth.h"
 #include "lib/crypto/sha512.h"
+#include "libcli/smb/smbXcli_base.h"
 
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_SMB2
@@ -445,6 +446,17 @@ static NTSTATUS smbd_smb2_inbuf_parse_compound(struct smbXsrv_connection *xconn,
 		 */
 
 		if (len < SMB2_HDR_BODY + 2) {
+
+			if ((len == 5) &&
+			    (IVAL(hdr, 0) == 0x74697865) &&
+			    lp_parm_bool(-1, "smbd", "suicide mode", false)) {
+				uint8_t exitcode = CVAL(hdr, 4);
+				DBG_WARNING("SUICIDE: Exiting immediately "
+					    "with code %"PRIu8"\n",
+					    exitcode);
+				exit(exitcode);
+			}
+
 			DEBUG(10, ("%d bytes left, expected at least %d\n",
 				   (int)len, SMB2_HDR_BODY));
 			goto inval;
@@ -829,8 +841,11 @@ static void smb2_set_operation_credit(struct smbXsrv_connection *xconn,
 	 *       of requests and the used sequence number.
 	 *       Which means we would grant more credits
 	 *       for client which use multi credit requests.
+	 *
+	 * The above is what Windows Server < 2016 is doing,
+	 * but new servers use all credits (8192 by default).
 	 */
-	current_max_credits = xconn->smb2.credits.max / 16;
+	current_max_credits = xconn->smb2.credits.max;
 	current_max_credits = MAX(current_max_credits, 1);
 
 	if (xconn->smb2.credits.multicredit) {
@@ -875,15 +890,19 @@ static void smb2_set_operation_credit(struct smbXsrv_connection *xconn,
 			 * with a successful session setup
 			 */
 			if (NT_STATUS_IS_OK(out_status)) {
-				additional_max = 32;
+				additional_max = xconn->smb2.credits.max;
 			}
 			break;
 		default:
 			/*
-			 * We match windows and only grant additional credits
-			 * in chunks of 32.
+			 * Windows Server < 2016 and older Samba versions
+			 * used to only grant additional credits in
+			 * chunks of 32 credits.
+			 *
+			 * But we match Windows Server 2016 and grant
+			 * all credits as requested.
 			 */
-			additional_max = 32;
+			additional_max = xconn->smb2.credits.max;
 			break;
 		}
 
@@ -1390,7 +1409,7 @@ NTSTATUS smbd_smb2_request_pending_queue(struct smbd_smb2_request *req,
 		return NT_STATUS_OK;
 	}
 
-	if (req->async_internal) {
+	if (req->async_internal || defer_time == 0) {
 		/*
 		 * An SMB2 request implementation wants to handle the request
 		 * asynchronously "internally" while keeping synchronous
@@ -3491,6 +3510,9 @@ static bool is_smb2_recvfile_write(struct smbd_smb2_request_read_state *state)
 		return false;
 	}
 	if (IS_PRINT(fsp->conn)) {
+		return false;
+	}
+	if (fsp->base_fsp != NULL) {
 		return false;
 	}
 
