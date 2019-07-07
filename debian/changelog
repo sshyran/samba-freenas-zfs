@@ -1,3 +1,11 @@
+samba (2:4.9.11+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+    - Bump ldb Build-Depends to 2:1.5.1+really1.4.7
+    - Fixes printing via smbspool backend with kerberos auth (Closes: #931481)
+
+ -- Mathieu Parent <sathieu@debian.org>  Sun, 07 Jul 2019 08:40:22 +0200
+
 samba (2:4.9.5+dfsg-5) unstable; urgency=high
 
   * This is a security release in order to address the following defect:
