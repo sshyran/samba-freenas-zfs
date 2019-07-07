@@ -1,4 +1,4 @@
-Description: fix nfs service name to nfs-kernel-server
+Subject: fix nfs service name to nfs-kernel-server
 
 Upstream code used to comment in/out service script names related to a specific
 distribution. Recently, they've changed this to a method of detecting on which
@@ -26,7 +26,7 @@ Last-Update: 2018-06-26
  3 files changed, 10 insertions(+), 10 deletions(-)
 
 diff --git a/ctdb/config/events/legacy/60.nfs.script b/ctdb/config/events/legacy/60.nfs.script
-index 2eb90b421..5c6a09033 100755
+index 2eb90b421c8..5c6a0903322 100755
 --- a/ctdb/config/events/legacy/60.nfs.script
 +++ b/ctdb/config/events/legacy/60.nfs.script
 @@ -6,9 +6,9 @@
@@ -42,45 +42,29 @@ index 2eb90b421..5c6a09033 100755
  load_script_options
  
 diff --git a/ctdb/config/nfs-linux-kernel-callout b/ctdb/config/nfs-linux-kernel-callout
-index 9b72446b4..3acd43fee 100755
+index 12ed17c6d9e..94111f10eb7 100755
 --- a/ctdb/config/nfs-linux-kernel-callout
 +++ b/ctdb/config/nfs-linux-kernel-callout
-@@ -13,9 +13,9 @@ set -e
- nfs_exports_file="${CTDB_NFS_EXPORTS_FILE:-/var/lib/nfs/etab}"
- 
- # Red Hat
--nfs_service="nfs"
--nfslock_service="nfslock"
--nfs_config="/etc/sysconfig/nfs"
-+#nfs_service="nfs"
-+#nfslock_service="nfslock"
-+#nfs_config="/etc/sysconfig/nfs"
- 
- # SUSE
- #nfs_service="nfsserver"
-@@ -23,9 +23,9 @@ nfs_config="/etc/sysconfig/nfs"
- #nfs_config="/etc/sysconfig/nfs"
- 
- # Debian
--#nfs_service="nfs-kernel-server"
--#nfslock_service=""
--#nfs_config="/etc/default/nfs-kernel-server"
-+nfs_service="nfs-kernel-server"
-+nfslock_service=""
-+nfs_config="/etc/default/nfs-kernel-server"
- 
- # Override for unit testing
- if [ -z "$PROCFS_PATH" ] ; then
+@@ -32,6 +32,9 @@ systemd-*)
+ 		: # Defaults only
+ 		;;
+ 	*-debian)
++		nfs_service="nfs-kernel-server"
++		nfs_lock_service=""
++		nfs_config="/etc/default/nfs-kernel-server"
+ 		nfs_rquotad_service="quotarpc"
+ 		;;
+ 	*)
 diff --git a/ctdb/config/statd-callout b/ctdb/config/statd-callout
-index bf18b5586..d0c807ee3 100755
+index b75135bbde5..db437a96d45 100755
 --- a/ctdb/config/statd-callout
 +++ b/ctdb/config/statd-callout
-@@ -20,14 +20,14 @@ die ()
-     exit 1
+@@ -21,14 +21,14 @@ die ()
  }
  
--load_system_config "nfs"
-+load_system_config "nfs-kernel-server"
+ # Try different variables to find config file for NFS_HOSTNAME
+-load_system_config "nfs" "nfs-common"
++load_system_config "nfs" "nfs-common" "nfs-kernel-server"
  
  [ -n "$NFS_HOSTNAME" ] || \
      die "NFS_HOSTNAME is not configured. statd-callout failed"
