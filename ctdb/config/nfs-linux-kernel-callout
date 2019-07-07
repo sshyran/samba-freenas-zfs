@@ -32,6 +32,9 @@ systemd-*)
 		: # Defaults only
 		;;
 	*-debian)
+		nfs_service="nfs-kernel-server"
+		nfs_lock_service=""
+		nfs_config="/etc/default/nfs-kernel-server"
 		nfs_rquotad_service="quotarpc"
 		;;
 	*)

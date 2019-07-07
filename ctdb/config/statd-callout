@@ -21,14 +21,14 @@ die ()
 }
 
 # Try different variables to find config file for NFS_HOSTNAME
-load_system_config "nfs" "nfs-common"
+load_system_config "nfs" "nfs-common" "nfs-kernel-server"
 
 [ -n "$NFS_HOSTNAME" ] || \
     die "NFS_HOSTNAME is not configured. statd-callout failed"
 
 ############################################################
 
-ctdb_setup_state_dir "service" "nfs"
+ctdb_setup_state_dir "service" "nfs-kernel-server"
 
 # script_state_dir set by ctdb_setup_state_dir()
 # shellcheck disable=SC2154
