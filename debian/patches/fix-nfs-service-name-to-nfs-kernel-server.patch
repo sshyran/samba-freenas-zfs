@@ -1,3 +1,4 @@
+From: Rafael David Tinoco <rafaeldtinoco@gmail.com>
 Subject: fix nfs service name to nfs-kernel-server
 
 Upstream code used to comment in/out service script names related to a specific
@@ -14,16 +15,14 @@ This temporary patch fixes the NFS service name for Debian & Ubuntu.
 
 Signed-off-by: Rafael David Tinoco <rafaeldtinoco@ubuntu.com>
 
-Author: Rafael David Tinoco <rafaeldtinoco@gmail.com>
 Bug-Debian: https://bugs.debian.org/929931
 Bug-Ubuntu: https://bugs.launchpad.net/bugs/722201
 Last-Update: 2018-06-26
-
 ---
- ctdb/config/events/legacy/60.nfs.script |  4 ++--
- ctdb/config/nfs-linux-kernel-callout    | 12 ++++++------
- ctdb/config/statd-callout               |  4 ++--
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ ctdb/config/events/legacy/60.nfs.script | 4 ++--
+ ctdb/config/nfs-linux-kernel-callout    | 3 +++
+ ctdb/config/statd-callout               | 4 ++--
+ 3 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/ctdb/config/events/legacy/60.nfs.script b/ctdb/config/events/legacy/60.nfs.script
 index 2eb90b421c8..5c6a0903322 100755
