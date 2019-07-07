@@ -201,19 +201,23 @@ static void idmap_cache_xid2sid_parser(time_t timeout, DATA_BLOB blob,
 		(struct idmap_cache_xid2sid_state *)private_data;
 	char *value;
 
-	ZERO_STRUCTP(state->sid);
-	state->ret = false;
-
 	if ((blob.length == 0) || (blob.data[blob.length-1] != 0)) {
 		/*
 		 * Not a string, can't be a valid mapping
 		 */
+		state->ret = false;
 		return;
 	}
 
 	value = (char *)blob.data;
 
-	if (value[0] != '-') {
+	if ((value[0] == '-') && (value[1] == '\0')) {
+		/*
+		 * Return NULL SID, see comment to uid2sid
+		 */
+		*state->sid = (struct dom_sid) {0};
+		state->ret = true;
+	} else {
 		state->ret = string_to_sid(state->sid, value);
 	}
 	if (state->ret) {
@@ -270,6 +274,42 @@ bool idmap_cache_find_gid2sid(gid_t gid, struct dom_sid *sid, bool *expired)
 	gencache_parse(key, idmap_cache_xid2sid_parser, &state);
 	return state.ret;
 }
+
+/**
+ * Find a xid2sid mapping
+ * @param[in] id		the unix id to map
+ * @param[out] sid		where to put the result
+ * @param[out] expired		is the cache entry expired?
+ * @retval Was anything in the cache at all?
+ *
+ * If "is_null_sid(sid)", this was a negative mapping.
+ */
+bool idmap_cache_find_xid2sid(
+	const struct unixid *id, struct dom_sid *sid, bool *expired)
+{
+	struct idmap_cache_xid2sid_state state = {
+		.sid = sid, .expired = expired
+	};
+	fstring key;
+	char c;
+
+	switch (id->type) {
+	case ID_TYPE_UID:
+		c = 'U';
+		break;
+	case ID_TYPE_GID:
+		c = 'G';
+		break;
+	default:
+		return false;
+	}
+
+	fstr_sprintf(key, "IDMAP/%cID2SID/%d", c, (int)id->id);
+
+	gencache_parse(key, idmap_cache_xid2sid_parser, &state);
+	return state.ret;
+}
+
 
 /**
  * Store a mapping in the idmap cache

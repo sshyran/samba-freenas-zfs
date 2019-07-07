@@ -152,7 +152,7 @@ bld.SAMBA3_LIBRARY('samba-passdb',
                                   ''',
                    abi_match=private_pdb_match,
                    abi_directory='passdb/ABI',
-                   vnum='0.27.1')
+                   vnum='0.27.2')
 
 bld.SAMBA3_SUBSYSTEM('pdb',
                    source='''
@@ -206,6 +206,12 @@ bld.SAMBA3_SUBSYSTEM('REG_PARSE_PRS',
 bld.SAMBA3_SUBSYSTEM('REGFIO',
                     source='registry/regfio.c',
                     deps='samba-util REG_PARSE_PRS')
+
+bld.SAMBA_BINARY('test_registry_regfio',
+                 source='registry/tests/test_regfio.c',
+                 deps='cmocka samba3-util smbconf REGFIO',
+                 local_include=False,
+                 install=False)
 
 bld.SAMBA3_SUBSYSTEM('REG_API_REGF',
                     source='registry/reg_api_regf.c',
@@ -306,7 +312,6 @@ bld.SAMBA3_SUBSYSTEM('samba3util',
                           lib/util_sock.c
                           lib/util_tsock.c
                           lib/util_transfer_file.c
-                          lib/sys_popen.c
                           ''',
                    deps='''
                         CHARSET3
@@ -1201,6 +1206,7 @@ bld.SAMBA3_BINARY('smbtorture' + bld.env.suffix3,
                         torture/wbc_async.c
                         torture/test_g_lock.c
                         torture/test_namemap_cache.c
+                        torture/test_idmap_cache.c
                         ''',
                  deps='''
                       talloc

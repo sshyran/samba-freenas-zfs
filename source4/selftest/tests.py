@@ -829,6 +829,15 @@ plantestsuite_loadlist("samba4.ldap.sort.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [p
 plantestsuite_loadlist("samba4.ldap.vlv.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [python, os.path.join(samba4srcdir, "dsdb/tests/python/vlv.py"), '$SERVER', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN', '$LOADLIST', '$LISTOPT'])
 plantestsuite_loadlist("samba4.ldap.linked_attributes.python(ad_dc_ntvfs)", "ad_dc_ntvfs:local", [python, os.path.join(samba4srcdir, "dsdb/tests/python/linked_attributes.py"), '$PREFIX_ABS/ad_dc_ntvfs/private/sam.ldb', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN', '$LOADLIST', '$LISTOPT'])
 
+planoldpythontestsuite(
+    "ad_dc_ntvfs",
+    "samba.tests.ldap_referrals",
+    environ={
+        'SERVER': '$SERVER',
+    },
+    name="samba.ldap.referrals",
+    extra_args=['-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN'])
+
 # These should be the first tests run against testenvs created by backup/restore
 for env in ['restoredc', 'renamedc', 'labdc']:
     # check that a restored DC matches the original DC (backupfromdc)
@@ -904,6 +913,7 @@ plantestsuite_loadlist("samba4.deletetest.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [
 plantestsuite("samba4.blackbox.samba3dump", "none", [os.path.join(samba4srcdir, "selftest/test_samba3dump.sh")])
 plantestsuite("samba4.blackbox.upgrade", "none", ["PYTHON=%s" % python, os.path.join(samba4srcdir, "setup/tests/blackbox_s3upgrade.sh"), '$PREFIX/provision'])
 plantestsuite("samba4.blackbox.provision.py", "none", ["PYTHON=%s" % python, os.path.join(samba4srcdir, "setup/tests/blackbox_provision.sh"), '$PREFIX/provision'])
+plantestsuite("samba4.blackbox.provision_fileperms", "none", ["PYTHON=%s" % python, os.path.join(samba4srcdir, "setup/tests/provision_fileperms.sh"), '$PREFIX/provision'])
 plantestsuite("samba4.blackbox.supported_features", "none",
               ["PYTHON=%s" % python,
                os.path.join(samba4srcdir,

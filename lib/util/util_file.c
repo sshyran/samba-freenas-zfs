@@ -24,6 +24,8 @@
 #include "system/filesys.h"
 #include <talloc.h>
 #include "lib/util/samba_util.h"
+#include "lib/util/sys_popen.h"
+#include "lib/util/sys_rw.h"
 #include "lib/util/debug.h"
 
 /**
@@ -361,4 +363,50 @@ bool file_compare(const char *path1, const char *path2)
 	}
 	talloc_free(mem_ctx);
 	return true;
+}
+
+/**
+ Load from a pipe into memory.
+**/
+char *file_ploadv(char * const argl[], size_t *size)
+{
+	int fd, n;
+	char *p = NULL;
+	char buf[1024];
+	size_t total;
+
+	fd = sys_popenv(argl);
+	if (fd == -1) {
+		return NULL;
+	}
+
+	total = 0;
+
+	while ((n = sys_read(fd, buf, sizeof(buf))) > 0) {
+		p = talloc_realloc(NULL, p, char, total + n + 1);
+		if (p == NULL) {
+		        DBG_ERR("failed to expand buffer!\n");
+			close(fd);
+			return NULL;
+		}
+		memcpy(p+total, buf, n);
+		total += n;
+	}
+
+	if (p != NULL) {
+		p[total] = 0;
+	}
+
+	/*
+	 * FIXME: Perhaps ought to check that the command completed
+	 * successfully (returned 0); if not the data may be
+	 * truncated.
+	 */
+	sys_pclose(fd);
+
+	if (size) {
+		*size = total;
+	}
+
+	return p;
 }

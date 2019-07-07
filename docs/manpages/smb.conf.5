@@ -2,12 +2,12 @@
 .\"     Title: smb.conf
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 03/12/2019
+.\"      Date: 07/03/2019
 .\"    Manual: File Formats and Conventions
-.\"    Source: Samba 4.9.5
+.\"    Source: Samba 4.9.11
 .\"  Language: English
 .\"
-.TH "SMB\&.CONF" "5" "03/12/2019" "Samba 4\&.9\&.5" "File Formats and Conventions"
+.TH "SMB\&.CONF" "5" "07/03/2019" "Samba 4\&.9\&.11" "File Formats and Conventions"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -3041,7 +3041,7 @@ Where the script dfree (which must be made executable) could be:
 .nf
  
 #!/bin/sh
-df $1 | tail \-1 | awk \*(Aq{print $(NF\-4),$(NF\-2)}\*(Aq
+df "$1" | tail \-1 | awk \*(Aq{print $(NF\-4),$(NF\-2)}\*(Aq
 .fi
 .if n \{\
 .RE
@@ -3055,13 +3055,13 @@ or perhaps (on Sys V based systems):
 .nf
  
 #!/bin/sh
-/usr/bin/df \-k $1 | tail \-1 | awk \*(Aq{print $3" "$5}\*(Aq
+/usr/bin/df \-k "$1" | tail \-1 | awk \*(Aq{print $3" "$5}\*(Aq
 .fi
 .if n \{\
 .RE
 .\}
 .sp
-Note that you may have to replace the command names with full path names on some systems\&.
+Note that you may have to replace the command names with full path names on some systems\&. Also note the arguments passed into the script should be quoted inside the script in case they contain special characters such as spaces or newlines\&.
 .sp
 By default internal routines for determining the disk capacity and remaining space will be used\&.
 .sp
@@ -4982,14 +4982,16 @@ no
 this will also result in sambaLMPassword in Samba\*(Aqs passdb being blanked after the next password change\&. As a result of that lanman clients won\*(Aqt be able to authenticate, even if lanman auth is re\-enabled later on\&.
 .sp
 Unlike the
-encrypt passwords
+\fIencrypt passwords\fR
 option, this parameter cannot alter client behaviour, and the LANMAN response will still be sent over the network\&. See the
 client lanman auth
 to disable this for Samba\*(Aqs clients (such as smbclient)
 .sp
-If this option, and
-ntlm auth
-are both disabled, then only NTLMv2 logins will be permited\&. Not all clients support NTLMv2, and most will require special configuration to use it\&.
+This parameter is overriden by
+\fIntlm auth\fR, so unless that it is also set to
+\fBntlmv1\-permitted\fR
+or
+\fByes\fR, then only NTLMv2 logins will be permited and no LM hash will be stored\&. All modern clients support NTLMv2, and but some older clients require special configuration to use it\&.
 .sp
 Default:
 \fI\fIlanman auth\fR\fR\fI = \fR\fIno\fR\fI \fR
@@ -7224,7 +7226,7 @@ This parameter limits the size in memory of any
 being used to speed up case insensitive name mappings\&. It represents the number of kilobyte (1024) units the stat cache can use\&. A value of zero, meaning unlimited, is not advisable due to increased memory usage\&. You should not need to change this parameter\&.
 .sp
 Default:
-\fI\fImax stat cache size\fR\fR\fI = \fR\fI256\fR\fI \fR
+\fI\fImax stat cache size\fR\fR\fI = \fR\fI512\fR\fI \fR
 .sp
 Example:
 \fI\fImax stat cache size\fR\fR\fI = \fR\fI100\fR\fI \fR
@@ -7777,14 +7779,10 @@ If disabled, both NTLM and LanMan authencication against the local passdb is dis
 Note that these settings apply only to local users, authentication will still be forwarded to and NTLM authentication accepted against any domain we are joined to, and any trusted domain, even if disabled or if NTLMv2\-only is enforced here\&. To control NTLM authentiation for domain users, this must option must be configured on each DC\&.
 .sp
 By default with
-lanman auth
-set to
-\fBno\fR
-and
 ntlm auth
 set to
 \fBntlmv2\-only\fR
-only NTLMv2 logins will be permited\&. Most clients support NTLMv2 by default, but some older clients will require special configuration to use it\&.
+only NTLMv2 logins will be permited\&. All modern clients support NTLMv2 by default, but some older clients will require special configuration to use it\&.
 .sp
 The primary user of NTLMv1 is MSCHAPv2 for VPNs and 802\&.1x\&.
 .sp
@@ -7802,6 +7800,10 @@ The available settings are:
 \fBntlmv1\-permitted\fR
 (alias
 \fByes\fR) \- Allow NTLMv1 and above for all clients\&.
+.sp
+This is the required setting for to enable the
+\fIlanman auth\fR
+parameter\&.
 .RE
 .sp
 .RS 4
@@ -13157,7 +13159,7 @@ and
 special sections make life for an administrator easy, but the various combinations of default attributes can be tricky\&. Take extreme care when designing these sections\&. In particular, ensure that the permissions on spool directories are correct\&.
 .SH "VERSION"
 .PP
-This man page is part of version 4\&.9\&.5 of the Samba suite\&.
+This man page is part of version 4\&.9\&.11 of the Samba suite\&.
 .SH "SEE ALSO"
 .PP
 \fBsamba\fR(7),
