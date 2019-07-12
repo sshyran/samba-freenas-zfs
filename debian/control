@@ -38,6 +38,7 @@ Build-Depends: bison,
                libparse-yapp-perl,
                libpcap-dev [hurd-i386 kfreebsd-any],
                libpopt-dev,
+               librados-dev [linux-any],
                libreadline-dev,
                libsystemd-dev [linux-any],
                libtalloc-dev (>= 2.1.14~),
@@ -48,6 +49,7 @@ Build-Depends: bison,
                po-debconf,
                python-all-dev (>= 2.6.6-3),
                python-dnspython,
+               python-etcd,
                python-ldb (>= 2:1.5.1+really1.4.6),
                python-ldb-dev (>= 2:1.5.1+really1.4.6),
                python-talloc-dev (>= 2.1.14~),
@@ -446,7 +448,7 @@ Depends: iproute2 [linux-any],
          time,
          ${misc:Depends},
          ${shlibs:Depends}
-Recommends: ethtool [linux-any]
+Recommends: ethtool [linux-any], python-etcd
 Suggests: logrotate, lsof
 Description: clustered database to store temporary data
  CTDB is a cluster implementation of the TDB database used by Samba and other
