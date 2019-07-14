@@ -448,7 +448,7 @@ Depends: iproute2 [linux-any],
          time,
          ${misc:Depends},
          ${shlibs:Depends}
-Recommends: ethtool [linux-any], python-etcd
+Recommends: ethtool [linux-any], python-etcd, ${rados:Recommends}
 Suggests: logrotate, lsof
 Description: clustered database to store temporary data
  CTDB is a cluster implementation of the TDB database used by Samba and other
