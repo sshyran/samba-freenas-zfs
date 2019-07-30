@@ -30,7 +30,7 @@ samba-team/:
   build_timeout: 3600
   auto_cancel_pending_pipelines: enabled
   build_coverage_regex: ''
-  ci_config_path: 'debian/gitlab-ci.yml'
+  ci_config_path: 'debian/salsa-ci.yml'
   ci_default_git_depth:
   auto_devops_enabled: false
   auto_devops_deploy_strategy: continuous
