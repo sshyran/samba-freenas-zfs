@@ -395,6 +395,11 @@ _PUBLIC_ int fdprintf(int fd, const char *format, ...) PRINTF_ATTRIBUTE(2,3);
  */
 bool file_compare(const char *path1, const char *path2);
 
+/*
+  load from a pipe into memory.
+ */
+char *file_ploadv(char * const argl[], size_t *size);
+
 /* The following definitions come from lib/util/util.c  */
 
 

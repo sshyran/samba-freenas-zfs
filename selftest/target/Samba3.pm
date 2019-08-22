@@ -184,7 +184,7 @@ sub check_env($$)
 	ad_member           => ["ad_dc"],
 	ad_member_rfc2307   => ["ad_dc_ntvfs"],
 	ad_member_idmap_rid => ["ad_dc"],
-	ad_member_idmap_ad  => ["ad_dc"],
+	ad_member_idmap_ad  => ["fl2008r2dc"],
 );
 
 sub setup_nt4_dc
@@ -609,6 +609,7 @@ sub setup_ad_member_idmap_rid
 	# Prevent overridding the provisioned lib/krb5.conf which sets certain
 	# values required for tests to succeed
 	create krb5 conf = no
+        map to guest = bad user
 ";
 
 	my $ret = $self->provision($prefix, $dcvars->{DOMAIN},
@@ -698,6 +699,8 @@ sub setup_ad_member_idmap_ad
 	idmap config * : range = 1000000-1999999
 	idmap config $dcvars->{DOMAIN} : backend = ad
 	idmap config $dcvars->{DOMAIN} : range = 2000000-2999999
+	idmap config $dcvars->{TRUST_DOMAIN} : backend = ad
+	idmap config $dcvars->{TRUST_DOMAIN} : range = 2000000-2999999
 ";
 
 	my $ret = $self->provision($prefix, $dcvars->{DOMAIN},
@@ -763,6 +766,13 @@ sub setup_ad_member_idmap_ad
 	$ret->{DC_NETBIOSNAME} = $dcvars->{NETBIOSNAME};
 	$ret->{DC_USERNAME} = $dcvars->{USERNAME};
 	$ret->{DC_PASSWORD} = $dcvars->{PASSWORD};
+
+	$ret->{TRUST_SERVER} = $dcvars->{TRUST_SERVER};
+	$ret->{TRUST_USERNAME} = $dcvars->{TRUST_USERNAME};
+	$ret->{TRUST_PASSWORD} = $dcvars->{TRUST_PASSWORD};
+	$ret->{TRUST_DOMAIN} = $dcvars->{TRUST_DOMAIN};
+	$ret->{TRUST_REALM} = $dcvars->{TRUST_REALM};
+	$ret->{TRUST_DOMSID} = $dcvars->{TRUST_DOMSID};
 
 	return $ret;
 }

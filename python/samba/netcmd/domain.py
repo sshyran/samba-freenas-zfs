@@ -390,6 +390,7 @@ class cmd_domain_provision(Command):
                     print("%s [%s]: " % (prompt, default), end=' ')
                 else:
                     print("%s: " % (prompt,), end=' ')
+                sys.stdout.flush()
                 return sys.stdin.readline().rstrip("\n") or default
 
             try:
@@ -1254,6 +1255,26 @@ class cmd_domain_level(Command):
             raise CommandError("invalid argument: '%s' (choose from 'show', 'raise')" % subcommand)
 
 
+# In MS AD, setting a timeout to '(never)' corresponds to this value
+NEVER_TIMESTAMP = int(-0x8000000000000000)
+
+
+def timestamp_to_mins(timestamp_str):
+    """Converts a timestamp in -100 nanosecond units to minutes"""
+    # treat a timestamp of 'never' the same as zero (this should work OK for
+    # most settings, and it displays better than trying to convert
+    # -0x8000000000000000 to minutes)
+    if int(timestamp_str) == NEVER_TIMESTAMP:
+        return 0
+    else:
+        return abs(int(timestamp_str)) / (1e7 * 60)
+
+
+def timestamp_to_days(timestamp_str):
+    """Converts a timestamp in -100 nanosecond units to days"""
+    return timestamp_to_mins(timestamp_str) / (60 * 24)
+
+
 class cmd_domain_passwordsettings_show(Command):
     """Display current password settings for the domain."""
 
@@ -1288,18 +1309,14 @@ class cmd_domain_passwordsettings_show(Command):
             pwd_hist_len = int(res[0]["pwdHistoryLength"][0])
             cur_min_pwd_len = int(res[0]["minPwdLength"][0])
             # ticks -> days
-            cur_min_pwd_age = int(abs(int(res[0]["minPwdAge"][0])) / (1e7 * 60 * 60 * 24))
-            if int(res[0]["maxPwdAge"][0]) == -0x8000000000000000:
-                cur_max_pwd_age = 0
-            else:
-                cur_max_pwd_age = int(abs(int(res[0]["maxPwdAge"][0])) / (1e7 * 60 * 60 * 24))
+            cur_min_pwd_age = timestamp_to_days(res[0]["minPwdAge"][0])
+            cur_max_pwd_age = timestamp_to_days(res[0]["maxPwdAge"][0])
+
             cur_account_lockout_threshold = int(res[0]["lockoutThreshold"][0])
+
             # ticks -> mins
-            if int(res[0]["lockoutDuration"][0]) == -0x8000000000000000:
-                cur_account_lockout_duration = 0
-            else:
-                cur_account_lockout_duration = abs(int(res[0]["lockoutDuration"][0])) / (1e7 * 60)
-            cur_reset_account_lockout_after = abs(int(res[0]["lockOutObservationWindow"][0])) / (1e7 * 60)
+            cur_account_lockout_duration = timestamp_to_mins(res[0]["lockoutDuration"][0])
+            cur_reset_account_lockout_after = timestamp_to_mins(res[0]["lockOutObservationWindow"][0])
         except Exception as e:
             raise CommandError("Could not retrieve password properties!", e)
 
@@ -1381,6 +1398,10 @@ class cmd_domain_passwordsettings_set(Command):
         m.dn = ldb.Dn(samdb, domain_dn)
         pwd_props = int(samdb.get_pwdProperties())
 
+        # get the current password age settings
+        max_pwd_age_ticks = samdb.get_maxPwdAge()
+        min_pwd_age_ticks = samdb.get_minPwdAge()
+
         if complexity is not None:
             if complexity == "on" or complexity == "default":
                 pwd_props = pwd_props | DOMAIN_PASSWORD_COMPLEX
@@ -1454,7 +1475,7 @@ class cmd_domain_passwordsettings_set(Command):
 
             # days -> ticks
             if max_pwd_age == 0:
-                max_pwd_age_ticks = -0x8000000000000000
+                max_pwd_age_ticks = NEVER_TIMESTAMP
             else:
                 max_pwd_age_ticks = -int(max_pwd_age * (24 * 60 * 60 * 1e7))
 
@@ -1473,7 +1494,7 @@ class cmd_domain_passwordsettings_set(Command):
 
             # minutes -> ticks
             if account_lockout_duration == 0:
-                account_lockout_duration_ticks = -0x8000000000000000
+                account_lockout_duration_ticks = NEVER_TIMESTAMP
             else:
                 account_lockout_duration_ticks = -int(account_lockout_duration * (60 * 1e7))
 
@@ -1502,7 +1523,7 @@ class cmd_domain_passwordsettings_set(Command):
 
             # minutes -> ticks
             if reset_account_lockout_after == 0:
-                reset_account_lockout_after_ticks = -0x8000000000000000
+                reset_account_lockout_after_ticks = NEVER_TIMESTAMP
             else:
                 reset_account_lockout_after_ticks = -int(reset_account_lockout_after * (60 * 1e7))
 
@@ -1510,8 +1531,14 @@ class cmd_domain_passwordsettings_set(Command):
                                                                ldb.FLAG_MOD_REPLACE, "lockOutObservationWindow")
             msgs.append("Duration to reset account lockout after changed!")
 
-        if max_pwd_age and max_pwd_age > 0 and min_pwd_age >= max_pwd_age:
-            raise CommandError("Maximum password age (%d) must be greater than minimum password age (%d)!" % (max_pwd_age, min_pwd_age))
+        if max_pwd_age or min_pwd_age:
+            # If we're setting either min or max password, make sure the max is
+            # still greater overall. As either setting could be None, we use the
+            # ticks here (which are always set) and work backwards.
+            max_pwd_age = timestamp_to_days(max_pwd_age_ticks)
+            min_pwd_age = timestamp_to_days(min_pwd_age_ticks)
+            if max_pwd_age != 0 and min_pwd_age >= max_pwd_age:
+                raise CommandError("Maximum password age (%d) must be greater than minimum password age (%d)!" % (max_pwd_age, min_pwd_age))
 
         if len(m) == 0:
             raise CommandError("You must specify at least one option to set. Try --help")

@@ -150,6 +150,9 @@ for options in ['-U"$USERNAME%$PASSWORD"']:
 for t in smbtorture4_testsuites("ldap."):
     plansmbtorture4testsuite(t, "ad_dc_ntvfs", '-U"$USERNAME%$PASSWORD" //$SERVER_IP/_none_')
 
+for t in smbtorture4_testsuites("dsdb."):
+    plansmbtorture4testsuite(t, "ad_dc:local", "localhost")
+
 ldbdir = os.path.join(srcdir(), "lib/ldb")
 # Don't run LDB tests when using system ldb, as we won't have ldbtest installed
 if os.path.exists(os.path.join(samba4bindir, "ldbtest")):
@@ -860,7 +863,7 @@ plantestsuite_loadlist("samba4.tokengroups.ntlm.python(ad_dc_ntvfs)", "ad_dc_ntv
 plantestsuite("samba4.sam.python(fl2008r2dc)", "fl2008r2dc", [python, os.path.join(samba4srcdir, "dsdb/tests/python/sam.py"), '$SERVER', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN'])
 plantestsuite("samba4.sam.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [python, os.path.join(samba4srcdir, "dsdb/tests/python/sam.py"), '$SERVER', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN'])
 plantestsuite("samba4.user_account_control.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [python, os.path.join(samba4srcdir, "dsdb/tests/python/user_account_control.py"), '$SERVER', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN'])
-planoldpythontestsuite("ad_dc_ntvfs", "dsdb_schema_info",
+planoldpythontestsuite("ad_dc_ntvfs:local", "dsdb_schema_info",
                        extra_path=[os.path.join(samba4srcdir, 'dsdb/tests/python')],
                        name="samba4.schemaInfo.python(ad_dc_ntvfs)",
         extra_args=['-U"$DOMAIN/$DC_USERNAME%$DC_PASSWORD"'], py3_compatible=True)
@@ -878,6 +881,15 @@ planoldpythontestsuite("ad_dc_ntvfs", "sort", environ={'SERVER' : '$SERVER', 'DA
 plantestsuite_loadlist("samba4.ldap.vlv.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [python, os.path.join(samba4srcdir, "dsdb/tests/python/vlv.py"), '$SERVER', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN', '$LOADLIST', '$LISTOPT'])
 plantestsuite_loadlist("samba4.ldap.linked_attributes.python(ad_dc_ntvfs)", "ad_dc_ntvfs:local", [python, os.path.join(samba4srcdir, "dsdb/tests/python/linked_attributes.py"), '$PREFIX_ABS/ad_dc_ntvfs/private/sam.ldb', '-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN', '$LOADLIST', '$LISTOPT'])
 
+planoldpythontestsuite(
+    "ad_dc_ntvfs",
+    "samba.tests.ldap_referrals",
+    environ={
+        'SERVER': '$SERVER',
+    },
+    name="samba.ldap.referrals",
+    extra_args=['-U"$USERNAME%$PASSWORD"', '--workgroup=$DOMAIN'])
+
 # These should be the first tests run against testenvs created by backup/restore
 for env in ['offlinebackupdc', 'restoredc', 'renamedc', 'labdc']:
     # check that a restored DC matches the original DC (backupfromdc)
@@ -893,6 +905,13 @@ for env in ['backupfromdc', 'offlinebackupdc', 'restoredc', 'renamedc',
     # basic test that we can join the testenv DC
     plantestsuite("samba4.blackbox.join_ldapcmp", env,
                   ["PYTHON=%s" % python, os.path.join(bbdir, "join_ldapcmp.sh")])
+
+env = 'backupfromdc'
+planoldpythontestsuite("%s:local" % env, "samba_tool_drs_no_dns",
+                       extra_path=[os.path.join(samba4srcdir, 'torture/drs/python')],
+                       name="samba4.drs.samba_tool_drs_no_dns.python(%s)" % env,
+                       environ={'DC1': '$DC_SERVER', 'DC2': '$DC_SERVER'},
+                       extra_args=['-U$DOMAIN/$DC_USERNAME%$DC_PASSWORD'])
 
 plantestsuite_loadlist("samba4.ldap.rodc.python(rodc)", "rodc",
                        [python,
@@ -960,6 +979,7 @@ plantestsuite_loadlist("samba4.deletetest.python(ad_dc_ntvfs)", "ad_dc_ntvfs", [
 plantestsuite("samba4.blackbox.samba3dump", "none", [os.path.join(samba4srcdir, "selftest/test_samba3dump.sh")])
 plantestsuite("samba4.blackbox.upgrade", "none", ["PYTHON=%s" % python, os.path.join(samba4srcdir, "setup/tests/blackbox_s3upgrade.sh"), '$PREFIX/provision'])
 plantestsuite("samba4.blackbox.provision.py", "none", ["PYTHON=%s" % python, os.path.join(samba4srcdir, "setup/tests/blackbox_provision.sh"), '$PREFIX/provision'])
+plantestsuite("samba4.blackbox.provision_fileperms", "none", ["PYTHON=%s" % python, os.path.join(samba4srcdir, "setup/tests/provision_fileperms.sh"), '$PREFIX/provision'])
 plantestsuite("samba4.blackbox.supported_features", "none",
               ["PYTHON=%s" % python,
                os.path.join(samba4srcdir,

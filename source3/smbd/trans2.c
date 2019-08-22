@@ -2109,12 +2109,14 @@ static NTSTATUS smbd_marshall_dir_entry(TALLOC_CTX *ctx,
 		SOFF_T(p,0,allocation_size); p += 8;
 		SIVAL(p,0,mode); p += 4;
 		q = p; p += 4; /* q is placeholder for name length. */
-		{
+		if (mode & FILE_ATTRIBUTE_REPARSE_POINT) {
+			SIVAL(p, 0, IO_REPARSE_TAG_DFS);
+		} else {
 			unsigned int ea_size = estimate_ea_size(conn, NULL,
 								smb_fname);
 			SIVAL(p,0,ea_size); /* Extended attributes */
-			p +=4;
 		}
+		p +=4;
 		status = srvstr_push(base_data, flags2, p,
 				  fname, PTR_DIFF(end_data, p),
 				  STR_TERMINATE_ASCII, &len);
@@ -5209,6 +5211,63 @@ NTSTATUS smbd_do_qfilepathinfo(connection_struct *conn,
 			DEBUG(10,("smbd_do_qfilepathinfo: SMB_QUERY_FILE_NAME_INFO\n"));
 			data_size = 4 + len;
 			SIVAL(pdata,0,len);
+			break;
+		}
+
+		case SMB_FILE_NORMALIZED_NAME_INFORMATION:
+		{
+			char *nfname = NULL;
+
+			if (!fsp->conn->sconn->using_smb2) {
+				return NT_STATUS_INVALID_LEVEL;
+			}
+
+			nfname = talloc_strdup(mem_ctx, smb_fname->base_name);
+			if (nfname == NULL) {
+				return NT_STATUS_NO_MEMORY;
+			}
+
+			if (ISDOT(nfname)) {
+				nfname[0] = '\0';
+			}
+			string_replace(nfname, '/', '\\');
+
+			if (smb_fname->stream_name != NULL) {
+				const char *s = smb_fname->stream_name;
+				const char *e = NULL;
+				size_t n;
+
+				SMB_ASSERT(s[0] != '\0');
+
+				/*
+				 * smb_fname->stream_name is in form
+				 * of ':StrEam:$DATA', but we should only
+				 * append ':StrEam' here.
+				 */
+
+				e = strchr(&s[1], ':');
+				if (e == NULL) {
+					n = strlen(s);
+				} else {
+					n = PTR_DIFF(e, s);
+				}
+				nfname = talloc_strndup_append(nfname, s, n);
+				if (nfname == NULL) {
+					return NT_STATUS_NO_MEMORY;
+				}
+			}
+
+			status = srvstr_push(dstart, flags2,
+					  pdata+4, nfname,
+					  PTR_DIFF(dend, pdata+4),
+					  STR_UNICODE, &len);
+			if (!NT_STATUS_IS_OK(status)) {
+				return status;
+			}
+			DEBUG(10,("smbd_do_qfilepathinfo: SMB_FILE_NORMALIZED_NAME_INFORMATION\n"));
+			data_size = 4 + len;
+			SIVAL(pdata,0,len);
+			*fixed_portion = 8;
 			break;
 		}
 
