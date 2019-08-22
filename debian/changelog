@@ -1,10 +1,33 @@
 samba (2:4.10.0+dfsg-1) UNRELEASED; urgency=medium
 
+  [ Mathieu Parent ]
   * New upstream release
     - Update patches
     - Drop nsswitch-Add-try_authtok-option-to-pam_winbind.patch, merged
+    - libsamba-passdb.so bumped to 0.27.2
+  * samba-libs: Fix Breaks+Replaces: libndr-standard0 (<< 2:4.0.9) (Closes: #910242)
+  * Add missing Breaks+Replace found by piuparts (Closes: #929217)
+  * Enable vfs_nfs4acl_xattr (Closes: #930540)
+  * ctdb:
+    - enable ceph and etcd recovery lock
+    - Downgrade ctdb_mutex_ceph_rados_helper shlibdeps to recommends
+  * Add gitlabracadabra.yml
+  * Update salsa-ci.yml
 
- -- Mathieu Parent <sathieu@debian.org>  Fri, 22 Mar 2019 07:57:22 +0100
+  [ Rafael David Tinoco ]
+  * debian/rules: Make DEB_HOST_ARCH_CPU initialized through dpkg-architecture
+    (Closes: #931138)
+  * CTDB NFS fixes from Ubuntu (Closes: #929931, LP: #722201):
+    - d/p/fix-nfs-service-name-to-nfs-kernel-server.patch: change nfs service
+      name from nfs to nfs-kernel-server
+    - ctdb-config: depend on /etc/ctdb/nodes file
+    - d/ctdb.install, d/rules: create ctdb run directory into tmpfiles.d to
+      allow pid file to exist
+    - added /var/lib/ctdb/* directories
+    - d/ctdb.postrm: remove leftovers from /var/lib/ctdb/*
+    - Add examples of NFS HA CTDB config files + helper script
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 22 Aug 2019 22:26:49 +0200
 
 samba (2:4.9.5+dfsg-1) experimental; urgency=medium
 
