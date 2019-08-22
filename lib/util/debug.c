@@ -44,7 +44,7 @@
  * format_bufr[FORMAT_BUFR_SIZE - 1] should always be reserved
  * for a terminating null byte.
  */
-#define FORMAT_BUFR_SIZE 1024
+#define FORMAT_BUFR_SIZE 4096
 
 /* -------------------------------------------------------------------------- **
  * This module implements Samba's debugging utility.
@@ -1475,6 +1475,17 @@ void dbgflush( void )
 	bufr_print();
 }
 
+bool dbgsetclass(int level, int cls)
+{
+	/* Set current_msg_level. */
+	current_msg_level = level;
+
+	/* Set current message class */
+	current_msg_class = cls;
+
+	return true;
+}
+
 /***************************************************************************
  Print a Debug Header.
 
@@ -1519,11 +1530,7 @@ bool dbghdrclass(int level, int cls, const char *location, const char *func)
 		return( true );
 	}
 
-	/* Set current_msg_level. */
-	current_msg_level = level;
-
-	/* Set current message class */
-	current_msg_class = cls;
+	dbgsetclass(level, cls);
 
 	/* Don't print a header if we're logging to stdout. */
 	if ( state.logtype != DEBUG_FILE ) {

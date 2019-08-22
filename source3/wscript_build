@@ -204,6 +204,12 @@ bld.SAMBA3_SUBSYSTEM('REGFIO',
                     source='registry/regfio.c',
                     deps='samba-util REG_PARSE_PRS')
 
+bld.SAMBA_BINARY('test_registry_regfio',
+                 source='registry/tests/test_regfio.c',
+                 deps='cmocka samba3-util smbconf REGFIO',
+                 local_include=False,
+                 install=False)
+
 bld.SAMBA3_SUBSYSTEM('REG_API_REGF',
                     source='registry/reg_api_regf.c',
                     deps='samba-util')
@@ -303,7 +309,6 @@ bld.SAMBA3_SUBSYSTEM('samba3util',
                           lib/util_sock.c
                           lib/util_tsock.c
                           lib/util_transfer_file.c
-                          lib/sys_popen.c
                           ''',
                    deps='''
                         CHARSET3
@@ -1128,6 +1133,7 @@ bld.SAMBA3_BINARY('smbspool_krb5_wrapper',
                  deps='''
                       DYNCONFIG
                       cups
+                      krb5samba
                       ''',
                  install_path='${LIBEXECDIR}/samba',
                  enabled=bld.CONFIG_SET('HAVE_CUPS'))

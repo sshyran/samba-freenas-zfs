@@ -37,7 +37,7 @@ LIB_PATH="shared"
 
 os.environ['PYTHONUNBUFFERED'] = '1'
 
-if Context.HEXVERSION not in (0x2000800,):
+if Context.HEXVERSION not in (0x2001100,):
     Logs.error('''
 Please use the version of waf that comes with Samba, not
 a system installed version. See http://wiki.samba.org/index.php/Waf
@@ -224,9 +224,6 @@ def SAMBA_LIBRARY(bld, libname, source,
         if public_headers is None and not bld.env['IS_EXTRA_PYTHON']:
             raise Errors.WafError("public library '%s' must have header files" %
                        libname)
-
-    if private_library and not vnum:
-        vnum = '0'
 
     if bundled_name is not None:
         pass

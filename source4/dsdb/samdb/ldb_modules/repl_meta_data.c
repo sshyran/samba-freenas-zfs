@@ -1041,6 +1041,24 @@ static int replmd_add_fix_la(struct ldb_module *module, TALLOC_CTX *mem_ctx,
 		talloc_free(tmp_ctx);
 		return LDB_ERR_CONSTRAINT_VIOLATION;
 	}
+
+	/*
+	 * At the successful end of these functions el->values is
+	 * overwritten with new_values.  However get_parsed_dns()
+	 * points p->v at the supplied el and it effectively gets used
+	 * as a working area by replmd_build_la_val().  So we must
+	 * duplicate it because our caller only called
+	 * ldb_msg_copy_shallow().
+	 */
+
+	el->values = talloc_memdup(tmp_ctx,
+				   el->values,
+				   sizeof(el->values[0]) * el->num_values);
+	if (el->values == NULL) {
+		ldb_module_oom(module);
+		talloc_free(tmp_ctx);
+		return LDB_ERR_OPERATIONS_ERROR;
+	}
 	
 	ret = get_parsed_dns(module, tmp_ctx, el, &pdn,
 			     sa->syntax->ldap_oid, parent);
@@ -1064,7 +1082,7 @@ static int replmd_add_fix_la(struct ldb_module *module, TALLOC_CTX *mem_ctx,
 
 	for (i = 0; i < el->num_values; i++) {
 		struct parsed_dn *p = &pdn[i];
-		ret = replmd_build_la_val(el->values, p->v, p->dsdb_dn,
+		ret = replmd_build_la_val(new_values, p->v, p->dsdb_dn,
 					  &ac->our_invocation_id,
 					  ac->seq_num, now);
 		if (ret != LDB_SUCCESS) {
@@ -3091,6 +3109,24 @@ static int replmd_modify_la_replace(struct ldb_module *module,
 		return LDB_SUCCESS;
 	}
 
+	/*
+	 * At the successful end of these functions el->values is
+	 * overwritten with new_values.  However get_parsed_dns()
+	 * points p->v at the supplied el and it effectively gets used
+	 * as a working area by replmd_build_la_val().  So we must
+	 * duplicate it because our caller only called
+	 * ldb_msg_copy_shallow().
+	 */
+
+	el->values = talloc_memdup(tmp_ctx,
+				   el->values,
+				   sizeof(el->values[0]) * el->num_values);
+	if (el->values == NULL) {
+		ldb_module_oom(module);
+		talloc_free(tmp_ctx);
+		return LDB_ERR_OPERATIONS_ERROR;
+	}
+
 	ret = get_parsed_dns(module, tmp_ctx, el, &dns, ldap_oid, parent);
 	if (ret != LDB_SUCCESS) {
 		talloc_free(tmp_ctx);
@@ -3758,12 +3794,19 @@ static int replmd_rename_callback(struct ldb_request *req, struct ldb_reply *are
 static int replmd_rename(struct ldb_module *module, struct ldb_request *req)
 {
 	struct ldb_context *ldb;
+	struct ldb_control *fix_dn_name_control = NULL;
 	struct replmd_replicated_request *ac;
 	int ret;
 	struct ldb_request *down_req;
 
 	/* do not manipulate our control entries */
 	if (ldb_dn_is_special(req->op.mod.message->dn)) {
+		return ldb_next_request(module, req);
+	}
+
+	fix_dn_name_control = ldb_request_get_control(req,
+					DSDB_CONTROL_DBCHECK_FIX_LINK_DN_NAME);
+	if (fix_dn_name_control != NULL) {
 		return ldb_next_request(module, req);
 	}
 

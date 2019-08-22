@@ -281,9 +281,24 @@ static PyMethodDef dcerpc_interface_methods[] = {
 static void dcerpc_interface_dealloc(PyObject* self)
 {
 	dcerpc_InterfaceObject *interface = (dcerpc_InterfaceObject *)self;
+
+	struct tevent_context *ev_save = talloc_reparent(
+		interface->mem_ctx, NULL, interface->ev);
+	SMB_ASSERT(ev_save != NULL);
+
 	interface->binding_handle = NULL;
 	interface->pipe = NULL;
+
+	/*
+	 * Free everything *except* the event context, which must go
+	 * away last
+	 */
 	TALLOC_FREE(interface->mem_ctx);
+
+	/*
+	 * Now wish a fond goodbye to the event context itself
+	 */
+	talloc_unlink(NULL, ev_save);
 	self->ob_type->tp_free(self);
 }
 

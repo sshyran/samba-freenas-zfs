@@ -60,7 +60,8 @@ class dbcheck(object):
 
     def __init__(self, samdb, samdb_schema=None, verbose=False, fix=False,
                  yes=False, quiet=False, in_transaction=False,
-                 reset_well_known_acls=False):
+                 reset_well_known_acls=False,
+                 check_expired_tombstones=False):
         self.samdb = samdb
         self.dict_oid_name = None
         self.samdb_schema = (samdb_schema or samdb)
@@ -107,6 +108,8 @@ class dbcheck(object):
         self.fix_doubled_userparameters = False
         self.fix_sid_rid_set_conflict = False
         self.reset_well_known_acls = reset_well_known_acls
+        self.check_expired_tombstones = check_expired_tombstones
+        self.expired_tombstones = 0
         self.reset_all_well_known_acls = False
         self.in_transaction = in_transaction
         self.infrastructure_dn = ldb.Dn(samdb, "CN=Infrastructure," + samdb.domain_dn())
@@ -120,6 +123,7 @@ class dbcheck(object):
         self.fix_missing_deleted_objects = False
         self.fix_replica_locations = False
         self.fix_missing_rid_set_master = False
+        self.fix_changes_after_deletion_bug = False
 
         self.dn_set = set()
         self.link_id_cache = {}
@@ -208,6 +212,17 @@ class dbcheck(object):
         else:
             self.rid_set_dn = None
 
+        ntds_service_dn = "CN=Directory Service,CN=Windows NT,CN=Services,%s" % \
+                          self.samdb.get_config_basedn().get_linearized()
+        res = samdb.search(base=ntds_service_dn,
+                           scope=ldb.SCOPE_BASE,
+                           expression="(objectClass=nTDSService)",
+                           attrs=["tombstoneLifetime"])
+        if "tombstoneLifetime" in res[0]:
+            self.tombstoneLifetime = int(res[0]["tombstoneLifetime"][0])
+        else:
+            self.tombstoneLifetime = 180
+
         self.compatibleFeatures = []
         self.requiredFeatures = []
 
@@ -243,6 +258,13 @@ class dbcheck(object):
 
         if DN is None:
             error_count += self.check_rootdse()
+
+        if self.expired_tombstones > 0:
+            self.report("NOTICE: found %d expired tombstones, "
+                        "'samba' will remove them daily, "
+                        "'samba-tool domain tombstones expunge' "
+                        "would do that immediately." % (
+                        self.expired_tombstones))
 
         if error_count != 0 and not self.fix:
             self.report("Please use --fix to fix these errors")
@@ -569,6 +591,19 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
     def err_missing_target_dn_or_GUID(self, dn, attrname, val, dsdb_dn):
         """handle a missing target DN (if specified, GUID form can't be found,
         and otherwise DN string form can't be found)"""
+
+        # Don't change anything if the object itself is deleted
+        if str(dn).find('\\0ADEL') != -1:
+            # We don't bump the error count as Samba produces these
+            # in normal operation
+            self.report("WARNING: no target object found for GUID "
+                        "component link %s in deleted object "
+                        "%s - %s" % (attrname, dn, val))
+            self.report("Not removing dangling one-way "
+                        "link on deleted object "
+                        "(tombstone garbage collection in progress?)")
+            return 0
+
         # check if its a backlink
         linkID, _ = self.get_attr_linkID_and_reverse_name(attrname)
         if (linkID & 1 == 0) and str(dsdb_dn).find('\\0ADEL') == -1:
@@ -878,7 +913,7 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
         else:
             self.samdb.transaction_cancel()
 
-    def err_wrong_dn(self, obj, new_dn, rdn_attr, rdn_val, name_val):
+    def err_wrong_dn(self, obj, new_dn, rdn_attr, rdn_val, name_val, controls):
         '''handle a wrong dn'''
 
         new_rdn = ldb.Dn(self.samdb, str(new_dn))
@@ -895,7 +930,7 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
             self.report("Not renaming %s to %s" % (obj.dn, new_dn))
             return
 
-        if self.do_rename(obj.dn, new_rdn, new_parent, ["show_recycled:1", "relax:0"],
+        if self.do_rename(obj.dn, new_rdn, new_parent, controls,
                           "Failed to rename object %s into %s" % (obj.dn, new_dn)):
             self.report("Renamed %s into %s" % (obj.dn, new_dn))
 
@@ -1478,6 +1513,13 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
 
         return error_count
 
+    def find_repl_attid(self, repl, attid):
+        for o in repl.ctr.array:
+            if o.attid == attid:
+                return o
+
+        return None
+
     def get_originating_time(self, val, attid):
         '''Read metadata properties and return the originating time for
            a given attributeId.
@@ -1486,11 +1528,9 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
         '''
 
         repl = ndr_unpack(drsblobs.replPropertyMetaDataBlob, val)
-
-        for o in repl.ctr.array:
-            if o.attid == attid:
-                return o.originating_change_time
-
+        o = self.find_repl_attid(repl, attid)
+        if o is not None:
+            return o.originating_change_time
         return 0
 
     def process_metadata(self, dn, val):
@@ -1739,6 +1779,132 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
                           "Failed to fix metadata for attribute %s" % sd_attr):
             self.report("Fixed attribute '%s' of '%s'\n" % (sd_attr, dn))
         self.samdb.set_session_info(self.system_session_info)
+
+    def is_expired_tombstone(self, dn, repl_val):
+        if self.check_expired_tombstones:
+            # This is not the default, it's just
+            # used to keep dbcheck tests work with
+            # old static provision dumps
+            return False
+
+        repl = ndr_unpack(drsblobs.replPropertyMetaDataBlob, repl_val)
+
+        isDeleted = self.find_repl_attid(repl, drsuapi.DRSUAPI_ATTID_isDeleted)
+
+        delete_time = samba.nttime2unix(isDeleted.originating_change_time)
+        current_time = time.time()
+
+        tombstone_delta = self.tombstoneLifetime * (24 * 60 * 60)
+
+        delta = current_time - delete_time
+        if delta <= tombstone_delta:
+            return False
+
+        self.report("SKIPING: object %s is an expired tombstone" % dn)
+        self.report("isDeleted: attid=0x%08x version=%d invocation=%s usn=%s (local=%s) at %s" % (
+                    isDeleted.attid,
+                    isDeleted.version,
+                    isDeleted.originating_invocation_id,
+                    isDeleted.originating_usn,
+                    isDeleted.local_usn,
+                    time.ctime(samba.nttime2unix(isDeleted.originating_change_time))))
+        self.expired_tombstones += 1
+        return True
+
+    def find_changes_after_deletion(self, repl_val):
+        repl = ndr_unpack(drsblobs.replPropertyMetaDataBlob, repl_val)
+
+        isDeleted = self.find_repl_attid(repl, drsuapi.DRSUAPI_ATTID_isDeleted)
+
+        delete_time = samba.nttime2unix(isDeleted.originating_change_time)
+
+        tombstone_delta = self.tombstoneLifetime * (24 * 60 * 60)
+
+        found = []
+        for o in repl.ctr.array:
+            if o.attid == drsuapi.DRSUAPI_ATTID_isDeleted:
+                continue
+
+            if o.local_usn <= isDeleted.local_usn:
+                continue
+
+            if o.originating_change_time <= isDeleted.originating_change_time:
+                continue
+
+            change_time = samba.nttime2unix(o.originating_change_time)
+
+            delta = change_time - delete_time
+            if delta <= tombstone_delta:
+                continue
+
+            # If the modification happened after the tombstone lifetime
+            # has passed, we have a bug as the object might be deleted
+            # already on other DCs and won't be able to replicate
+            # back
+            found.append(o)
+
+        return found, isDeleted
+
+    def has_changes_after_deletion(self, dn, repl_val):
+        found, isDeleted = self.find_changes_after_deletion(repl_val)
+        if len(found) == 0:
+            return False
+
+        def report_attid(o):
+            try:
+                attname = self.samdb_schema.get_lDAPDisplayName_by_attid(o.attid)
+            except KeyError:
+                attname = "<unknown:0x%x08x>" % o.attid
+
+            self.report("%s: attid=0x%08x version=%d invocation=%s usn=%s (local=%s) at %s" % (
+                        attname, o.attid, o.version,
+                        o.originating_invocation_id,
+                        o.originating_usn,
+                        o.local_usn,
+                        time.ctime(samba.nttime2unix(o.originating_change_time))))
+
+        self.report("ERROR: object %s, has changes after deletion" % dn)
+        report_attid(isDeleted)
+        for o in found:
+            report_attid(o)
+
+        return True
+
+    def err_changes_after_deletion(self, dn, repl_val):
+        found, isDeleted = self.find_changes_after_deletion(repl_val)
+
+        in_schema_nc = dn.is_child_of(self.schema_dn)
+        rdn_attr = dn.get_rdn_name()
+        rdn_attid = self.samdb_schema.get_attid_from_lDAPDisplayName(rdn_attr,
+                                                     is_schema_nc=in_schema_nc)
+
+        unexpected = []
+        for o in found:
+            if o.attid == rdn_attid:
+                continue
+            if o.attid == drsuapi.DRSUAPI_ATTID_name:
+                continue
+            if o.attid == drsuapi.DRSUAPI_ATTID_lastKnownParent:
+                continue
+            try:
+                attname = self.samdb_schema.get_lDAPDisplayName_by_attid(o.attid)
+            except KeyError:
+                attname = "<unknown:0x%x08x>" % o.attid
+            unexpected.append(attname)
+
+        if len(unexpected) > 0:
+            self.report('Unexpeted attributes: %s' % ",".join(unexpected))
+            self.report('Not fixing changes after deletion bug')
+            return
+
+        if not self.confirm_all('Delete broken tombstone object %s deleted %s days ago?' % (
+                                dn, self.tombstoneLifetime), 'fix_changes_after_deletion_bug'):
+            self.report('Not fixing changes after deletion bug')
+            return
+
+        if self.do_delete(dn, ["relax:0"],
+                          "Failed to remove DN %s" % dn):
+            self.report("Removed DN %s" % dn)
 
     def has_replmetadata_zero_invocationid(self, dn, repl_meta_data):
         repl = ndr_unpack(drsblobs.replPropertyMetaDataBlob,
@@ -2088,7 +2254,6 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
         error_count = 0
         set_attrs_from_md = set()
         set_attrs_seen = set()
-        got_repl_property_meta_data = False
         got_objectclass = False
 
         nc_dn = self.samdb.get_nc_root(obj.dn)
@@ -2105,6 +2270,26 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
         name_val = None
         isDeleted = False
         systemFlags = 0
+        repl_meta_data_val = None
+
+        for attrname in obj:
+            if str(attrname).lower() == 'isdeleted':
+                if str(obj[attrname][0]) != "FALSE":
+                    isDeleted = True
+
+            if str(attrname).lower() == 'systemflags':
+                systemFlags = int(obj[attrname][0])
+
+            if str(attrname).lower() == 'replpropertymetadata':
+                repl_meta_data_val = obj[attrname][0]
+
+        if isDeleted and repl_meta_data_val:
+            if self.has_changes_after_deletion(dn, repl_meta_data_val):
+                error_count += 1
+                self.err_changes_after_deletion(dn, repl_meta_data_val)
+                return error_count
+            if self.is_expired_tombstone(dn, repl_meta_data_val):
+                return error_count
 
         for attrname in obj:
             if attrname == 'dn' or attrname == "distinguishedName":
@@ -2119,7 +2304,7 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
                     self.report("ERROR: Not fixing num_values(%d) for '%s' on '%s'" %
                                 (len(obj[attrname]), attrname, str(obj.dn)))
                 else:
-                    name_val = obj[attrname][0]
+                    name_val = str(obj[attrname][0])
 
             if str(attrname).lower() == str(obj.dn.get_rdn_name()).lower():
                 object_rdn_attr = attrname
@@ -2129,13 +2314,6 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
                                 (len(obj[attrname]), attrname, str(obj.dn)))
                 else:
                     object_rdn_val = str(obj[attrname][0])
-
-            if str(attrname).lower() == 'isdeleted':
-                if str(obj[attrname][0]) != "FALSE":
-                    isDeleted = True
-
-            if str(attrname).lower() == 'systemflags':
-                systemFlags = int(obj[attrname][0])
 
             if str(attrname).lower() == 'replpropertymetadata':
                 if self.has_replmetadata_zero_invocationid(dn, obj[attrname][0]):
@@ -2166,7 +2344,6 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
                         self.report("ERROR: Not fixing incorrect initial attributeID in '%s' on '%s', it should be objectClass" %
                                     (attrname, str(dn)))
 
-                got_repl_property_meta_data = True
                 continue
 
             if str(attrname).lower() == 'ntsecuritydescriptor':
@@ -2261,7 +2438,7 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
 
             # check for empty attributes
             for val in obj[attrname]:
-                if val == '':
+                if val == b'':
                     self.err_empty_attribute(dn, attrname)
                     error_count += 1
                     continue
@@ -2325,9 +2502,11 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
 
         if name_val is not None:
             parent_dn = None
+            controls = ["show_recycled:1", "relax:0"]
             if isDeleted:
                 if not (systemFlags & samba.dsdb.SYSTEM_FLAG_DISALLOW_MOVE_ON_DELETE):
                     parent_dn = deleted_objects_dn
+                controls += ["local_oid:%s:1" % dsdb.DSDB_CONTROL_DBCHECK_FIX_LINK_DN_NAME]
             if parent_dn is None:
                 parent_dn = obj.dn.parent()
             expected_dn = ldb.Dn(self.samdb, "RDN=RDN,%s" % (parent_dn))
@@ -2338,19 +2517,20 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
 
             if expected_dn != obj.dn:
                 error_count += 1
-                self.err_wrong_dn(obj, expected_dn, object_rdn_attr, object_rdn_val, name_val)
+                self.err_wrong_dn(obj, expected_dn, object_rdn_attr,
+                        object_rdn_val, name_val, controls)
             elif obj.dn.get_rdn_value() != object_rdn_val:
                 error_count += 1
                 self.report("ERROR: Not fixing %s=%r on '%s'" % (object_rdn_attr, object_rdn_val, str(obj.dn)))
 
         show_dn = True
-        if got_repl_property_meta_data:
+        if repl_meta_data_val:
             if obj.dn == deleted_objects_dn:
                 isDeletedAttId = 131120
                 # It's 29/12/9999 at 23:59:59 UTC as specified in MS-ADTS 7.1.1.4.2 Deleted Objects Container
 
                 expectedTimeDo = 2650466015990000000
-                originating = self.get_originating_time(obj["replPropertyMetaData"][0], isDeletedAttId)
+                originating = self.get_originating_time(repl_meta_data_val, isDeletedAttId)
                 if originating != expectedTimeDo:
                     if self.confirm_all("Fix isDeleted originating_change_time on '%s'" % str(dn), 'fix_time_metadata'):
                         nmsg = ldb.Message()
@@ -2385,8 +2565,13 @@ newSuperior: %s""" % (str(from_dn), str(to_rdn), str(to_base)))
         except ldb.LdbError as e11:
             (enum, estr) = e11.args
             if enum == ldb.ERR_NO_SUCH_OBJECT:
-                self.err_missing_parent(obj)
-                error_count += 1
+                if isDeleted:
+                    self.report("WARNING: parent object not found for %s" % (obj.dn))
+                    self.report("Not moving to LostAndFound "
+                                "(tombstone garbage collection in progress?)")
+                else:
+                    self.err_missing_parent(obj)
+                    error_count += 1
             else:
                 raise
 

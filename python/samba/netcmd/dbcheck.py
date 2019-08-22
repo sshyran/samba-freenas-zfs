@@ -74,13 +74,18 @@ class cmd_dbcheck(Command):
         Option("--reset-well-known-acls", dest="reset_well_known_acls", default=False, action="store_true", help="reset ACLs on objects with well known default ACL values to the default"),
         Option("-H", "--URL", help="LDB URL for database or target server (defaults to local SAM database)",
                type=str, metavar="URL", dest="H"),
+        Option("--selftest-check-expired-tombstones",
+               dest="selftest_check_expired_tombstones", default=False, action="store_true",
+               help=Option.SUPPRESS_HELP), # This is only used by tests
     ]
 
     def run(self, DN=None, H=None, verbose=False, fix=False, yes=False,
             cross_ncs=False, quiet=False,
             scope="SUB", credopts=None, sambaopts=None, versionopts=None,
             attrs=None, reindex=False, force_modules=False,
-            reset_well_known_acls=False, yes_rules=[]):
+            reset_well_known_acls=False,
+            selftest_check_expired_tombstones=False,
+            yes_rules=[]):
 
         lp = sambaopts.get_loadparm()
 
@@ -130,8 +135,10 @@ class cmd_dbcheck(Command):
             started_transaction = True
         try:
             chk = dbcheck(samdb, samdb_schema=samdb_schema, verbose=verbose,
-                          fix=fix, yes=yes, quiet=quiet, in_transaction=started_transaction,
-                          reset_well_known_acls=reset_well_known_acls)
+                          fix=fix, yes=yes, quiet=quiet,
+                          in_transaction=started_transaction,
+                          reset_well_known_acls=reset_well_known_acls,
+                          check_expired_tombstones=selftest_check_expired_tombstones)
 
             for option in yes_rules:
                 if hasattr(chk, option):
