@@ -16,13 +16,6 @@ Copyright:
  (Royal Institute of Technology, Stockholm, Sweden).
 License: BSD-3
 
-Files:
- lib/talloc/*
- lib/tdb/*
- lib/ldb/*
-Copyright: 1992-2012 Andrew Tridgell and the Samba Team
-License: LGPL-3.0+
-
 Files: source4/setup/ad-schema/*.txt
 Comment: part of the Microsoft protocol documentation
 Copyright: Microsoft Corporation
@@ -98,6 +91,17 @@ License: GPL-3
  .
  On Debian systems, the full text of the GPL v3 can be found in
  /usr/share/common-licenses/GPL-3
+
+Files: lib/ldb/common/qsort.c
+Copyright: 1991,1992,1996,1997,1999,2004 Free Software Foundation, Inc.
+License: LGPL-3.0+
+
+Files: lib/ldb/tools/*
+Copyright:
+ 2004-2010 Andrew Tridgell <tridge@samba.org>
+ 2004 Stefan Metzmacher
+ 2009 Matthieu Patou
+License: GPL-3.0+
 
 Files: lib/replace/*.c
 Comment: This file is not used when building the Debian package.
@@ -177,6 +181,40 @@ Copyright:
   Copyright (C) Bjoern Jacke    2006-2007
   Copyright (C) Herb Lewis           2003
   Copyright (C) Andrew Bartlett      2012
+License: LGPL-3.0+
+
+Files: lib/talloc/*
+Copyright:
+ 2004-2010 Andrew Tridgell
+ 2008-2011 Jelmer Vernooij
+ 2006-2009 Stefan Metzmacher
+ 2015 Petr Viktorin <pviktori@redhat.com>
+License: LGPL-3.0+
+
+Files: lib/talloc/pytalloc*
+Copyright:
+  Copyright (C) Jelmer Vernooij <jelmer@samba.org> 2008-2011
+  Copyright (C) Andrew Bartlett <abartlet@samba.org> 2016
+License: GPL-3.0+
+
+Files: lib/tdb/*
+Copyright:
+ 2000-2010 Rusty Russell
+ 1999-2010 Andrew Tridgell
+ 2000-2006 Jeremy Allison
+ 2010 Volker Lendecke
+ 2005 Simon McVittie
+ 2001 Andrew Esh
+ 2004-2006 Tim Potter
+ 2007-2008 Jelmer Vernooij
+License: LGPL-3.0+
+
+Files: lib/tevent/*
+Copyright:
+ 2008 Volker Lendecke
+ 2005-2010 Stefan Metzmacher
+ 2003-2010 Andrew Tridgell
+ 2010 Jelmer Vernooij
 License: LGPL-3.0+
 
 Files:
