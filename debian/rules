@@ -14,16 +14,14 @@ DEB_HOST_ARCH_OS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 DEB_HOST_ARCH_CPU ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_CPU)
 
-PYVERS=$(shell pyversions -vr)
-
 LDB_VERSION = $(shell pkg-config --modversion ldb)
 LDB_EPOCH = $(shell dpkg-query -f '$${Version}' -W libldb-dev | sed 's/:.*//')
-LDB_NEXT_VERSION = $(shell python -c "x = '$(LDB_VERSION)'.split('.'); x[-1] = str(int(x[-1])+1); print '.'.join(x)")
+LDB_NEXT_VERSION = $(shell python3 -c "x = '$(LDB_VERSION)'.split('.'); x[-1] = str(int(x[-1])+1); print('.'.join(x))")
 # samba ships ldb modules, which are specific to the ldb version, so we need a
 # strict dependency on the upstream ldb version
 # this also mean samba needs a rebuild when the upstream ldb version changes
 LDB_DEPENDS = "libldb1 (<< $(LDB_EPOCH):$(LDB_NEXT_VERSION)~), libldb1 (>> $(LDB_EPOCH):$(LDB_VERSION)~)"
-export PYSHORT=$(shell pyversions -d)
+export PYSHORT=python3
 export PYTHON=$(shell which $(PYSHORT))
 export PYTHON_CONFIG="$(PYTHON)-config"
 WAF = $(PYTHON) ./buildtools/bin/waf -v
@@ -89,7 +87,7 @@ ifeq ($(DEB_HOST_ARCH_CPU), amd64)
 endif
 
 %:
-	dh $* --with python2
+	dh $* --with python3
 
 override_dh_auto_configure:
 	$(WAF) configure $(conf_args)
@@ -106,7 +104,7 @@ override_dh_auto_install:
 	# get list of files in build log
 	find ${DESTDIR}
 	# Included in python-tevent
-	rm $(DESTDIR)/usr/lib/python*/*-packages/_tevent.so
+	rm $(DESTDIR)/usr/lib/python*/*-packages/_tevent.*
 	rm $(DESTDIR)/usr/lib/python*/*-packages/tevent.py
 	# Already documented in debian/copyright
 	-rm $(DESTDIR)/usr/share/samba/setup/ad-schema/licence.txt
@@ -137,9 +135,11 @@ override_dh_auto_install:
 	mkdir -p $(DESTDIR)/usr/share/apport/package-hooks
 	install -D -m 644 debian/source_samba.py $(DESTDIR)/usr/share/apport/package-hooks/source_samba.py
 	# Install other stuff not installed by "make install"
+	# This moves the dckeytab module to the samba package in order to avoid
+	# a circular dependency between python3-samba, samba and samba-common-bin
 	mkdir -p debian/samba/usr/lib/$(PYSHORT)/dist-packages/samba
-	mv $(DESTDIR)/usr/lib/$(PYSHORT)/dist-packages/samba/dckeytab.so \
-	   debian/samba/usr/lib/$(PYSHORT)/dist-packages/samba/dckeytab.so
+	mv $(DESTDIR)/usr/lib/$(PYSHORT)/dist-packages/samba/dckeytab*.so \
+	   debian/samba/usr/lib/$(PYSHORT)/dist-packages/samba/
 	# use upstream version of smb.conf.5 if there is no built version
 	# this is a temporary workaround for #750593 in xsltproc
 	[ -e $(DESTDIR)/usr/share/man/man5/smb.conf.5 ] || \
@@ -185,9 +185,6 @@ endif
 ifeq ($(DEB_HOST_ARCH_OS), kfreebsd)
 	dh_installdocs -pctdb debian/ctdb.README.kfreebsd
 endif
-
-override_dh_python2:
-	dh_python2 --no-guessing-versions
 
 override_dh_installexamples-arch:
 	# CTDB config examples and helper scripts

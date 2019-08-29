@@ -14,7 +14,7 @@ usr/lib/*/libsamba-errors.so.*
 usr/lib/*/libsamba-hostconfig.so.*
 usr/lib/*/libsamba-passdb.so.0
 usr/lib/*/libsamba-passdb.so.0.27.2
-usr/lib/*/libsamba-policy.so.*
+usr/lib/*/libsamba-policy.cpython-*.so.*
 usr/lib/*/libsamba-util.so.*
 usr/lib/*/libsamdb.so.*
 usr/lib/*/libsmbconf.so.0
@@ -103,8 +103,8 @@ usr/lib/*/samba/libroken-samba4.so.19
 usr/lib/*/samba/libroken-samba4.so.19.0.1
 usr/lib/*/samba/libsamba-debug.so.0
 usr/lib/*/samba/libsamba-modules.so.*
-usr/lib/*/samba/libsamba-net.so.*
-usr/lib/*/samba/libsamba-python.so.0
+usr/lib/*/samba/libsamba-net.cpython-*.so.*
+usr/lib/*/samba/libsamba-python.cpython-*.so.0
 usr/lib/*/samba/libsamba-security.so.*
 usr/lib/*/samba/libsamba-sockets.so.*
 usr/lib/*/samba/libsamba3-util.so.*
