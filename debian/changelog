@@ -1,4 +1,4 @@
-samba (2:4.10.7+dfsg-1) UNRELEASED; urgency=medium
+samba (2:4.10.7+dfsg-1) experimental; urgency=medium
 
   [ Mathieu Parent ]
   * New upstream release
@@ -46,8 +46,10 @@ samba (2:4.10.7+dfsg-1) UNRELEASED; urgency=medium
   * Move to Python3 (from Ubuntu)
   * Bump debhelper from old 11 to 12.
   * Standards-Version: 4.4.0
+  * Replace all reference of /var/run to /run (Closes: #934540)
+  * Replace python shbang by python3 in d/*.py
 
- -- Mathieu Parent <sathieu@debian.org>  Thu, 29 Aug 2019 14:10:20 +0200
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 29 Aug 2019 14:32:52 +0200
 
 samba (2:4.9.5+dfsg-1) experimental; urgency=medium
 
