@@ -8,7 +8,7 @@ Files-Excluded:
 
 Files: *
 Copyright: 1992-2012 Andrew Tridgell and the Samba Team
-License: GPL-3+
+License: GPL-3.0+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 3 of the License, or
@@ -65,7 +65,7 @@ Files:
  lib/tdb/*
  lib/ldb/*
 Copyright: 1992-2012 Andrew Tridgell and the Samba Team
-License: LGPL-3+
+License: LGPL-3.0+
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
  License as published by the Free Software Foundation; either
