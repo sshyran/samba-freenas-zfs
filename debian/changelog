@@ -5,7 +5,10 @@ samba (2:4.10.7+dfsg-1) UNRELEASED; urgency=medium
     - Update patches
     - Drop nsswitch-Add-try_authtok-option-to-pam_winbind.patch, merged
     - libsamba-passdb.so bumped to 0.27.2
-  * samba-libs: Fix Breaks+Replaces: libndr-standard0 (<< 2:4.0.9) (Closes: #910242)
+    - Update symbols
+    - Update installed files
+  * samba-libs: Fix Breaks+Replaces: libndr-standard0 (<< 2:4.0.9)
+    (Closes: #910242)
   * Add missing Breaks+Replace found by piuparts (Closes: #929217)
   * Enable vfs_nfs4acl_xattr (Closes: #930540)
   * ctdb:
@@ -40,8 +43,11 @@ samba (2:4.10.7+dfsg-1) UNRELEASED; urgency=medium
     - Add waf licences
     - Add lib/replace licences
     - Update lib/{ldb,talloc,tdb} licences
+  * Move to Python3 (from Ubuntu)
+  * Bump debhelper from old 11 to 12.
+  * Standards-Version: 4.4.0
 
- -- Mathieu Parent <sathieu@debian.org>  Thu, 29 Aug 2019 10:27:21 +0200
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 29 Aug 2019 14:10:20 +0200
 
 samba (2:4.9.5+dfsg-1) experimental; urgency=medium
 
