@@ -9,4 +9,3 @@ heimdal-rfc3454.txt
 nsswitch-Add-try_authtok-option-to-pam_winbind.patch
 smbd.service-Run-update-apparmor-samba-profile-befor.patch
 fix-nfs-service-name-to-nfs-kernel-server.patch
-ctdb-config-depend-on-etc-ctdb-nodes-file.patch
