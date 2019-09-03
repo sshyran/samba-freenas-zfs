@@ -2,12 +2,12 @@
 .\"     Title: vfs_gpfs
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 07/03/2019
+.\"      Date: 08/28/2019
 .\"    Manual: System Administration tools
-.\"    Source: Samba 4.9.11
+.\"    Source: Samba 4.9.13
 .\"  Language: English
 .\"
-.TH "VFS_GPFS" "8" "07/03/2019" "Samba 4\&.9\&.11" "System Administration tools"
+.TH "VFS_GPFS" "8" "08/28/2019" "Samba 4\&.9\&.13" "System Administration tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -288,38 +288,6 @@ no(default)
 .\}
 yes
 \- use GPFS windows attributes\&.
-.RE
-.sp
-.RE
-.RE
-.PP
-gpfs:merge_writeappend = [ yes | no ]
-.RS 4
-GPFS ACLs doesn\*(Aqt know about the \*(AqAPPEND\*(Aq right\&. This option lets Samba map the \*(AqAPPEND\*(Aq right to \*(AqWRITE\*(Aq\&.
-.RS
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-yes(default)
-\- map \*(AqAPPEND\*(Aq to \*(AqWRITE\*(Aq\&.
-.RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-no
-\- do not map \*(AqAPPEND\*(Aq to \*(AqWRITE\*(Aq\&.
 .RE
 .sp
 .RE
@@ -692,7 +660,7 @@ gpfs\&.h
 in gpfs versions newer than 3\&.2\&.1 PTF8\&.
 .SH "VERSION"
 .PP
-This man page is part of version 4\&.9\&.11 of the Samba suite\&.
+This man page is part of version 4\&.9\&.13 of the Samba suite\&.
 .SH "AUTHOR"
 .PP
 The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.
