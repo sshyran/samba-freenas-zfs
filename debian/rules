@@ -69,8 +69,7 @@ conf_args = \
 		--minimum-library-version="$(shell ./debian/autodeps.py --minimum-library-version)" \
 		--with-cluster-support \
 		--with-socketpath=/var/run/ctdb/ctdbd.socket \
-		--with-logdir=/var/log/ctdb \
-		--enable-etcd-reclock
+		--with-logdir=/var/log/ctdb
 
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	conf_args += \
