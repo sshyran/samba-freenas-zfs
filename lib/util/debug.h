@@ -45,7 +45,6 @@
 bool dbgtext_va(const char *, va_list ap) PRINTF_ATTRIBUTE(1,0);
 bool dbgtext( const char *, ... ) PRINTF_ATTRIBUTE(1,2);
 bool dbghdrclass( int level, int cls, const char *location, const char *func);
-bool dbghdr( int level, const char *location, const char *func);
 
 /*
  * Redefine DEBUGLEVEL because so we don't have to change every source file
@@ -201,7 +200,7 @@ extern int  *DEBUGLEVEL_CLASS;
 #define DEBUGC( dbgc_class, level, body ) \
   (void)( ((level) <= MAX_DEBUG_LEVEL) && \
 	  unlikely(DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))		\
-       && (dbghdrclass( level, DBGC_CLASS, __location__, __FUNCTION__ )) \
+       && (dbghdrclass( level, dbgc_class, __location__, __FUNCTION__ )) \
        && (dbgtext body) )
 
 #define DEBUGADD( level, body ) \
@@ -318,7 +317,6 @@ void force_check_log_size( void );
 bool need_to_check_log_size( void );
 void check_log_size( void );
 void dbgflush( void );
-bool dbghdrclass(int level, int cls, const char *location, const char *func);
 bool debug_get_output_is_stderr(void);
 bool debug_get_output_is_stdout(void);
 void debug_schedule_reopen_logs(void);
