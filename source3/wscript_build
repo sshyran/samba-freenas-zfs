@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-from samba_utils import *
-import samba_version, samba3
-
 LIBS='ICONV'
 
 config_h = "../include/config.h"
@@ -407,7 +404,7 @@ bld.SAMBA3_SUBSYSTEM('samba3core',
                           intl/lang_tdb.c
                           lib/gencache.c
                           lib/util_event.c
-                          lib/server_contexts.c
+                          lib/global_contexts.c
                           lib/server_prefork.c
                           lib/server_prefork_util.c
                           lib/ldap_escape.c
@@ -722,7 +719,6 @@ bld.SAMBA3_LIBRARY('smbd_base',
                           smbd/mangle_hash.c
                           smbd/mangle_hash2.c
                           smbd/oplock.c
-                          smbd/oplock_irix.c
                           smbd/oplock_linux.c
                           smbd/notify.c
                           smbd/notify_msg.c
@@ -978,6 +974,7 @@ bld.SAMBA3_LIBRARY('samba3-util',
                           lib/namearray.c
                           lib/file_id.c
                           lib/cbuf.c
+                          lib/per_thread_cwd.c
                           ''',
                    deps='''
                         samba-util
@@ -1136,6 +1133,7 @@ bld.SAMBA3_BINARY('smbspool_krb5_wrapper',
                  deps='''
                       DYNCONFIG
                       cups
+                      krb5samba
                       ''',
                  install_path='${LIBEXECDIR}/samba',
                  enabled=bld.CONFIG_SET('HAVE_CUPS'))
@@ -1207,6 +1205,7 @@ bld.SAMBA3_BINARY('smbtorture' + bld.env.suffix3,
                         torture/test_g_lock.c
                         torture/test_namemap_cache.c
                         torture/test_idmap_cache.c
+                        torture/test_hidenewfiles.c
                         ''',
                  deps='''
                       talloc
@@ -1364,6 +1363,7 @@ bld.RECURSE('../examples/libsmbclient')
 bld.RECURSE('../examples/pdb')
 bld.RECURSE('../examples/VFS')
 bld.RECURSE('../examples/fuse')
+bld.RECURSE('../examples/winexe')
 bld.RECURSE('lib/netapi/tests')
 bld.RECURSE('lib/netapi/examples')
 bld.RECURSE('smbd/notifyd')

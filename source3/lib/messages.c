@@ -493,7 +493,7 @@ static NTSTATUS messaging_init_internal(TALLOC_CTX *mem_ctx,
 
 	sec_init();
 
-	lck_path = lock_path("msg.lock");
+	lck_path = lock_path(talloc_tos(), "msg.lock");
 	if (lck_path == NULL) {
 		return NT_STATUS_NO_MEMORY;
 	}
@@ -644,7 +644,7 @@ NTSTATUS messaging_reinit(struct messaging_context *msg_ctx)
 		.pid = getpid(), .vnn = msg_ctx->id.vnn
 	};
 
-	lck_path = lock_path("msg.lock");
+	lck_path = lock_path(talloc_tos(), "msg.lock");
 	if (lck_path == NULL) {
 		return NT_STATUS_NO_MEMORY;
 	}

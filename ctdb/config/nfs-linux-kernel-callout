@@ -14,7 +14,7 @@ nfs_exports_file="${CTDB_NFS_EXPORTS_FILE:-/var/lib/nfs/etab}"
 
 # As above, edit the default value below.  CTDB_NFS_DISTRO_STYLE is a
 # test variable only.
-nfs_distro_style="${CTDB_NFS_DISTRO_STYLE:-sysvinit-redhat}"
+nfs_distro_style="${CTDB_NFS_DISTRO_STYLE:-systemd-debian}"
 
 case "$nfs_distro_style" in
 systemd-*)
@@ -32,10 +32,15 @@ systemd-*)
 		: # Defaults only
 		;;
 	*-debian)
-		nfs_service="nfs-kernel-server"
-		nfs_lock_service=""
-		nfs_config="/etc/default/nfs-kernel-server"
 		nfs_rquotad_service="quotarpc"
+		nfs_lock_service=""
+		nfs_lock_service=""
+		nfs_mountd_service=""
+		nfs_status_service=""
+		nfs_rquotad_service=""
+		nfs_service="nfs-kernel-server"
+		nfs_config="/etc/default/nfs-kernel-server"
+		nfs_rquotad_config="/etc/default/quota"
 		;;
 	*)
 		echo "Internal error"

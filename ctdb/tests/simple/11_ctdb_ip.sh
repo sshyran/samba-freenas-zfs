@@ -25,7 +25,7 @@ EOF
 
 . "${TEST_SCRIPTS_DIR}/integration.bash"
 
-ctdb_test_init "$@"
+ctdb_test_init
 
 set -e
 
@@ -54,7 +54,7 @@ if [ -z "$TEST_LOCAL_DAEMONS" ]; then
 	done <<<"$ips" # bashism to avoid problem setting variable in pipeline.
 fi
 
-[ "$testfailures" != 1 ] && echo "Looks good!"
+echo "Looks good!"
 
 cmd="$CTDB -X ip all | tail -n +2"
 echo "Checking that \"$cmd\" produces expected output..."
@@ -67,5 +67,5 @@ else
     echo "$out"
     echo "Should be like this:"
     echo "$machineout"
-    testfailures=1
+    exit 1
 fi

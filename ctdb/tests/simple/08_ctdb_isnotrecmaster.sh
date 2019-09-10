@@ -26,7 +26,7 @@ EOF
 
 . "${TEST_SCRIPTS_DIR}/integration.bash"
 
-ctdb_test_init "$@"
+ctdb_test_init
 
 set -e
 
@@ -42,13 +42,11 @@ num_not_rm_lines=$(grep -Fc 'this node is not the recmaster' "$outfile") || true
 if [ $num_rm_lines -eq 1 ] ; then
     echo "OK, there is only 1 recmaster"
 else
-    echo "BAD, there are ${num_rm_lines} nodes claiming to be the recmaster"
-    testfailures=1
+    die "BAD, there are ${num_rm_lines} nodes claiming to be the recmaster"
 fi
 
 if [ $(($num_all_lines - $num_not_rm_lines)) -eq 1 ] ; then
     echo "OK, all the other nodes claim not to be the recmaster"
 else
-    echo "BAD, there are only ${num_not_rm_lines} nodes claiming not to be the recmaster"
-    testfailures=1
+    die "BAD, there are only ${num_not_rm_lines} notrecmaster nodes"
 fi

@@ -28,6 +28,7 @@
 #include "system/kerberos.h"
 #include "libsmb/libsmb.h"
 #include "lib/param/param.h"
+#include "lib/krb5_wrap/krb5_samba.h"
 
 /*
  * Starting with CUPS 1.3, Kerberos support is provided by cupsd including
@@ -60,12 +61,27 @@
  * Local functions...
  */
 
-static int      get_exit_code(struct cli_state * cli, NTSTATUS nt_status);
+static int      get_exit_code(NTSTATUS nt_status);
 static void     list_devices(void);
-static struct cli_state *smb_complete_connection(const char *, const char *,
-	int, const char *, const char *, const char *, const char *, int, bool *need_auth);
-static struct cli_state *smb_connect(const char *, const char *, int, const
-	char *, const char *, const char *, const char *, bool *need_auth);
+static NTSTATUS
+smb_complete_connection(struct cli_state **output_cli,
+			const char *myname,
+			const char *server,
+			int port,
+			const char *username,
+			const char *password,
+			const char *workgroup,
+			const char *share,
+			int flags);
+static NTSTATUS
+smb_connect(struct cli_state **output_cli,
+	    const char *workgroup,
+	    const char *server,
+	    const int port,
+	    const char *share,
+	    const char *username,
+	    const char *password,
+	    const char *jobusername);
 static int      smb_print(struct cli_state *, const char *, FILE *);
 static char    *uri_unescape_alloc(const char *);
 #if 0
@@ -87,18 +103,17 @@ main(int argc,			/* I - Number of command-line arguments */
 	int             port;	/* Port number */
 	char            uri[1024],	/* URI */
 	               *sep,	/* Pointer to separator */
-	               *tmp, *tmp2,	/* Temp pointers to do escaping */
-	               *password;	/* Password */
-	char           *username,	/* Username */
-	               *server,	/* Server name */
+	               *tmp, *tmp2;	/* Temp pointers to do escaping */
+	const char     *password = NULL;	/* Password */
+	const char     *username = NULL;	/* Username */
+	char           *server,	/* Server name */
 	               *printer;/* Printer name */
 	const char     *workgroup;	/* Workgroup */
 	FILE           *fp;	/* File to print */
 	int             status = 1;	/* Status of LPD job */
-	struct cli_state *cli;	/* SMB interface */
-	char            empty_str[] = "";
+	NTSTATUS nt_status = NT_STATUS_UNSUCCESSFUL;
+	struct cli_state *cli = NULL;	/* SMB interface */
 	int             tries = 0;
-	bool		need_auth = true;
 	const char     *dev_uri = NULL;
 	const char     *env = NULL;
 	const char     *config_file = NULL;
@@ -223,7 +238,9 @@ main(int argc,			/* I - Number of command-line arguments */
 
 		fp = fopen(print_file, "rb");
 		if (fp == NULL) {
-			perror("ERROR: Unable to open print file");
+			fprintf(stderr,
+				"ERROR: Unable to open print file: %s",
+				print_file);
 			goto done;
 		}
 
@@ -290,23 +307,23 @@ main(int argc,			/* I - Number of command-line arguments */
 		if ((tmp2 = strchr_m(tmp, ':')) != NULL) {
 			*tmp2++ = '\0';
 			password = uri_unescape_alloc(tmp2);
-		} else {
-			password = empty_str;
 		}
 		username = uri_unescape_alloc(tmp);
 	} else {
-		if ((username = getenv("AUTH_USERNAME")) == NULL) {
-			username = empty_str;
+		env = getenv("AUTH_USERNAME");
+		if (env != NULL && strlen(env) > 0) {
+			username = env;
 		}
 
-		if ((password = getenv("AUTH_PASSWORD")) == NULL) {
-			password = empty_str;
+		env = getenv("AUTH_PASSWORD");
+		if (env != NULL && strlen(env) > 0) {
+			password = env;
 		}
 
 		server = uri + 6;
 	}
 
-	if (password != empty_str) {
+	if (password != NULL) {
 		auth_info_required = "username,password";
 	}
 
@@ -367,27 +384,39 @@ main(int argc,			/* I - Number of command-line arguments */
 	load_interfaces();
 
 	do {
-		cli = smb_connect(workgroup,
-				  server,
-				  port,
-				  printer,
-				  username,
-				  password,
-				  print_user,
-				  &need_auth);
-		if (cli == NULL) {
-			if (need_auth) {
-				exit(2);
+		nt_status = smb_connect(&cli,
+					workgroup,
+					server,
+					port,
+					printer,
+					username,
+					password,
+					print_user);
+		if (!NT_STATUS_IS_OK(nt_status)) {
+			status = get_exit_code(nt_status);
+			if (status == 2) {
+				fprintf(stderr,
+					"DEBUG: Unable to connect to CIFS "
+					"host: %s",
+					nt_errstr(nt_status));
+				goto done;
 			} else if (getenv("CLASS") == NULL) {
-				fprintf(stderr, "ERROR: Unable to connect to CIFS host, will retry in 60 seconds...\n");
+				fprintf(stderr,
+					"ERROR: Unable to connect to CIFS "
+					"host: %s. Will retry in 60 "
+					"seconds...\n",
+					nt_errstr(nt_status));
 				sleep(60);
 				tries++;
 			} else {
-				fprintf(stderr, "ERROR: Unable to connect to CIFS host, trying next printer...\n");
+				fprintf(stderr,
+					"ERROR: Unable to connect to CIFS "
+					"host: %s. Trying next printer...\n",
+					nt_errstr(nt_status));
 				goto done;
 			}
 		}
-	} while ((cli == NULL) && (tries < MAX_RETRY_CONNECT));
+	} while (!NT_STATUS_IS_OK(nt_status) && (tries < MAX_RETRY_CONNECT));
 
 	if (cli == NULL) {
 		fprintf(stderr, "ERROR: Unable to connect to CIFS host after (tried %d times)\n", tries);
@@ -434,10 +463,9 @@ done:
  */
 
 static int
-get_exit_code(struct cli_state * cli,
-	      NTSTATUS nt_status)
+get_exit_code(NTSTATUS nt_status)
 {
-	int i;
+	size_t i;
 
 	/* List of NTSTATUS errors that are considered
 	 * authentication errors
@@ -453,17 +481,16 @@ get_exit_code(struct cli_state * cli,
 	};
 
 
-	fprintf(stderr, "DEBUG: get_exit_code(cli=%p, nt_status=%s [%x])\n",
-		cli, nt_errstr(nt_status), NT_STATUS_V(nt_status));
+	fprintf(stderr,
+		"DEBUG: get_exit_code(nt_status=%s [%x])\n",
+		nt_errstr(nt_status), NT_STATUS_V(nt_status));
 
 	for (i = 0; i < ARRAY_SIZE(auth_errors); i++) {
 		if (!NT_STATUS_EQUAL(nt_status, auth_errors[i])) {
 			continue;
 		}
 
-		if (cli) {
-			fprintf(stderr, "ATTR: auth-info-required=%s\n", auth_info_required);
-		}
+		fprintf(stderr, "ATTR: auth-info-required=%s\n", auth_info_required);
 
 		/*
 		 * 2 = authentication required...
@@ -496,43 +523,37 @@ list_devices(void)
 }
 
 
-static struct cli_state *
-smb_complete_connection(const char *myname,
+static NTSTATUS
+smb_complete_connection(struct cli_state **output_cli,
+			const char *myname,
 			const char *server,
 			int port,
 			const char *username,
 			const char *password,
 			const char *workgroup,
 			const char *share,
-			int flags,
-			bool *need_auth)
+			int flags)
 {
 	struct cli_state *cli;	/* New connection */
 	NTSTATUS        nt_status;
 	struct cli_credentials *creds = NULL;
 	bool use_kerberos = false;
+	bool fallback_after_kerberos = false;
 
 	/* Start the SMB connection */
-	*need_auth = false;
 	nt_status = cli_start_connection(&cli, myname, server, NULL, port,
 					 SMB_SIGNING_DEFAULT, flags);
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		fprintf(stderr, "ERROR: Connection failed: %s\n", nt_errstr(nt_status));
-		return NULL;
-	}
-
-	/*
-	 * We pretty much guarantee password must be valid or a pointer to a
-	 * 0 char.
-	 */
-	if (!password) {
-		*need_auth = true;
-		return NULL;
+		return nt_status;
 	}
 
 	if (flags & CLI_FULL_CONNECTION_USE_KERBEROS) {
-		auth_info_required = "negotiate";
 		use_kerberos = true;
+	}
+
+	if (flags & CLI_FULL_CONNECTION_FALLBACK_AFTER_KERBEROS) {
+		fallback_after_kerberos = true;
 	}
 
 	creds = cli_session_creds_init(cli,
@@ -541,26 +562,22 @@ smb_complete_connection(const char *myname,
 				       NULL, /* realm */
 				       password,
 				       use_kerberos,
-				       false, /* fallback_after_kerberos */
+				       fallback_after_kerberos,
 				       false, /* use_ccache */
 				       false); /* password_is_nt_hash */
 	if (creds == NULL) {
 		fprintf(stderr, "ERROR: cli_session_creds_init failed\n");
 		cli_shutdown(cli);
-		return NULL;
+		return NT_STATUS_NO_MEMORY;
 	}
 
 	nt_status = cli_session_setup_creds(cli, creds);
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		fprintf(stderr, "ERROR: Session setup failed: %s\n", nt_errstr(nt_status));
 
-		if (get_exit_code(cli, nt_status) == 2) {
-			*need_auth = true;
-		}
-
 		cli_shutdown(cli);
 
-		return NULL;
+		return nt_status;
 	}
 
 	nt_status = cli_tree_connect_creds(cli, share, "?????", creds);
@@ -568,13 +585,9 @@ smb_complete_connection(const char *myname,
 		fprintf(stderr, "ERROR: Tree connect failed (%s)\n",
 			nt_errstr(nt_status));
 
-		if (get_exit_code(cli, nt_status) == 2) {
-			*need_auth = true;
-		}
-
 		cli_shutdown(cli);
 
-		return NULL;
+		return nt_status;
 	}
 #if 0
 	/* Need to work out how to specify this on the URL. */
@@ -587,7 +600,8 @@ smb_complete_connection(const char *myname,
 	}
 #endif
 
-	return cli;
+	*output_cli = cli;
+	return NT_STATUS_OK;
 }
 
 static bool kerberos_ccache_is_valid(void) {
@@ -596,30 +610,50 @@ static bool kerberos_ccache_is_valid(void) {
 	krb5_ccache ccache = NULL;
 	krb5_error_code code;
 
-	code = krb5_init_context(&ctx);
+	code = smb_krb5_init_context_common(&ctx);
 	if (code != 0) {
+		DBG_ERR("kerberos init context failed (%s)\n",
+			error_message(code));
 		return false;
 	}
 
 	ccache_name = krb5_cc_default_name(ctx);
 	if (ccache_name == NULL) {
+		DBG_ERR("Failed to get default ccache name\n");
+		krb5_free_context(ctx);
 		return false;
 	}
 
 	code = krb5_cc_resolve(ctx, ccache_name, &ccache);
 	if (code != 0) {
+		DBG_ERR("Failed to resolve ccache name: %s\n",
+			ccache_name);
 		krb5_free_context(ctx);
 		return false;
 	} else {
 		krb5_principal default_princ = NULL;
+		char *princ_name = NULL;
 
 		code = krb5_cc_get_principal(ctx,
 					     ccache,
 					     &default_princ);
 		if (code != 0) {
+			DBG_ERR("Failed to get default principal from "
+				"ccache: %s\n",
+				ccache_name);
 			krb5_cc_close(ctx, ccache);
 			krb5_free_context(ctx);
 			return false;
+		}
+
+		code = krb5_unparse_name(ctx,
+					 default_princ,
+					 &princ_name);
+		if (code == 0) {
+			fprintf(stderr,
+				"DEBUG: Try to authenticate as %s\n",
+				princ_name);
+			krb5_free_unparsed_name(ctx, princ_name);
 		}
 		krb5_free_principal(ctx, default_princ);
 	}
@@ -633,91 +667,132 @@ static bool kerberos_ccache_is_valid(void) {
  * 'smb_connect()' - Return a connection to a server.
  */
 
-static struct cli_state *	/* O - SMB connection */
-smb_connect(const char *workgroup,	/* I - Workgroup */
+static NTSTATUS
+smb_connect(struct cli_state **output_cli,
+	    const char *workgroup,	/* I - Workgroup */
 	    const char *server,	/* I - Server */
 	    const int port,	/* I - Port */
 	    const char *share,	/* I - Printer */
 	    const char *username,	/* I - Username */
 	    const char *password,	/* I - Password */
-	    const char *jobusername,	/* I - User who issued the print job */
-	    bool *need_auth)
-{				/* O - Need authentication? */
-	struct cli_state *cli;	/* New connection */
+	    const char *jobusername)	/* I - User who issued the print job */
+{
+	struct cli_state *cli = NULL;	/* New connection */
 	char           *myname = NULL;	/* Client name */
 	struct passwd  *pwd;
+	int flags = CLI_FULL_CONNECTION_USE_KERBEROS;
+	bool use_kerberos = false;
+	const char *user = username;
+	NTSTATUS nt_status;
 
 	/*
          * Get the names and addresses of the client and server...
          */
 	myname = get_myname(talloc_tos());
 	if (!myname) {
-		return NULL;
+		return NT_STATUS_NO_MEMORY;
 	}
 
-	/*
-	 * See if we have a username first.  This is for backwards compatible
-	 * behavior with 3.0.14a
-	 */
 
-	if (username == NULL || username[0] == '\0') {
-		if (kerberos_ccache_is_valid()) {
-			goto kerberos_auth;
+	if (strcmp(auth_info_required, "negotiate") == 0) {
+		if (!kerberos_ccache_is_valid()) {
+			fprintf(stderr,
+				"ERROR: No valid Kerberos credential cache "
+				"found!\n");
+			return NT_STATUS_LOGON_FAILURE;
+		}
+		user = jobusername;
+
+		use_kerberos = true;
+		fprintf(stderr,
+			"DEBUG: Try to connect using Kerberos ...\n");
+	} else if (strcmp(auth_info_required, "username,password") == 0) {
+		if (username == NULL) {
+			return NT_STATUS_INVALID_ACCOUNT_NAME;
+		}
+
+		/* Fallback to NTLM */
+		flags |= CLI_FULL_CONNECTION_FALLBACK_AFTER_KERBEROS;
+
+		fprintf(stderr,
+			"DEBUG: Try to connect using username/password ...\n");
+	} else {
+		if (username != NULL) {
+			flags |= CLI_FULL_CONNECTION_FALLBACK_AFTER_KERBEROS;
+		} else if (kerberos_ccache_is_valid()) {
+			auth_info_required = "negotiate";
+
+			user = jobusername;
+			use_kerberos = true;
+		} else {
+			fprintf(stderr,
+				"DEBUG: This backend requires credentials!\n");
+			return NT_STATUS_ACCESS_DENIED;
 		}
 	}
 
-	cli = smb_complete_connection(myname,
-				      server,
-				      port,
-				      username,
-				      password,
-				      workgroup,
-				      share,
-				      0,
-				      need_auth);
-	if (cli != NULL) {
-		fputs("DEBUG: Connected with username/password...\n", stderr);
-		return (cli);
+	nt_status = smb_complete_connection(&cli,
+					    myname,
+					    server,
+					    port,
+					    user,
+					    password,
+					    workgroup,
+					    share,
+					    flags);
+	if (NT_STATUS_IS_OK(nt_status)) {
+		fprintf(stderr, "DEBUG: SMB connection established.\n");
+
+		*output_cli = cli;
+		return NT_STATUS_OK;
 	}
 
-kerberos_auth:
-	/*
-	 * Try to use the user kerberos credentials (if any) to authenticate
-	 */
-	cli = smb_complete_connection(myname, server, port, jobusername, "",
-				      workgroup, share,
-				 CLI_FULL_CONNECTION_USE_KERBEROS, need_auth);
-
-	if (cli) {
-		fputs("DEBUG: Connected using Kerberos...\n", stderr);
-		return (cli);
+	if (!use_kerberos) {
+		fprintf(stderr, "ERROR: SMB connection failed!\n");
+		return nt_status;
 	}
 
 	/* give a chance for a passwordless NTLMSSP session setup */
 	pwd = getpwuid(geteuid());
 	if (pwd == NULL) {
-		return NULL;
+		return NT_STATUS_ACCESS_DENIED;
 	}
 
-	cli = smb_complete_connection(myname, server, port, pwd->pw_name, "",
-				      workgroup, share, 0, need_auth);
-
-	if (cli) {
+	nt_status = smb_complete_connection(&cli,
+					    myname,
+					    server,
+					    port,
+					    pwd->pw_name,
+					    "",
+					    workgroup,
+					    share,
+					    0);
+	if (NT_STATUS_IS_OK(nt_status)) {
 		fputs("DEBUG: Connected with NTLMSSP...\n", stderr);
-		return (cli);
+
+		*output_cli = cli;
+		return NT_STATUS_OK;
 	}
 
 	/*
          * last try. Use anonymous authentication
          */
 
-	cli = smb_complete_connection(myname, server, port, "", "",
-				      workgroup, share, 0, need_auth);
-	/*
-         * Return the new connection...
-         */
+	nt_status = smb_complete_connection(&cli,
+					    myname,
+					    server,
+					    port,
+					    "",
+					    "",
+					    workgroup,
+					    share,
+					    0);
+	if (NT_STATUS_IS_OK(nt_status)) {
+		*output_cli = cli;
+		return NT_STATUS_OK;
+	}
 
-	return (cli);
+	return nt_status;
 }
 
 
@@ -763,7 +838,7 @@ smb_print(struct cli_state * cli,	/* I - SMB connection */
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		fprintf(stderr, "ERROR: %s opening remote spool %s\n",
 			nt_errstr(nt_status), title);
-		return get_exit_code(cli, nt_status);
+		return get_exit_code(nt_status);
 	}
 
 	/*
@@ -781,7 +856,7 @@ smb_print(struct cli_state * cli,	/* I - SMB connection */
 		status = cli_writeall(cli, fnum, 0, (uint8_t *)buffer,
 				      tbytes, nbytes, NULL);
 		if (!NT_STATUS_IS_OK(status)) {
-			int ret = get_exit_code(cli, status);
+			int ret = get_exit_code(status);
 			fprintf(stderr, "ERROR: Error writing spool: %s\n",
 				nt_errstr(status));
 			fprintf(stderr, "DEBUG: Returning status %d...\n",
@@ -797,7 +872,7 @@ smb_print(struct cli_state * cli,	/* I - SMB connection */
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		fprintf(stderr, "ERROR: %s closing remote spool %s\n",
 			nt_errstr(nt_status), title);
-		return get_exit_code(cli, nt_status);
+		return get_exit_code(nt_status);
 	} else {
 		return (0);
 	}

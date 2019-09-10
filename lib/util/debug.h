@@ -45,12 +45,7 @@
 bool dbgtext_va(const char *, va_list ap) PRINTF_ATTRIBUTE(1,0);
 bool dbgtext( const char *, ... ) PRINTF_ATTRIBUTE(1,2);
 bool dbghdrclass( int level, int cls, const char *location, const char *func);
-
-/*
- * Redefine DEBUGLEVEL because so we don't have to change every source file
- * that *unnecessarily* references it.
- */
-#define DEBUGLEVEL DEBUGLEVEL_CLASS[DBGC_ALL]
+bool dbgsetclass(int level, int cls);
 
 /*
  * Define all new debug classes here. A class is represented by an entry in
@@ -108,7 +103,10 @@ bool dbghdrclass( int level, int cls, const char *location, const char *func);
 #define DBGC_CLASS            0     /* override as shown above */
 #endif
 
-extern int  *DEBUGLEVEL_CLASS;
+#define DEBUGLEVEL debuglevel_get()
+
+#define debuglevel_get() debuglevel_get_class(DBGC_ALL)
+#define debuglevel_set(lvl) debuglevel_set_class(DBGC_ALL, (lvl))
 
 /* Debugging macros
  *
@@ -175,13 +173,16 @@ extern int  *DEBUGLEVEL_CLASS;
 #endif
 #endif
 
+int debuglevel_get_class(size_t idx);
+void debuglevel_set_class(size_t idx, int level);
+
 #define CHECK_DEBUGLVL( level ) \
   ( ((level) <= MAX_DEBUG_LEVEL) && \
-    unlikely(DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level)))
+    unlikely(debuglevel_get_class(DBGC_CLASS) >= (level)))
 
 #define CHECK_DEBUGLVLC( dbgc_class, level ) \
   ( ((level) <= MAX_DEBUG_LEVEL) && \
-    unlikely(DEBUGLEVEL_CLASS[ dbgc_class ] >= (level)))
+    unlikely(debuglevel_get_class(dbgc_class) >= (level)))
 
 #define DEBUGLVL( level ) \
   ( CHECK_DEBUGLVL(level) \
@@ -193,24 +194,26 @@ extern int  *DEBUGLEVEL_CLASS;
 
 #define DEBUG( level, body ) \
   (void)( ((level) <= MAX_DEBUG_LEVEL) && \
-	  unlikely(DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level))		\
+       unlikely(debuglevel_get_class(DBGC_CLASS) >= (level))             \
        && (dbghdrclass( level, DBGC_CLASS, __location__, __FUNCTION__ )) \
        && (dbgtext body) )
 
 #define DEBUGC( dbgc_class, level, body ) \
   (void)( ((level) <= MAX_DEBUG_LEVEL) && \
-	  unlikely(DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))		\
+       unlikely(debuglevel_get_class(dbgc_class) >= (level))             \
        && (dbghdrclass( level, dbgc_class, __location__, __FUNCTION__ )) \
        && (dbgtext body) )
 
 #define DEBUGADD( level, body ) \
   (void)( ((level) <= MAX_DEBUG_LEVEL) && \
-	  unlikely(DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level))	\
+       unlikely(debuglevel_get_class(DBGC_CLASS) >= (level)) \
+       && (dbgsetclass(level, DBGC_CLASS))                   \
        && (dbgtext body) )
 
 #define DEBUGADDC( dbgc_class, level, body ) \
   (void)( ((level) <= MAX_DEBUG_LEVEL) && \
-          unlikely((DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))) \
+       unlikely((debuglevel_get_class(dbgc_class) >= (level))) \
+       && (dbgsetclass(level, dbgc_class))                     \
        && (dbgtext body) )
 
 /* Print a separator to the debug log. */
@@ -220,7 +223,7 @@ extern int  *DEBUGLEVEL_CLASS;
 /* Prefix messages with the function name */
 #define DBG_PREFIX(level, body ) \
 	(void)( ((level) <= MAX_DEBUG_LEVEL) &&			\
-		unlikely(DEBUGLEVEL_CLASS[ DBGC_CLASS ] >= (level))	\
+		unlikely(debuglevel_get_class(DBGC_CLASS) >= (level))	\
 		&& (dbghdrclass(level, DBGC_CLASS, __location__, __func__ )) \
 		&& (dbgtext("%s: ", __func__))				\
 		&& (dbgtext body) )
@@ -228,7 +231,7 @@ extern int  *DEBUGLEVEL_CLASS;
 /* Prefix messages with the function name - class specific */
 #define DBGC_PREFIX(dbgc_class, level, body ) \
 	(void)( ((level) <= MAX_DEBUG_LEVEL) &&			\
-		unlikely(DEBUGLEVEL_CLASS[ dbgc_class ] >= (level))	\
+		unlikely(debuglevel_get_class(dbgc_class) >= (level))	\
 		&& (dbghdrclass(level, dbgc_class, __location__, __func__ )) \
 		&& (dbgtext("%s: ", __func__))				\
 		&& (dbgtext body) )

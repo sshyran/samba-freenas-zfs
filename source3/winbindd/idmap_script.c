@@ -352,7 +352,7 @@ static struct tevent_req *idmap_script_sid2xid_send(
 {
 	struct tevent_req *req, *subreq;
 	struct idmap_script_sid2xid_state *state;
-	char sidbuf[DOM_SID_STR_BUFLEN];
+	struct dom_sid_buf sidbuf;
 
 	req = tevent_req_create(mem_ctx, &state,
 				struct idmap_script_sid2xid_state);
@@ -360,8 +360,6 @@ static struct tevent_req *idmap_script_sid2xid_send(
 		return NULL;
 	}
 	state->idx = idx;
-
-	dom_sid_string_buf(sid, sidbuf, sizeof(sidbuf));
 
 	state->argl = talloc_zero_array(state,
 					char *,
@@ -377,7 +375,8 @@ static struct tevent_req *idmap_script_sid2xid_send(
 	if (tevent_req_nomem(state->argl[1], req)) {
 		return tevent_req_post(req, ev);
 	}
-	state->argl[2] = talloc_asprintf(state->argl, "%s", sidbuf);
+	state->argl[2] = talloc_asprintf(state->argl, "%s",
+			dom_sid_str_buf(sid, &sidbuf));
 	if (tevent_req_nomem(state->argl[2], req)) {
 		return tevent_req_post(req, ev);
 	}

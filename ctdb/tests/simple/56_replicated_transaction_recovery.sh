@@ -33,13 +33,11 @@ recovery_loop_start()
 
 . "${TEST_SCRIPTS_DIR}/integration.bash"
 
-ctdb_test_init "$@"
+ctdb_test_init
 
 set -e
 
 cluster_is_healthy
-
-ctdb_restart_when_done
 
 TESTDB="replicated_trans.tdb"
 

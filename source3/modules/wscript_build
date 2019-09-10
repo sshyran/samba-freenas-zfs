@@ -4,11 +4,6 @@ bld.SAMBA3_SUBSYSTEM('NFS4_ACLS',
                     source='nfs4_acls.c',
                     deps='samba-util tdb')
 
-bld.SAMBA3_BINARY('test_nfs4_acls',
-                  source='test_nfs4_acls.c',
-                  deps='smbd_base cmocka',
-                  install=False)
-
 bld.SAMBA3_SUBSYSTEM('vfs_acl_common',
                      source='vfs_acl_common.c')
 
@@ -42,6 +37,10 @@ bld.SAMBA3_SUBSYSTEM('OFFLOAD_TOKEN',
 bld.SAMBA3_SUBSYSTEM('STRING_REPLACE',
                     source='string_replace.c')
 
+#
+# This is always be static, see
+# source3/wscript: required_static_modules
+#
 bld.SAMBA3_MODULE('vfs_default',
                  subsystem='vfs',
                  source='vfs_default.c',
@@ -49,6 +48,18 @@ bld.SAMBA3_MODULE('vfs_default',
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_default'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_default'))
+
+#
+# This is always be static, see
+# source3/wscript: required_static_modules
+#
+bld.SAMBA3_MODULE('vfs_not_implemented',
+                 subsystem='vfs',
+                 source='vfs_not_implemented.c',
+                 deps='samba-util',
+                 init_function='',
+                 internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_not_implemented'),
+                 enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_not_implemented'))
 
 bld.SAMBA3_MODULE('vfs_audit',
                  subsystem='vfs',
@@ -494,7 +505,7 @@ bld.SAMBA3_MODULE('vfs_ceph',
                  init_function='',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_ceph'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_ceph'),
-                 cflags=bld.CONFIG_GET('CCFLAGS_CEPHFS'))
+                 cflags=bld.CONFIG_GET('CFLAGS_CEPHFS'))
 
 bld.SAMBA3_MODULE('vfs_glusterfs',
                   subsystem='vfs',

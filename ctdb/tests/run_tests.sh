@@ -248,10 +248,6 @@ if [ -z "$TEST_VAR_DIR" ] ; then
 fi
 mkdir -p "$TEST_VAR_DIR"
 
-# Must be absolute
-TEST_VAR_DIR=$(cd "$TEST_VAR_DIR"; echo "$PWD")
-echo "TEST_VAR_DIR=$TEST_VAR_DIR"
-
 export TEST_SCRIPTS_DIR="${CTDB_TEST_DIR}/scripts"
 
 unit_tests="
@@ -284,18 +280,8 @@ do_cleanup ()
     fi
 }
 
-cleanup_handler ()
-{
-    if $TEST_CLEANUP ; then
-	if [ -n "$TEST_LOCAL_DAEMONS" -a "$f" = "simple" ] ; then
-	    echo "***** shutting down daemons *****"
-	    find_and_run_one_test simple/99_daemons_shutdown.sh "$tests_dir"
-	fi
-    fi
-    do_cleanup
-}
-
-trap cleanup_handler SIGINT SIGTERM
+trap "do_cleanup ; exit 130" SIGINT
+trap "do_cleanup ; exit 143" SIGTERM
 
 declare -a tests
 i=0

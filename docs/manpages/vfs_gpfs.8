@@ -2,12 +2,12 @@
 .\"     Title: vfs_gpfs
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/28/2019
+.\"      Date: 08/22/2019
 .\"    Manual: System Administration tools
-.\"    Source: Samba 4.9.13
+.\"    Source: Samba 4.10.7
 .\"  Language: English
 .\"
-.TH "VFS_GPFS" "8" "08/28/2019" "Samba 4\&.9\&.13" "System Administration tools"
+.TH "VFS_GPFS" "8" "08/22/2019" "Samba 4\&.10\&.7" "System Administration tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -293,6 +293,38 @@ yes
 .RE
 .RE
 .PP
+gpfs:merge_writeappend = [ yes | no ]
+.RS 4
+GPFS ACLs doesn\*(Aqt know about the \*(AqAPPEND\*(Aq right\&. This option lets Samba map the \*(AqAPPEND\*(Aq right to \*(AqWRITE\*(Aq\&.
+.RS
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+yes(default)
+\- map \*(AqAPPEND\*(Aq to \*(AqWRITE\*(Aq\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+no
+\- do not map \*(AqAPPEND\*(Aq to \*(AqWRITE\*(Aq\&.
+.RE
+.sp
+.RE
+.RE
+.PP
 gpfs:acl = [ yes | no ]
 .RS 4
 This option lets Samba use or ignore GPFS ACLs\&.
@@ -320,6 +352,38 @@ yes(default)
 .\}
 no
 \- do not use GPFS ACLs and pass everything to the next SMB_VFS module\&.
+.RE
+.sp
+.RE
+.RE
+.PP
+gpfs:check_fstype = [ yes | no ]
+.RS 4
+Check for a mounted GPFS file system on access to a SMB share\&.
+.RS
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+yes(default)
+\- Check that the SMB share path is on a GPFS file system\&. Share access will be denied when a different file system is found\&.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+no
+\- skip check for GPFS file system on SMB share path\&.
 .RE
 .sp
 .RE
@@ -660,7 +724,7 @@ gpfs\&.h
 in gpfs versions newer than 3\&.2\&.1 PTF8\&.
 .SH "VERSION"
 .PP
-This man page is part of version 4\&.9\&.13 of the Samba suite\&.
+This man page is part of version 4\&.10\&.7 of the Samba suite\&.
 .SH "AUTHOR"
 .PP
 The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.

@@ -204,6 +204,26 @@
 		</varlistentry>
 		<varlistentry>
 
+		<term>gpfs:merge_writeappend = [ yes | no ]</term>
+		<listitem>
+		<para>
+		GPFS ACLs doesn't know about the 'APPEND' right.
+		This option lets Samba map the 'APPEND' right to 'WRITE'.
+		</para>
+
+		<itemizedlist>
+		<listitem><para>
+		<command>yes(default)</command> - map 'APPEND' to 'WRITE'.
+		</para></listitem>
+		<listitem><para>
+		<command>no</command> - do not map 'APPEND' to 'WRITE'.
+		</para></listitem>
+		</itemizedlist>
+		</listitem>
+
+		</varlistentry>
+		<varlistentry>
+
 		<term>gpfs:acl = [ yes | no ]</term>
 		<listitem>
 		<para>
@@ -217,6 +237,28 @@
 		<listitem><para>
 		<command>no</command> - do not use GPFS ACLs and pass everything
 		to the next SMB_VFS module.
+		</para></listitem>
+		</itemizedlist>
+		</listitem>
+
+		</varlistentry>
+		<varlistentry>
+
+		<term>gpfs:check_fstype = [ yes | no ]</term>
+		<listitem>
+		<para>
+		Check for a mounted GPFS file system on access to a SMB share.
+		</para>
+
+		<itemizedlist>
+		<listitem><para>
+		<command>yes(default)</command> - Check that the SMB share path
+		is on a GPFS file system. Share access will be denied when a
+		different file system is found.
+		</para></listitem>
+		<listitem><para>
+		<command>no</command> - skip check for GPFS file system on SMB
+		share path.
 		</para></listitem>
 		</itemizedlist>
 		</listitem>
