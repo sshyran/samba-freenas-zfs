@@ -13,7 +13,7 @@ usr/lib/*/libsamba-credentials.so.0*
 usr/lib/*/libsamba-errors.so.*
 usr/lib/*/libsamba-hostconfig.so.*
 usr/lib/*/libsamba-passdb.so.0
-usr/lib/*/libsamba-passdb.so.0.27.2
+usr/lib/*/libsamba-passdb.so.0.28.0
 usr/lib/*/libsamba-policy.cpython-*.so.*
 usr/lib/*/libsamba-util.so.*
 usr/lib/*/libsamdb.so.*
