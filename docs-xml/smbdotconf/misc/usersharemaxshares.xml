@@ -9,5 +9,5 @@
 	</para>
 
 </description>
-<value type="default">100</value>
+<value type="default">0</value>
 </samba:parameter>

@@ -2,12 +2,12 @@
 .\"     Title: net
 .\"    Author: [see the "AUTHOR" section]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 08/27/2019
+.\"      Date: 09/17/2019
 .\"    Manual: System Administration tools
-.\"    Source: Samba 4.10.8
+.\"    Source: Samba 4.11.0
 .\"  Language: English
 .\"
-.TH "NET" "8" "08/27/2019" "Samba 4\&.10\&.8" "System Administration tools"
+.TH "NET" "8" "09/17/2019" "Samba 4\&.11\&.0" "System Administration tools"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -279,6 +279,11 @@ Do not perform DNS updates as part of "net ads join"\&.
 \-\-keep\-account
 .RS 4
 Prevent the machine account removal as part of "net ads leave"\&.
+.RE
+.PP
+\-\-json
+.RS 4
+Report results in JSON format for "net ads info" and "net ads lookup"\&.
 .RE
 .PP
 \-e|\-\-encrypt
@@ -1265,9 +1270,9 @@ Something we failed to parse\&. Default action is to "edit" it in interactive an
 .RE
 .SS "USERSHARE"
 .PP
-Starting with version 3\&.0\&.23, a Samba server now supports the ability for non\-root users to add user-defined shares to be exported using the "net usershare" commands\&.
+Starting with version 3\&.0\&.23, a Samba server now supports the ability for non\-root users to add user defined shares to be exported using the "net usershare" commands\&.
 .PP
-Members of the UNIX group "sambashare" can create user-defined shares on demand using the commands below\&.
+To set this up, first set up your smb\&.conf by adding to the [global] section: usershare path = /usr/local/samba/lib/usershares Next create the directory /usr/local/samba/lib/usershares, change the owner to root and set the group owner to the UNIX group who should have the ability to create usershares, for example a group called "serverops"\&. Set the permissions on /usr/local/samba/lib/usershares to 01770\&. (Owner and group all access, no access for others, plus the sticky bit, which means that a file in that directory can be renamed or deleted only by the owner of the file)\&. Finally, tell smbd how many usershares you will allow by adding to the [global] section of smb\&.conf a line such as : usershare max shares = 100\&. To allow 100 usershare definitions\&. Now, members of the UNIX group "serverops" can create user defined shares on demand using the commands below\&.
 .PP
 The usershare commands are:
 .RS 4
