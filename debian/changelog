@@ -6,8 +6,11 @@ samba (2:4.11.0+dfsg-1) UNRELEASED; urgency=medium
     - Update fix-nfs-service-name-to-nfs-kernel-server.patch
     - Bump build-depends talloc >= 2.2.0, tdb >= 1.4.2, tevent >= 0.10.0 and
       ldb >= 2:2.0.7
+    - libsamba-passdb.so bumped to 0.28.0
+    - libnon-posix-acls is now a subsystem
+    - Drop libparse-pidl-perl package (Closes: #939419)
 
- -- Mathieu Parent <sathieu@debian.org>  Tue, 17 Sep 2019 20:48:21 +0200
+ -- Mathieu Parent <sathieu@debian.org>  Wed, 18 Sep 2019 05:08:24 +0200
 
 samba (2:4.10.8+dfsg-1) unstable; urgency=medium
 
