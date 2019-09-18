@@ -24,6 +24,7 @@ usr/sbin/nmbd
 usr/sbin/samba
 usr/sbin/samba-gpupdate
 usr/sbin/samba_dnsupdate
+usr/sbin/samba_downgrade_db
 usr/sbin/samba_spnupdate
 usr/sbin/samba_upgradedns
 usr/sbin/smbd
@@ -39,6 +40,7 @@ usr/share/man/man8/idmap_script.8
 usr/share/man/man8/nmbd.8
 usr/share/man/man8/pdbedit.8
 usr/share/man/man8/samba-gpupdate.8
+usr/share/man/man8/samba_downgrade_db.8
 usr/share/man/man8/samba.8
 usr/share/man/man8/smbd.8
 usr/share/samba/setup
