@@ -9,10 +9,12 @@ samba (2:4.11.0+dfsg-1) UNRELEASED; urgency=medium
     - libsamba-passdb.so bumped to 0.28.0
     - libnon-posix-acls is now a subsystem
     - Drop libparse-pidl-perl package (Closes: #939419)
+    - Add new files to d/*.install
+    - Move libsamba-util.so.* to libwbclient0, to avoid circular dependencies
   * Add build-Remove-tests-for-getdents-and-getdirentries.patch, to fix FTBFS on
     armel and armhf
 
- -- Mathieu Parent <sathieu@debian.org>  Wed, 18 Sep 2019 05:30:27 +0200
+ -- Mathieu Parent <sathieu@debian.org>  Wed, 18 Sep 2019 08:30:33 +0200
 
 samba (2:4.10.8+dfsg-1) unstable; urgency=medium
 
