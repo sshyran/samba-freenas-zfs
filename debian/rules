@@ -71,7 +71,7 @@ conf_args = \
 		--enable-etcd-reclock \
 		--enable-spotlight
 
-ifeq (,$(filter amd64 arm64 i386 mips64el ppc64el ppc64 x32, $(DEB_HOST_ARCH)))
+ifneq (,$(filter amd64 arm64 i386 mips64el ppc64el ppc64 x32, $(DEB_HOST_ARCH)))
         conf_args += \
                 --enable-ceph-reclock
 else
