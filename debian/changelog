@@ -1,5 +1,6 @@
 samba (2:4.11.0+dfsg-1) UNRELEASED; urgency=medium
 
+  [ Mathieu Parent ]
   * New upstream major release
     - Update d/gbp.conf, d/watch and d/README.source for 4.11
     - Import upstream release
@@ -14,7 +15,11 @@ samba (2:4.11.0+dfsg-1) UNRELEASED; urgency=medium
   * Add build-Remove-tests-for-getdents-and-getdirentries.patch, to fix FTBFS on
     armel and armhf
 
- -- Mathieu Parent <sathieu@debian.org>  Wed, 18 Sep 2019 08:30:33 +0200
+  [ John Paul Adrian Glaubitz ]
+  * Disable cephfs support on architectures where it's not stable
+    (Closes: #940697)
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 19 Sep 2019 10:00:15 +0200
 
 samba (2:4.10.8+dfsg-1) unstable; urgency=medium
 

@@ -70,12 +70,19 @@ conf_args = \
 		--with-logdir=/var/log/ctdb \
 		--enable-etcd-reclock
 
+ifeq (,$(filter amd64 arm64 i386 mips64el ppc64el ppc64 x32, $(DEB_HOST_ARCH)))
+        conf_args += \
+                --enable-ceph-reclock
+else
+        conf_args += \
+                --disable-cephfs
+endif
+
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	conf_args += \
 		--with-systemd \
 		--systemd-install-services \
-		--with-systemddir=/lib/systemd/system \
-		--enable-ceph-reclock
+		--with-systemddir=/lib/systemd/system
 else
 	conf_args += \
 		--without-systemd
