@@ -220,7 +220,7 @@ Depends: libc6-dev,
          libldb-dev,
          libpopt-dev,
          libtalloc-dev,
-         libtdb-dev (>= 1.2.11),
+         libtdb-dev (>= 2),
          libtevent-dev,
          samba-libs (= ${binary:Version}),
          ${misc:Depends}
