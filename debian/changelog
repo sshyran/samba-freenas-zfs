@@ -19,7 +19,13 @@ samba (2:4.11.0+dfsg-1) UNRELEASED; urgency=medium
   * Disable cephfs support on architectures where it's not stable
     (Closes: #940697)
 
- -- Mathieu Parent <sathieu@debian.org>  Thu, 19 Sep 2019 10:00:15 +0200
+  [ Louis van Belle ]
+  * d/control, d/samba.install: added libtasn1-bin, libtasn1-6-dev to build dumpmscat
+  * d/control, d/rules: Enable spotlight (TimeMachine)
+  * d/control: Bump libtdb-dev (>= 2) in samba-dev deps
+  * Update libwbclient0.symbols
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 19 Sep 2019 15:07:43 +0200
 
 samba (2:4.10.8+dfsg-1) unstable; urgency=medium
 
