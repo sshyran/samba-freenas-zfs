@@ -68,7 +68,8 @@ conf_args = \
 		--with-cluster-support \
 		--with-socketpath=/run/ctdb/ctdbd.socket \
 		--with-logdir=/var/log/ctdb \
-		--enable-etcd-reclock
+		--enable-etcd-reclock \
+		--enable-spotlight
 
 ifeq (,$(filter amd64 arm64 i386 mips64el ppc64el ppc64 x32, $(DEB_HOST_ARCH)))
         conf_args += \
