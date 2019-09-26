@@ -7991,7 +7991,7 @@ samba (1.9.17p1-1) unstable; urgency=low
   * Linking with libcrypt (LIBM='... -lcrypt'). Without including this
     library smbd generates a seg. fault when authenticating users (?).
 
- -- Eloy A. Paris <debian.org>  Wed, 10 Sep 1997 22:09:18 -0400
+ -- Eloy A. Paris <peloy@debian.org>  Wed, 10 Sep 1997 22:09:18 -0400
 
 samba (1.9.17-1) unstable; urgency=low
 
