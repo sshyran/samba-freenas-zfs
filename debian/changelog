@@ -1,3 +1,12 @@
+samba (2:4.11.1+dfsg-3) UNRELEASED; urgency=medium
+
+  * Add some python dependencies:
+    - python3-matplotlib : samba-tool visualize
+    - python3-markdown   : samba-tool domain schemaupgrade
+    - python3-dnspython  : samba-tool dns
+
+ -- Mathieu Parent <sathieu@debian.org>  Sat, 16 Nov 2019 21:59:14 +0100
+
 samba (2:4.11.1+dfsg-2) unstable; urgency=high
 
   * New upstream security release
