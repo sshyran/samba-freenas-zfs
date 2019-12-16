@@ -87,7 +87,6 @@ Depends: adduser,
 Recommends: attr,
             logrotate,
             python3-markdown,
-            python3-dnspython,
             samba-dsdb-modules,
             samba-vfs-modules
 Suggests: bind9 (>= 1:9.5.1),
