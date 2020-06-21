@@ -857,7 +857,7 @@ static bool debug_parse_param(char *param)
 /****************************************************************************
  Parse the debug levels from smb.conf. Example debug level string:
   3 tdb:5 printdrivers:7
- Note: the 1st param has no "name:" preceeding it.
+ Note: the 1st param has no "name:" preceding it.
 ****************************************************************************/
 
 bool debug_parse_levels(const char *params_str)
@@ -1140,8 +1140,14 @@ bool reopen_logs_internal(void)
 		dbgc_config[DBGC_ALL].fd = 2;
 		return true;
 
-	case DEBUG_FILE:
+	case DEBUG_FILE: {
+		struct debug_backend *b = debug_find_backend("file");
+
+		if (b != NULL) {
+			b->log_level = dbgc_config[DBGC_ALL].loglevel;
+		}
 		break;
+	}
 	}
 
 	oldumask = umask( 022 );

@@ -103,6 +103,7 @@ static int aio_del_req_from_fsp(struct aio_req_fsp_link *lnk)
 
 	if (fsp->num_aio_requests == 0) {
 		tevent_wait_done(fsp->deferred_close);
+		TALLOC_FREE(fsp->aio_requests);
 	}
 	return 0;
 }
@@ -121,9 +122,19 @@ bool aio_add_req_to_fsp(files_struct *fsp, struct tevent_req *req)
 	if (array_len <= fsp->num_aio_requests) {
 		struct tevent_req **tmp;
 
+		if (fsp->num_aio_requests + 10 < 10) {
+			/* Integer wrap. */
+			TALLOC_FREE(lnk);
+			return false;
+		}
+
+		/*
+		 * Allocate in blocks of 10 so we don't allocate
+		 * on every aio request.
+		 */
 		tmp = talloc_realloc(
 			fsp, fsp->aio_requests, struct tevent_req *,
-			fsp->num_aio_requests+1);
+			fsp->num_aio_requests+10);
 		if (tmp == NULL) {
 			TALLOC_FREE(lnk);
 			return false;
@@ -155,6 +166,12 @@ NTSTATUS schedule_aio_read_and_X(connection_struct *conn,
 	size_t bufsize;
 	size_t min_aio_read_size = lp_aio_read_size(SNUM(conn));
 	struct tevent_req *req;
+	bool ok;
+
+	ok = vfs_valid_pread_range(startpos, smb_maxcnt);
+	if (!ok) {
+		return NT_STATUS_INVALID_PARAMETER;
+	}
 
 	if (fsp->base_fsp != NULL) {
 		/* No AIO on streams yet */
@@ -172,9 +189,8 @@ NTSTATUS schedule_aio_read_and_X(connection_struct *conn,
 		return NT_STATUS_RETRY;
 	}
 
-	/* Only do this on non-chained and non-chaining reads not using the
-	 * write cache. */
-        if (req_is_in_chain(smbreq) || (lp_write_cache_size(SNUM(conn)) != 0)) {
+	/* Only do this on non-chained and non-chaining reads */
+        if (req_is_in_chain(smbreq)) {
 		return NT_STATUS_RETRY;
 	}
 
@@ -320,6 +336,7 @@ static struct tevent_req *pwrite_fsync_send(TALLOC_CTX *mem_ctx,
 {
 	struct tevent_req *req, *subreq;
 	struct pwrite_fsync_state *state;
+	bool ok;
 
 	req = tevent_req_create(mem_ctx, &state, struct pwrite_fsync_state);
 	if (req == NULL) {
@@ -328,6 +345,17 @@ static struct tevent_req *pwrite_fsync_send(TALLOC_CTX *mem_ctx,
 	state->ev = ev;
 	state->fsp = fsp;
 	state->write_through = write_through;
+
+	ok = vfs_valid_pwrite_range(offset, n);
+	if (!ok) {
+		tevent_req_error(req, EINVAL);
+		return tevent_req_post(req, ev);
+	}
+
+	if (n == 0) {
+		tevent_req_done(req);
+		return tevent_req_post(req, ev);
+	}
 
 	subreq = SMB_VFS_PWRITE_SEND(state, ev, fsp, data, n, offset);
 	if (tevent_req_nomem(subreq, req)) {
@@ -428,9 +456,8 @@ NTSTATUS schedule_aio_write_and_X(connection_struct *conn,
 		return NT_STATUS_RETRY;
 	}
 
-	/* Only do this on non-chained and non-chaining writes not using the
-	 * write cache. */
-        if (req_is_in_chain(smbreq) || (lp_write_cache_size(SNUM(conn)) != 0)) {
+	/* Only do this on non-chained and non-chaining writes */
+        if (req_is_in_chain(smbreq)) {
 		return NT_STATUS_RETRY;
 	}
 
@@ -651,6 +678,12 @@ NTSTATUS schedule_smb2_aio_read(connection_struct *conn,
 	struct aio_extra *aio_ex;
 	size_t min_aio_read_size = lp_aio_read_size(SNUM(conn));
 	struct tevent_req *req;
+	bool ok;
+
+	ok = vfs_valid_pread_range(startpos, smb_maxcnt);
+	if (!ok) {
+		return NT_STATUS_INVALID_PARAMETER;
+	}
 
 	if (fsp->base_fsp != NULL) {
 		/* No AIO on streams yet */
@@ -670,11 +703,6 @@ NTSTATUS schedule_smb2_aio_read(connection_struct *conn,
 			"for minimum aio_read of %u\n",
 			(unsigned int)smb_maxcnt,
 			(unsigned int)min_aio_read_size ));
-		return NT_STATUS_RETRY;
-	}
-
-	/* Only do this on reads not using the write cache. */
-	if (lp_write_cache_size(SNUM(conn)) != 0) {
 		return NT_STATUS_RETRY;
 	}
 
@@ -810,11 +838,6 @@ NTSTATUS schedule_aio_smb2_write(connection_struct *conn,
 			"small for minimum aio_write of %u\n",
 			(unsigned int)in_data.length,
 			(unsigned int)min_aio_write_size ));
-		return NT_STATUS_RETRY;
-	}
-
-	/* Only do this on writes not using the write cache. */
-	if (lp_write_cache_size(SNUM(conn)) != 0) {
 		return NT_STATUS_RETRY;
 	}
 

@@ -37,7 +37,6 @@
 #include "ntdomain.h"
 #include "../librpc/gen_ndr/srv_samr.h"
 #include "rpc_server/samr/srv_samr_util.h"
-#include "../lib/crypto/arcfour.h"
 #include "secrets.h"
 #include "rpc_client/init_lsa.h"
 #include "../libcli/security/security.h"
@@ -46,6 +45,10 @@
 #include "rpc_server/srv_access_check.h"
 #include "../lib/tsocket/tsocket.h"
 #include "lib/util/base64.h"
+
+#include "lib/crypto/gnutls_helpers.h"
+#include <gnutls/gnutls.h>
+#include <gnutls/crypto.h>
 
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_RPC_SRV
@@ -61,6 +64,14 @@
 
 #define MAX_SAM_ENTRIES_W2K 0x400 /* 1024 */
 #define MAX_SAM_ENTRIES_W95 50
+
+enum samr_handle {
+	SAMR_HANDLE_CONNECT,
+	SAMR_HANDLE_DOMAIN,
+	SAMR_HANDLE_USER,
+	SAMR_HANDLE_GROUP,
+	SAMR_HANDLE_ALIAS
+};
 
 struct samr_connect_info {
 	uint8_t dummy;
@@ -495,8 +506,12 @@ NTSTATUS _samr_OpenDomain(struct pipes_struct *p,
 		return NT_STATUS_NO_SUCH_DOMAIN;
 	}
 
-	dinfo = policy_handle_create(p, r->out.domain_handle, acc_granted,
-				     struct samr_domain_info, &status);
+	dinfo = policy_handle_create(p,
+				r->out.domain_handle,
+				SAMR_HANDLE_DOMAIN,
+				acc_granted,
+				struct samr_domain_info,
+				&status);
 	if (!NT_STATUS_IS_OK(status)) {
 		return status;
 	}
@@ -515,6 +530,8 @@ NTSTATUS _samr_OpenDomain(struct pipes_struct *p,
 NTSTATUS _samr_GetUserPwInfo(struct pipes_struct *p,
 			     struct samr_GetUserPwInfo *r)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	struct samr_user_info *uinfo;
 	enum lsa_SidType sid_type;
 	uint32_t min_password_length = 0;
@@ -551,8 +568,8 @@ NTSTATUS _samr_GetUserPwInfo(struct pipes_struct *p,
 					       &password_properties);
 			unbecome_root();
 
-			if (lp_check_password_script(talloc_tos())
-			    && *lp_check_password_script(talloc_tos())) {
+			if (lp_check_password_script(talloc_tos(), lp_sub)
+			    && *lp_check_password_script(talloc_tos(), lp_sub)) {
 				password_properties |= DOMAIN_PASSWORD_COMPLEX;
 			}
 
@@ -1880,6 +1897,8 @@ NTSTATUS _samr_ChangePasswordUser3(struct pipes_struct *p,
 	enum samPwdChangeReason reject_reason;
 	struct samr_DomInfo1 *dominfo = NULL;
 	struct userPwdChangeFailureInformation *reject = NULL;
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	uint32_t tmp;
 	char *rhost;
 
@@ -1969,8 +1988,8 @@ NTSTATUS _samr_ChangePasswordUser3(struct pipes_struct *p,
 		unix_to_nt_time_abs((NTTIME *)&dominfo->max_password_age, u_expire);
 		unix_to_nt_time_abs((NTTIME *)&dominfo->min_password_age, u_min_age);
 
-		if (lp_check_password_script(talloc_tos())
-			&& *lp_check_password_script(talloc_tos())) {
+		if (lp_check_password_script(talloc_tos(), lp_sub)
+			&& *lp_check_password_script(talloc_tos(), lp_sub)) {
 			dominfo->password_properties |= DOMAIN_PASSWORD_COMPLEX;
 		}
 
@@ -2214,8 +2233,12 @@ NTSTATUS _samr_OpenUser(struct pipes_struct *p,
 	/* If we did the rid admins hack above, allow access. */
 	acc_granted |= extra_access;
 
-	uinfo = policy_handle_create(p, r->out.user_handle, acc_granted,
-				     struct samr_user_info, &nt_status);
+	uinfo = policy_handle_create(p,
+				r->out.user_handle,
+				SAMR_HANDLE_USER,
+				acc_granted,
+				struct samr_user_info,
+				&nt_status);
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		return nt_status;
 	}
@@ -3214,6 +3237,8 @@ static uint32_t samr_get_server_role(void)
 static NTSTATUS query_dom_info_1(TALLOC_CTX *mem_ctx,
 				 struct samr_DomInfo1 *r)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	uint32_t account_policy_temp;
 	time_t u_expire, u_min_age;
 
@@ -3243,7 +3268,7 @@ static NTSTATUS query_dom_info_1(TALLOC_CTX *mem_ctx,
 	unix_to_nt_time_abs((NTTIME *)&r->max_password_age, u_expire);
 	unix_to_nt_time_abs((NTTIME *)&r->min_password_age, u_min_age);
 
-	if (lp_check_password_script(talloc_tos()) && *lp_check_password_script(talloc_tos())) {
+	if (lp_check_password_script(talloc_tos(), lp_sub) && *lp_check_password_script(talloc_tos(), lp_sub)){
 		r->password_properties |= DOMAIN_PASSWORD_COMPLEX;
 	}
 
@@ -3257,6 +3282,8 @@ static NTSTATUS query_dom_info_2(TALLOC_CTX *mem_ctx,
 				 struct samr_DomGeneralInformation *r,
 				 struct samr_domain_info *dinfo)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	uint32_t u_logout;
 	time_t seq_num;
 
@@ -3280,7 +3307,7 @@ static NTSTATUS query_dom_info_2(TALLOC_CTX *mem_ctx,
 
 	unbecome_root();
 
-	r->oem_information.string	= lp_server_string(r);
+	r->oem_information.string	= lp_server_string(r, lp_sub);
 	r->domain_name.string		= lp_workgroup();
 	r->primary.string		= lp_netbios_name();
 	r->sequence_num			= seq_num;
@@ -3324,7 +3351,10 @@ static NTSTATUS query_dom_info_3(TALLOC_CTX *mem_ctx,
 static NTSTATUS query_dom_info_4(TALLOC_CTX *mem_ctx,
 				 struct samr_DomOEMInformation *r)
 {
-	r->oem_information.string = lp_server_string(r);
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
+
+	r->oem_information.string = lp_server_string(r, lp_sub);
 
 	return NT_STATUS_OK;
 }
@@ -3776,8 +3806,12 @@ NTSTATUS _samr_CreateUser2(struct pipes_struct *p,
 		return nt_status;
 	}
 
-	uinfo = policy_handle_create(p, r->out.user_handle, acc_granted,
-				     struct samr_user_info, &nt_status);
+	uinfo = policy_handle_create(p,
+				r->out.user_handle,
+				SAMR_HANDLE_USER,
+				acc_granted,
+				struct samr_user_info,
+				&nt_status);
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		return nt_status;
 	}
@@ -3845,9 +3879,12 @@ NTSTATUS _samr_Connect(struct pipes_struct *p,
 
 	/* set up the SAMR connect_anon response */
 
-	(void)policy_handle_create(p, &hnd, acc_granted,
-				    struct samr_connect_info,
-				    &status);
+	(void)policy_handle_create(p,
+				&hnd,
+				SAMR_HANDLE_CONNECT,
+				acc_granted,
+				struct samr_connect_info,
+				&status);
 	if (!NT_STATUS_IS_OK(status)) {
 		return status;
 	}
@@ -3909,8 +3946,12 @@ NTSTATUS _samr_Connect2(struct pipes_struct *p,
 	if ( !NT_STATUS_IS_OK(nt_status) )
 		return nt_status;
 
-	(void)policy_handle_create(p, &hnd, acc_granted,
-				    struct samr_connect_info, &nt_status);
+	(void)policy_handle_create(p,
+				&hnd,
+				SAMR_HANDLE_CONNECT,
+				acc_granted,
+				struct samr_connect_info,
+				&nt_status);
         if (!NT_STATUS_IS_OK(nt_status)) {
                 return nt_status;
         }
@@ -4146,8 +4187,12 @@ NTSTATUS _samr_OpenAlias(struct pipes_struct *p,
 
 	}
 
-	ainfo = policy_handle_create(p, r->out.alias_handle, acc_granted,
-				     struct samr_alias_info, &status);
+	ainfo = policy_handle_create(p,
+				r->out.alias_handle,
+				SAMR_HANDLE_ALIAS,
+				acc_granted,
+				struct samr_alias_info,
+				&status);
 	if (!NT_STATUS_IS_OK(status)) {
 		return status;
 	}
@@ -4408,6 +4453,8 @@ static NTSTATUS set_user_info_18(struct samr_UserInfo18 *id18,
 				 DATA_BLOB *session_key,
 				 struct samu *pwd)
 {
+	int rc;
+
 	if (id18 == NULL) {
 		DEBUG(2, ("set_user_info_18: id18 is NULL\n"));
 		return NT_STATUS_INVALID_PARAMETER;
@@ -4426,7 +4473,11 @@ static NTSTATUS set_user_info_18(struct samr_UserInfo18 *id18,
 		in = data_blob_const(id18->nt_pwd.hash, 16);
 		out = data_blob_talloc_zero(mem_ctx, 16);
 
-		sess_crypt_blob(&out, &in, session_key, false);
+		rc = sess_crypt_blob(&out, &in, session_key, SAMBA_GNUTLS_DECRYPT);
+		if (rc != 0) {
+			return gnutls_error_to_ntstatus(rc,
+							NT_STATUS_ACCESS_DISABLED_BY_POLICY_OTHER);
+		}
 
 		if (!pdb_set_nt_passwd(pwd, out.data, PDB_CHANGED)) {
 			return NT_STATUS_ACCESS_DENIED;
@@ -4442,7 +4493,11 @@ static NTSTATUS set_user_info_18(struct samr_UserInfo18 *id18,
 		in = data_blob_const(id18->lm_pwd.hash, 16);
 		out = data_blob_talloc_zero(mem_ctx, 16);
 
-		sess_crypt_blob(&out, &in, session_key, false);
+		rc = sess_crypt_blob(&out, &in, session_key, SAMBA_GNUTLS_DECRYPT);
+		if (rc != 0) {
+			return gnutls_error_to_ntstatus(rc,
+							NT_STATUS_ACCESS_DISABLED_BY_POLICY_OTHER);
+		}
 
 		if (!pdb_set_lanman_passwd(pwd, out.data, PDB_CHANGED)) {
 			return NT_STATUS_ACCESS_DENIED;
@@ -4484,6 +4539,7 @@ static NTSTATUS set_user_info_21(struct samr_UserInfo21 *id21,
 				 struct samu *pwd)
 {
 	NTSTATUS status;
+	int rc;
 
 	if (id21 == NULL) {
 		DEBUG(5, ("set_user_info_21: NULL id21\n"));
@@ -4514,7 +4570,11 @@ static NTSTATUS set_user_info_21(struct samr_UserInfo21 *id21,
 			in = data_blob_const(id21->nt_owf_password.array, 16);
 			out = data_blob_talloc_zero(mem_ctx, 16);
 
-			sess_crypt_blob(&out, &in, session_key, false);
+			rc = sess_crypt_blob(&out, &in, session_key, SAMBA_GNUTLS_DECRYPT);
+			if (rc != 0) {
+				return gnutls_error_to_ntstatus(rc,
+								NT_STATUS_ACCESS_DISABLED_BY_POLICY_OTHER);
+			}
 
 			pdb_set_nt_passwd(pwd, out.data, PDB_CHANGED);
 			pdb_set_pass_last_set_time(pwd, time(NULL), PDB_CHANGED);
@@ -4537,7 +4597,11 @@ static NTSTATUS set_user_info_21(struct samr_UserInfo21 *id21,
 			in = data_blob_const(id21->lm_owf_password.array, 16);
 			out = data_blob_talloc_zero(mem_ctx, 16);
 
-			sess_crypt_blob(&out, &in, session_key, false);
+			rc = sess_crypt_blob(&out, &in, session_key, SAMBA_GNUTLS_DECRYPT);
+			if (rc != 0) {
+				return gnutls_error_to_ntstatus(rc,
+								NT_STATUS_ACCESS_DISABLED_BY_POLICY_OTHER);
+			}
 
 			pdb_set_lanman_passwd(pwd, out.data, PDB_CHANGED);
 			pdb_set_pass_last_set_time(pwd, time(NULL), PDB_CHANGED);
@@ -4946,6 +5010,41 @@ static uint32_t samr_set_user_info_map_fields_to_access_mask(uint32_t fields)
 	return acc_required;
 }
 
+static NTSTATUS arc4_decrypt_data(DATA_BLOB session_key,
+				     uint8_t *data,
+				     size_t data_size)
+{
+	gnutls_cipher_hd_t cipher_hnd = NULL;
+	gnutls_datum_t my_session_key = {
+		.data = session_key.data,
+		.size = session_key.length,
+	};
+	NTSTATUS status = NT_STATUS_INTERNAL_ERROR;
+	int rc;
+
+	rc = gnutls_cipher_init(&cipher_hnd,
+				GNUTLS_CIPHER_ARCFOUR_128,
+				&my_session_key,
+				NULL);
+	if (rc < 0) {
+		status = gnutls_error_to_ntstatus(rc, NT_STATUS_CRYPTO_SYSTEM_INVALID);
+		goto out;
+	}
+
+	rc = gnutls_cipher_decrypt(cipher_hnd,
+				   data,
+				   data_size);
+	gnutls_cipher_deinit(cipher_hnd);
+	if (rc < 0) {
+		status = gnutls_error_to_ntstatus(rc, NT_STATUS_CRYPTO_SYSTEM_INVALID);
+		goto out;
+	}
+
+	status = NT_STATUS_OK;
+out:
+	return status;
+}
+
 /*******************************************************************
  samr_SetUserInfo
  ********************************************************************/
@@ -5153,10 +5252,16 @@ NTSTATUS _samr_SetUserInfo(struct pipes_struct *p,
 			if(!NT_STATUS_IS_OK(status)) {
 				break;
 			}
-			arcfour_crypt_blob(info->info23.password.data, 516,
-					   &session_key);
+			status = arc4_decrypt_data(session_key,
+						   info->info23.password.data,
+						   516);
+			if(!NT_STATUS_IS_OK(status)) {
+				break;
+			}
 
+#ifdef DEBUG_PASSWORD
 			dump_data(100, info->info23.password.data, 516);
+#endif
 
 			status = set_user_info_23(p->mem_ctx,
 						  &info->info23,
@@ -5165,15 +5270,21 @@ NTSTATUS _samr_SetUserInfo(struct pipes_struct *p,
 			break;
 
 		case 24:
+
 			status = session_extract_session_key(p->session_info, &session_key, KEY_USE_16BYTES);
 			if(!NT_STATUS_IS_OK(status)) {
 				break;
 			}
-			arcfour_crypt_blob(info->info24.password.data,
-					   516,
-					   &session_key);
+			status = arc4_decrypt_data(session_key,
+						   info->info24.password.data,
+						   516);
+			if(!NT_STATUS_IS_OK(status)) {
+				break;
+			}
 
+#ifdef DEBUG_PASSWORD
 			dump_data(100, info->info24.password.data, 516);
+#endif
 
 			status = set_user_info_24(p->mem_ctx,
 						  rhost,
@@ -5185,11 +5296,15 @@ NTSTATUS _samr_SetUserInfo(struct pipes_struct *p,
 			if(!NT_STATUS_IS_OK(status)) {
 				break;
 			}
-			encode_or_decode_arc4_passwd_buffer(
-				info->info25.password.data,
-				&session_key);
+			status = decode_rc4_passwd_buffer(&session_key,
+					&info->info25.password);
+			if (!NT_STATUS_IS_OK(status)) {
+				break;
+			}
 
+#ifdef DEBUG_PASSWORD
 			dump_data(100, info->info25.password.data, 532);
+#endif
 
 			status = set_user_info_25(p->mem_ctx,
 						  rhost,
@@ -5201,11 +5316,15 @@ NTSTATUS _samr_SetUserInfo(struct pipes_struct *p,
 			if(!NT_STATUS_IS_OK(status)) {
 				break;
 			}
-			encode_or_decode_arc4_passwd_buffer(
-				info->info26.password.data,
-				&session_key);
+			status = decode_rc4_passwd_buffer(&session_key,
+					&info->info26.password);
+			if (!NT_STATUS_IS_OK(status)) {
+				break;
+			}
 
+#ifdef DEBUG_PASSWORD
 			dump_data(100, info->info26.password.data, 516);
+#endif
 
 			status = set_user_info_26(p->mem_ctx,
 						  rhost,
@@ -5818,9 +5937,12 @@ NTSTATUS _samr_CreateDomainGroup(struct pipes_struct *p,
 	if ( !NT_STATUS_IS_OK(status) )
 		return status;
 
-	ginfo = policy_handle_create(p, r->out.group_handle,
-				     GENERIC_RIGHTS_GROUP_ALL_ACCESS,
-				     struct samr_group_info, &status);
+	ginfo = policy_handle_create(p,
+				r->out.group_handle,
+				SAMR_HANDLE_GROUP,
+				GENERIC_RIGHTS_GROUP_ALL_ACCESS,
+				struct samr_group_info,
+				&status);
         if (!NT_STATUS_IS_OK(status)) {
                 return status;
         }
@@ -5892,9 +6014,12 @@ NTSTATUS _samr_CreateDomAlias(struct pipes_struct *p,
 		return NT_STATUS_ACCESS_DENIED;
 	}
 
-	ainfo = policy_handle_create(p, r->out.alias_handle,
-				     GENERIC_RIGHTS_ALIAS_ALL_ACCESS,
-				     struct samr_alias_info, &result);
+	ainfo = policy_handle_create(p,
+				r->out.alias_handle,
+				SAMR_HANDLE_ALIAS,
+				GENERIC_RIGHTS_ALIAS_ALL_ACCESS,
+				struct samr_alias_info,
+				&result);
         if (!NT_STATUS_IS_OK(result)) {
                 return result;
         }
@@ -6200,6 +6325,8 @@ NTSTATUS _samr_SetAliasInfo(struct pipes_struct *p,
 NTSTATUS _samr_GetDomPwInfo(struct pipes_struct *p,
 			    struct samr_GetDomPwInfo *r)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	uint32_t min_password_length = 0;
 	uint32_t password_properties = 0;
 
@@ -6219,7 +6346,7 @@ NTSTATUS _samr_GetDomPwInfo(struct pipes_struct *p,
 			       &password_properties);
 	unbecome_root();
 
-	if (lp_check_password_script(talloc_tos()) && *lp_check_password_script(talloc_tos())) {
+	if (lp_check_password_script(talloc_tos(), lp_sub) && *lp_check_password_script(talloc_tos(), lp_sub)) {
 		password_properties |= DOMAIN_PASSWORD_COMPLEX;
 	}
 
@@ -6296,9 +6423,12 @@ NTSTATUS _samr_OpenGroup(struct pipes_struct *p,
 
 	TALLOC_FREE(map);
 
-	ginfo = policy_handle_create(p, r->out.group_handle,
-				     acc_granted,
-				     struct samr_group_info, &status);
+	ginfo = policy_handle_create(p,
+				r->out.group_handle,
+				SAMR_HANDLE_GROUP,
+				acc_granted,
+				struct samr_group_info,
+				&status);
         if (!NT_STATUS_IS_OK(status)) {
                 return status;
         }

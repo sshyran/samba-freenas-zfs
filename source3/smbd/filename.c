@@ -287,7 +287,7 @@ static NTSTATUS rearrange_snapshot_path(struct smb_filename *smb_fname,
 	if (*endp == '\0') {
 		/*
 		 * @GMT-token was at end of path.
-		 * Remove any preceeding '/'
+		 * Remove any preceding '/'
 		 */
 		if (startp > smb_fname->base_name && startp[-1] == '/') {
 			startp--;
@@ -1449,10 +1449,12 @@ static bool sname_equal(const char *name1, const char *name2,
  If the name looks like a mangled name then try via the mangling functions
 ****************************************************************************/
 
-static int get_real_filename_full_scan(connection_struct *conn,
-				       const char *path, const char *name,
-				       bool mangled,
-				       TALLOC_CTX *mem_ctx, char **found_name)
+int get_real_filename_full_scan(connection_struct *conn,
+				const char *path,
+				const char *name,
+				bool mangled,
+				TALLOC_CTX *mem_ctx,
+				char **found_name)
 {
 	struct smb_Dir *cur_dir;
 	const char *dname = NULL;

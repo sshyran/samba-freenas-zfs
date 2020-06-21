@@ -1,30 +1,23 @@
-/* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- * plugins/kdb/samba/kdb_samba.h
- *
- * Copyright (c) 2009, Simo Sorce <idra@samba.org>
- * All Rights Reserved.
- *
- *   Export of this software from the United States of America may
- *   require a specific license from the United States Government.
- *   It is the responsibility of any person or organization contemplating
- *   export to obtain such a license before exporting.
- *
- * WITHIN THAT CONSTRAINT, permission to use, copy, modify, and
- * distribute this software and its documentation for any purpose and
- * without fee is hereby granted, provided that the above copyright
- * notice appear in all copies and that both that copyright notice and
- * this permission notice appear in supporting documentation, and that
- * the name of M.I.T. not be used in advertising or publicity pertaining
- * to distribution of the software without specific, written prior
- * permission.  Furthermore if you modify this software you must label
- * your software as modified software and not distribute it in such a
- * fashion that it might be confused with the original M.I.T. software.
- * M.I.T. makes no representations about the suitability of
- * this software for any purpose.  It is provided "as is" without express
- * or implied warranty.
- *
- */
+   Unix SMB/CIFS implementation.
+
+   Samba KDB plugin for MIT Kerberos
+
+   Copyright (c) 2009      Simo Sorce <idra@samba.org>.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #ifndef _KDB_SAMBA_H_
 #define _KDB_SAMBA_H_
@@ -121,6 +114,7 @@ krb5_error_code kdb_samba_dbekd_encrypt_key_data(krb5_context context,
 
 /* from kdb_samba_policies.c */
 
+#if KRB5_KDB_API_VERSION < 10
 krb5_error_code kdb_samba_db_sign_auth_data(krb5_context context,
 					    unsigned int flags,
 					    krb5_const_principal client_princ,
@@ -134,6 +128,26 @@ krb5_error_code kdb_samba_db_sign_auth_data(krb5_context context,
 					    krb5_timestamp authtime,
 					    krb5_authdata **tgt_auth_data,
 					    krb5_authdata ***signed_auth_data);
+#else
+krb5_error_code kdb_samba_db_sign_auth_data(krb5_context context,
+					    unsigned int flags,
+					    krb5_const_principal client_princ,
+					    krb5_const_principal server_princ,
+					    krb5_db_entry *client,
+					    krb5_db_entry *server,
+					    krb5_db_entry *krbtgt,
+					    krb5_db_entry *local_krbtgt,
+					    krb5_keyblock *client_key,
+					    krb5_keyblock *server_key,
+					    krb5_keyblock *krbtgt_key,
+					    krb5_keyblock *local_krbtgt_key,
+					    krb5_keyblock *session_key,
+					    krb5_timestamp authtime,
+					    krb5_authdata **tgt_auth_data,
+					    void *authdata_info,
+					    krb5_data ***auth_indicators,
+					    krb5_authdata ***signed_auth_data);
+#endif
 
 krb5_error_code kdb_samba_db_check_policy_as(krb5_context context,
 					     krb5_kdc_req *kdcreq,

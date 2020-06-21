@@ -22,7 +22,6 @@
 #include "includes.h"
 #include "../libcli/auth/libcli_auth.h"
 #include "../librpc/gen_ndr/rap.h"
-#include "../lib/crypto/arcfour.h"
 #include "../lib/util/tevent_ntstatus.h"
 #include "async_smb.h"
 #include "libsmb/libsmb.h"
@@ -30,6 +29,9 @@
 #include "trans2.h"
 #include "../libcli/smb/smbXcli_base.h"
 #include "cli_smb2_fnum.h"
+
+#include <gnutls/gnutls.h>
+#include <gnutls/crypto.h>
 
 #define PIPE_LANMAN   "\\PIPE\\LANMAN"
 
@@ -142,7 +144,6 @@ bool cli_NetWkstaUserLogon(struct cli_state *cli,char *user, char *workstation)
                     &rdata, &rdrcnt                 /* return data, return size */
                    )) {
 		cli->rap_error = rparam? SVAL(rparam,0) : -1;
-		p = rdata;
 
 		if (cli->rap_error == 0) {
 			DEBUG(4,("NetWkstaUserLogon success\n"));
@@ -174,6 +175,8 @@ int cli_RNetShareEnum(struct cli_state *cli, void (*fn)(const char *, uint32_t, 
 	unsigned int rdrcnt,rprcnt;
 	char param[1024];
 	int count = -1;
+	bool ok;
+	int res;
 
 	/* now send a SMBtrans command with api RNetShareEnum */
 	p = param;
@@ -191,74 +194,82 @@ int cli_RNetShareEnum(struct cli_state *cli, void (*fn)(const char *, uint32_t, 
 	SSVAL(p,2,0xFFE0);
 	p += 4;
 
-	if (cli_api(cli,
-		    param, PTR_DIFF(p,param), 1024,  /* Param, length, maxlen */
-		    NULL, 0, 0xFFE0,            /* data, length, maxlen - Win2k needs a small buffer here too ! */
-		    &rparam, &rprcnt,                /* return params, length */
-		    &rdata, &rdrcnt))                /* return data, length */
-		{
-			int res = rparam? SVAL(rparam,0) : -1;
+	ok = cli_api(
+		cli,
+		param, PTR_DIFF(p,param), 1024,  /* Param, length, maxlen */
+		NULL, 0, 0xFFE0,            /* data, length, maxlen - Win2k needs a small buffer here too ! */
+		&rparam, &rprcnt,                /* return params, length */
+		&rdata, &rdrcnt);                /* return data, length */
+	if (!ok) {
+		DEBUG(4,("NetShareEnum failed\n"));
+		goto done;
+	}
 
-			if (res == 0 || res == ERRmoredata) {
-				int converter=SVAL(rparam,2);
-				int i;
-				char *rdata_end = rdata + rdrcnt;
+	if (rprcnt < 6) {
+		DBG_ERR("Got invalid result: rprcnt=%u\n", rprcnt);
+		goto done;
+	}
 
-				count=SVAL(rparam,4);
-				p = rdata;
+	res = rparam? SVAL(rparam,0) : -1;
 
-				for (i=0;i<count;i++,p+=20) {
-					char *sname;
-					int type;
-					int comment_offset;
-					const char *cmnt;
-					const char *p1;
-					char *s1, *s2;
-					size_t len;
-					TALLOC_CTX *frame = talloc_stackframe();
+	if (res == 0 || res == ERRmoredata) {
+		int converter=SVAL(rparam,2);
+		int i;
+		char *rdata_end = rdata + rdrcnt;
 
-					if (p + 20 > rdata_end) {
-						TALLOC_FREE(frame);
-						break;
-					}
+		count=SVAL(rparam,4);
+		p = rdata;
 
-					sname = p;
-					type = SVAL(p,14);
-					comment_offset = (IVAL(p,16) & 0xFFFF) - converter;
-					if (comment_offset < 0 ||
-							comment_offset > (int)rdrcnt) {
-						TALLOC_FREE(frame);
-						break;
-					}
-					cmnt = comment_offset?(rdata+comment_offset):"";
+		for (i=0;i<count;i++,p+=20) {
+			char *sname;
+			int type;
+			int comment_offset;
+			const char *cmnt;
+			const char *p1;
+			char *s1, *s2;
+			size_t len;
+			TALLOC_CTX *frame = talloc_stackframe();
 
-					/* Work out the comment length. */
-					for (p1 = cmnt, len = 0; *p1 &&
-							p1 < rdata_end; len++)
-						p1++;
-					if (!*p1) {
-						len++;
-					}
-					pull_string_talloc(frame,rdata,0,
-						&s1,sname,14,STR_ASCII);
-					pull_string_talloc(frame,rdata,0,
-						&s2,cmnt,len,STR_ASCII);
-					if (!s1 || !s2) {
-						TALLOC_FREE(frame);
-						continue;
-					}
-
-					fn(s1, type, s2, state);
-
-					TALLOC_FREE(frame);
-				}
-			} else {
-				DEBUG(4,("NetShareEnum res=%d\n", res));
+			if (p + 20 > rdata_end) {
+				TALLOC_FREE(frame);
+				break;
 			}
-		} else {
-			DEBUG(4,("NetShareEnum failed\n"));
-		}
 
+			sname = p;
+			type = SVAL(p,14);
+			comment_offset = (IVAL(p,16) & 0xFFFF) - converter;
+			if (comment_offset < 0 ||
+			    comment_offset > (int)rdrcnt) {
+				TALLOC_FREE(frame);
+				break;
+			}
+			cmnt = comment_offset?(rdata+comment_offset):"";
+
+			/* Work out the comment length. */
+			for (p1 = cmnt, len = 0; *p1 &&
+				     p1 < rdata_end; len++)
+				p1++;
+			if (!*p1) {
+				len++;
+			}
+			pull_string_talloc(frame,rdata,0,
+					   &s1,sname,14,STR_ASCII);
+			pull_string_talloc(frame,rdata,0,
+					   &s2,cmnt,len,STR_ASCII);
+			if (!s1 || !s2) {
+				TALLOC_FREE(frame);
+				continue;
+			}
+
+			fn(s1, type, s2, state);
+
+			TALLOC_FREE(frame);
+		}
+	} else {
+			DEBUG(4,("NetShareEnum res=%d\n", res));
+	}
+
+done:
 	SAFE_FREE(rparam);
 	SAFE_FREE(rdata);
 
@@ -362,6 +373,13 @@ bool cli_NetServerEnum(struct cli_state *cli, char *workgroup, uint32_t stype,
 		}
 
 		rdata_end = rdata + rdrcnt;
+
+		if (rprcnt < 6) {
+			DBG_ERR("Got invalid result: rprcnt=%u\n", rprcnt);
+			res = -1;
+			break;
+		}
+
 		res = rparam ? SVAL(rparam,0) : -1;
 
 		if (res == 0 || res == ERRmoredata ||
@@ -508,6 +526,12 @@ bool cli_oem_change_password(struct cli_state *cli, const char *user, const char
 	char *rparam = NULL;
 	char *rdata = NULL;
 	unsigned int rprcnt, rdrcnt;
+	gnutls_cipher_hd_t cipher_hnd = NULL;
+	gnutls_datum_t old_pw_key = {
+		.data = old_pw_hash,
+		.size = sizeof(old_pw_hash),
+	};
+	int rc;
 
 	if (strlen(user) >= sizeof(fstring)-1) {
 		DEBUG(0,("cli_oem_change_password: user name %s is too long.\n", user));
@@ -539,14 +563,33 @@ bool cli_oem_change_password(struct cli_state *cli, const char *user, const char
 	DEBUG(100,("make_oem_passwd_hash\n"));
 	dump_data(100, data, 516);
 #endif
-	arcfour_crypt( (unsigned char *)data, (unsigned char *)old_pw_hash, 516);
+	rc = gnutls_cipher_init(&cipher_hnd,
+				GNUTLS_CIPHER_ARCFOUR_128,
+				&old_pw_key,
+				NULL);
+	if (rc < 0) {
+		DBG_ERR("gnutls_cipher_init failed: %s\n",
+			gnutls_strerror(rc));
+		return false;
+	}
+	rc = gnutls_cipher_encrypt(cipher_hnd,
+			      data,
+			      516);
+	gnutls_cipher_deinit(cipher_hnd);
+	if (rc < 0) {
+		return false;
+	}
 
 	/*
 	 * Now place the old password hash in the data.
 	 */
 	E_deshash(new_password, new_pw_hash);
 
-	E_old_pw_hash( new_pw_hash, old_pw_hash, (uchar *)&data[516]);
+	rc = E_old_pw_hash( new_pw_hash, old_pw_hash, (uchar *)&data[516]);
+	if (rc != 0) {
+		DBG_ERR("E_old_pw_hash failed: %s\n", gnutls_strerror(rc));
+		return false;
+	}
 
 	data_len = 532;
 
@@ -560,10 +603,16 @@ bool cli_oem_change_password(struct cli_state *cli, const char *user, const char
 		return False;
 	}
 
+	if (rdrcnt < 2) {
+		cli->rap_error = ERRbadformat;
+		goto done;
+	}
+
 	if (rparam) {
 		cli->rap_error = SVAL(rparam,0);
 	}
 
+done:
 	SAFE_FREE(rparam);
 	SAFE_FREE(rdata);
 
@@ -751,6 +800,70 @@ NTSTATUS cli_setpathinfo_basic(struct cli_state *cli, const char *fname,
         p += 4;
 
         data_len = PTR_DIFF(p, data);
+
+	if (smbXcli_conn_protocol(cli->conn) >= PROTOCOL_SMB2_02) {
+		DATA_BLOB in_data = data_blob_const(data, data_len);
+		/*
+		 * Split out SMB2 here as we need to select
+		 * the correct info type and level.
+		 */
+		return cli_smb2_setpathinfo(cli,
+				fname,
+				1, /* SMB2_SETINFO_FILE */
+				SMB_FILE_BASIC_INFORMATION - 1000,
+				&in_data);
+	}
+
+	return cli_setpathinfo(cli, SMB_FILE_BASIC_INFORMATION, fname,
+			       (uint8_t *)data, data_len);
+}
+
+NTSTATUS cli_setpathinfo_ext(struct cli_state *cli, const char *fname,
+			     const struct timespec *create_time,
+			     const struct timespec *access_time,
+			     const struct timespec *write_time,
+			     const struct timespec *change_time,
+			     uint16_t mode)
+{
+	unsigned int data_len = 0;
+	char data[40];
+	char *p;
+
+	p = data;
+
+	/*
+	 * Add the create, last access, modification, and status change times
+	 */
+	put_long_date_full_timespec(TIMESTAMP_SET_NT_OR_BETTER, p, create_time);
+	p += 8;
+
+	put_long_date_full_timespec(TIMESTAMP_SET_NT_OR_BETTER, p, access_time);
+	p += 8;
+
+	put_long_date_full_timespec(TIMESTAMP_SET_NT_OR_BETTER, p, write_time);
+	p += 8;
+
+	put_long_date_full_timespec(TIMESTAMP_SET_NT_OR_BETTER, p, change_time);
+	p += 8;
+
+	if (mode == (uint16_t)-1 || mode == FILE_ATTRIBUTE_NORMAL) {
+		/* No change. */
+		mode = 0;
+	} else if (mode == 0) {
+		/* Clear all existing attributes. */
+		mode = FILE_ATTRIBUTE_NORMAL;
+	}
+
+	/* Add attributes */
+	SIVAL(p, 0, mode);
+
+	p += 4;
+
+	/* Add padding */
+	SIVAL(p, 0, 0);
+	p += 4;
+
+	data_len = PTR_DIFF(p, data);
 
 	if (smbXcli_conn_protocol(cli->conn) >= PROTOCOL_SMB2_02) {
 		DATA_BLOB in_data = data_blob_const(data, data_len);
@@ -1456,7 +1569,7 @@ NTSTATUS cli_qpathinfo3(struct cli_state *cli, const char *fname,
 {
 	NTSTATUS status = NT_STATUS_OK;
 	SMB_STRUCT_STAT st = { 0 };
-	uint32_t attr;
+	uint32_t attr = 0;
 	uint64_t pos;
 
 	if (smbXcli_conn_protocol(cli->conn) >= PROTOCOL_SMB2_02) {

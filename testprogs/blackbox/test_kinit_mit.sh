@@ -131,6 +131,15 @@ testit "set user password with kerberos ccache" $VALGRIND $PYTHON $samba_tool us
 testit "enable user with kerberos cache" $VALGRIND $PYTHON $samba_enableaccount nettestuser -H ldap://$SERVER -k yes $@ || failed=`expr $failed + 1`
 
 ###########################################################
+### Test kinit with canonicalization
+###########################################################
+
+upperusername=$(echo $USERNAME | tr '[a-z]' '[A-Z]')
+testit "kinit with canonicalize" $samba_texpect $PREFIX/tmpkinitscript $samba_kinit -C $upperusername@$REALM -S kadmin/changepw@$REALM || failed=`expr $failed + 1`
+
+$samba_kdestroy
+
+###########################################################
 ### Test kinit with user credentials
 ###########################################################
 

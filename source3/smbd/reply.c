@@ -42,6 +42,7 @@
 #include "smbprofile.h"
 #include "../lib/tsocket/tsocket.h"
 #include "lib/tevent_wait.h"
+#include "lib/util/tevent_ntstatus.h"
 #include "libcli/smb/smb_signing.h"
 #include "lib/util/sys_rw_data.h"
 #include "librpc/gen_ndr/open_files.h"
@@ -254,7 +255,7 @@ NTSTATUS check_path_syntax_posix(char *path)
 }
 
 /****************************************************************************
- Pull a string and check the path allowing a wilcard - provide for error return.
+ Pull a string and check the path allowing a wildcard - provide for error return.
  Passes in posix flag.
 ****************************************************************************/
 
@@ -302,7 +303,7 @@ static size_t srvstr_get_path_wcard_internal(TALLOC_CTX *ctx,
 }
 
 /****************************************************************************
- Pull a string and check the path allowing a wilcard - provide for error return.
+ Pull a string and check the path allowing a wildcard - provide for error return.
 ****************************************************************************/
 
 size_t srvstr_get_path_wcard(TALLOC_CTX *ctx,
@@ -328,7 +329,7 @@ size_t srvstr_get_path_wcard(TALLOC_CTX *ctx,
 }
 
 /****************************************************************************
- Pull a string and check the path allowing a wilcard - provide for error return.
+ Pull a string and check the path allowing a wildcard - provide for error return.
  posix_pathnames version.
 ****************************************************************************/
 
@@ -868,6 +869,8 @@ void reply_tcon(struct smb_request *req)
 
 void reply_tcon_and_X(struct smb_request *req)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	connection_struct *conn = req->conn;
 	const char *service = NULL;
 	TALLOC_CTX *ctx = talloc_tos();
@@ -1048,6 +1051,7 @@ void reply_tcon_and_X(struct smb_request *req)
 			if (!NT_STATUS_IS_OK(status)) {
 				DBG_ERR("smb_key_derivation failed: %s\n",
 					nt_errstr(status));
+				END_PROFILE(SMBtconX);
 				return;
 			}
 			optional_support |= SMB_EXTENDED_SIGNATURES;
@@ -1141,7 +1145,7 @@ void reply_tcon_and_X(struct smb_request *req)
 
 		if (lp_msdfs_root(SNUM(conn)) && lp_host_msdfs()) {
 			DEBUG(2,("Serving %s as a Dfs root\n",
-				 lp_servicename(ctx, SNUM(conn)) ));
+				 lp_servicename(ctx, lp_sub, SNUM(conn)) ));
 			optional_support |= SMB_SHARE_IN_DFS;
 		}
 
@@ -1182,6 +1186,8 @@ void reply_unknown_new(struct smb_request *req, uint8_t type)
 
 void reply_ioctl(struct smb_request *req)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	connection_struct *conn = req->conn;
 	uint16_t device;
 	uint16_t function;
@@ -1248,6 +1254,7 @@ void reply_ioctl(struct smb_request *req)
 				status = srvstr_push((char *)req->outbuf, req->flags2,
 					    p+18,
 					    lp_servicename(talloc_tos(),
+							   lp_sub,
 							   SNUM(conn)),
 					    13, STR_TERMINATE|STR_ASCII, &len);
 				if (!NT_STATUS_IS_OK(status)) {
@@ -1443,7 +1450,7 @@ void reply_getatr(struct smb_request *req)
 			ZERO_STRUCT(write_time_ts);
 			fileid = vfs_file_id_from_sbuf(conn, &smb_fname->st);
 			get_file_infos(fileid, 0, NULL, &write_time_ts);
-			if (!null_timespec(write_time_ts)) {
+			if (!is_omit_timespec(&write_time_ts)) {
 				update_stat_ex_mtime(&smb_fname->st, write_time_ts);
 			}
 		}
@@ -1497,6 +1504,7 @@ void reply_setatr(struct smb_request *req)
 	TALLOC_CTX *ctx = talloc_tos();
 
 	START_PROFILE(SMBsetatr);
+	init_smb_file_time(&ft);
 
 	if (req->wct < 2) {
 		reply_nterror(req, NT_STATUS_INVALID_PARAMETER);
@@ -1559,9 +1567,7 @@ void reply_setatr(struct smb_request *req)
 		}
 	}
 
-	ft = (struct smb_file_time) {
-		.mtime = convert_time_t_to_timespec(mtime)
-	};
+	ft.mtime = time_t_to_full_timespec(mtime);
 
 	status = smb_set_file_time(conn, NULL, smb_fname, &ft, true);
 	if (!NT_STATUS_IS_OK(status)) {
@@ -1770,9 +1776,11 @@ void reply_search(struct smb_request *req)
 	bool allow_long_path_components = (req->flags2 & FLAGS2_LONG_PATH_COMPONENTS) ? True : False;
 	TALLOC_CTX *ctx = talloc_tos();
 	bool ask_sharemode = lp_smbd_search_ask_sharemode(SNUM(conn));
-	struct dptr_struct *dirptr = NULL;
 	struct smbXsrv_connection *xconn = req->xconn;
 	struct smbd_server_connection *sconn = req->sconn;
+	files_struct *fsp = NULL;
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 
 	START_PROFILE(SMBsearch);
 
@@ -1814,6 +1822,7 @@ void reply_search(struct smb_request *req)
 	/* dirtype &= ~FILE_ATTRIBUTE_DIRECTORY; */
 
 	if (status_len == 0) {
+		int ret;
 		struct smb_filename *smb_dname = NULL;
 		uint32_t ucf_flags = UCF_ALWAYS_ALLOW_WCARD_LCOMP |
 			ucf_flags_from_smb_request(req);
@@ -1863,25 +1872,82 @@ void reply_search(struct smb_request *req)
 			goto out;
 		}
 
+		/*
+		 * As we've cut off the last component from
+		 * smb_fname we need to re-stat smb_dname
+		 * so FILE_OPEN disposition knows the directory
+		 * exists.
+		 */
+		if (req->posix_pathnames) {
+			ret = SMB_VFS_LSTAT(conn, smb_dname);
+		} else {
+			ret = SMB_VFS_STAT(conn, smb_dname);
+		}
+		if (ret == -1) {
+			nt_status = map_nt_error_from_unix(errno);
+			reply_nterror(req, nt_status);
+			goto out;
+		}
+
+		/*
+		 * Open an fsp on this directory for the dptr.
+		 */
+		nt_status = SMB_VFS_CREATE_FILE(
+				conn, /* conn */
+				req, /* req */
+				0, /* root_dir_fid */
+				smb_dname, /* dname */
+				FILE_LIST_DIRECTORY, /* access_mask */
+				FILE_SHARE_READ|
+				FILE_SHARE_WRITE, /* share_access */
+				FILE_OPEN, /* create_disposition*/
+				FILE_DIRECTORY_FILE, /* create_options */
+				FILE_ATTRIBUTE_DIRECTORY,/* file_attributes */
+				NO_OPLOCK, /* oplock_request */
+				NULL, /* lease */
+				0, /* allocation_size */
+				0, /* private_flags */
+				NULL, /* sd */
+				NULL, /* ea_list */
+				&fsp, /* result */
+				NULL, /* pinfo */
+				NULL, /* in_context */
+				NULL);/* out_context */
+
+		if (!NT_STATUS_IS_OK(nt_status)) {
+			DBG_ERR("failed to open directory %s\n",
+				smb_fname_str_dbg(smb_dname));
+			reply_nterror(req, nt_status);
+			goto out;
+		}
+
 		nt_status = dptr_create(conn,
 					NULL, /* req */
-					NULL, /* fsp */
-					smb_dname,
+					fsp, /* fsp */
 					True,
 					expect_close,
 					req->smbpid,
 					mask,
 					mask_contains_wcard,
 					dirtype,
-					&dirptr);
+					&fsp->dptr);
 
 		TALLOC_FREE(smb_dname);
 
 		if (!NT_STATUS_IS_OK(nt_status)) {
+			/*
+			 * Use NULL here for the first parameter (req)
+			 * as this is not a client visible handle so
+			 * can'tbe part of an SMB1 chain.
+			 */
+			close_file(NULL, fsp, NORMAL_CLOSE);
+			fsp = NULL;
 			reply_nterror(req, nt_status);
 			goto out;
 		}
-		dptr_num = dptr_dnum(dirptr);
+
+		dptr_num = dptr_dnum(fsp->dptr);
+
 	} else {
 		int status_dirtype;
 		const char *dirpath;
@@ -1897,8 +1963,8 @@ void reply_search(struct smb_request *req)
 			dirtype = status_dirtype;
 		}
 
-		dirptr = dptr_fetch(sconn, status+12,&dptr_num);
-		if (!dirptr) {
+		fsp = dptr_fetch_fsp(sconn, status+12,&dptr_num);
+		if (fsp == NULL) {
 			goto SearchEmpty;
 		}
 		dirpath = dptr_path(sconn, dptr_num);
@@ -1952,14 +2018,14 @@ void reply_search(struct smb_request *req)
 		maxentries = MIN(maxentries, available_space/DIR_STRUCT_SIZE);
 
 		DEBUG(8,("dirpath=<%s> dontdescend=<%s>\n",
-			 directory,lp_dont_descend(ctx, SNUM(conn))));
-		if (in_list(directory, lp_dont_descend(ctx, SNUM(conn)),True)) {
+			 directory,lp_dont_descend(ctx, lp_sub, SNUM(conn))));
+		if (in_list(directory, lp_dont_descend(ctx, lp_sub, SNUM(conn)),True)) {
 			check_descend = True;
 		}
 
 		for (i=numentries;(i<maxentries) && !finished;i++) {
 			finished = !get_dir_entry(ctx,
-						  dirptr,
+						  fsp->dptr,
 						  mask,
 						  dirtype,
 						  &fname,
@@ -1999,19 +2065,32 @@ void reply_search(struct smb_request *req)
   SearchEmpty:
 
 	/* If we were called as SMBffirst with smb_search_id == NULL
-		and no entries were found then return error and close dirptr 
+		and no entries were found then return error and close fsp->dptr
 		(X/Open spec) */
 
 	if (numentries == 0) {
-		dptr_close(sconn, &dptr_num);
+		dptr_num = -1;
+		if (fsp != NULL) {
+			close_file(NULL, fsp, NORMAL_CLOSE);
+			fsp = NULL;
+		}
 	} else if(expect_close && status_len == 0) {
 		/* Close the dptr - we know it's gone */
-		dptr_close(sconn, &dptr_num);
+		dptr_num = -1;
+		if (fsp != NULL) {
+			close_file(NULL, fsp, NORMAL_CLOSE);
+			fsp = NULL;
+		}
 	}
 
-	/* If we were called as SMBfunique, then we can close the dirptr now ! */
+	/* If we were called as SMBfunique, then we can close the fsp->dptr now ! */
 	if(dptr_num >= 0 && req->cmd == SMBfunique) {
-		dptr_close(sconn, &dptr_num);
+		dptr_num = -1;
+		/* fsp may have been closed above. */
+		if (fsp != NULL) {
+			close_file(NULL, fsp, NORMAL_CLOSE);
+			fsp = NULL;
+		}
 	}
 
 	if ((numentries == 0) && !mask_contains_wcard) {
@@ -2067,6 +2146,7 @@ void reply_fclose(struct smb_request *req)
 	bool path_contains_wcard = False;
 	TALLOC_CTX *ctx = talloc_tos();
 	struct smbd_server_connection *sconn = req->sconn;
+	files_struct *fsp = NULL;
 
 	START_PROFILE(SMBfclose);
 
@@ -2109,9 +2189,12 @@ void reply_fclose(struct smb_request *req)
 
 	memcpy(status,p,21);
 
-	if(dptr_fetch(sconn, status+12,&dptr_num)) {
-		/*  Close the dptr - we know it's gone */
-		dptr_close(sconn, &dptr_num);
+	fsp = dptr_fetch_fsp(sconn, status+12,&dptr_num);
+	if(fsp != NULL) {
+		/*  Close the file - we know it's gone */
+		close_file(NULL, fsp, NORMAL_CLOSE);
+		fsp = NULL;
+		dptr_num = -1;
 	}
 
 	reply_outbuf(req, 1, 0);
@@ -2230,10 +2313,13 @@ void reply_open(struct smb_request *req)
 			req,
 			smb_fname,
 			access_mask,
-			share_mode,
 			create_options,
 			private_flags);
 		if (fsp == NULL) {
+			bool ok = defer_smb1_sharing_violation(req);
+			if (ok) {
+				goto out;
+			}
 			reply_openerror(req, status);
 			goto out;
 		}
@@ -2418,13 +2504,18 @@ void reply_open_and_X(struct smb_request *req)
 			req,
 			smb_fname,
 			access_mask,
-			share_mode,
 			create_options,
 			private_flags);
 		if (fsp == NULL) {
+			bool ok = defer_smb1_sharing_violation(req);
+			if (ok) {
+				goto out;
+			}
 			reply_openerror(req, status);
 			goto out;
 		}
+
+
 		smb_action = FILE_WAS_OPENED;
 	}
 
@@ -2452,12 +2543,12 @@ void reply_open_and_X(struct smb_request *req)
 	}
 
 	fattr = dos_mode(conn, fsp->fsp_name);
-	mtime = convert_timespec_to_time_t(fsp->fsp_name->st.st_ex_mtime);
 	if (fattr & FILE_ATTRIBUTE_DIRECTORY) {
 		close_file(req, fsp, ERROR_CLOSE);
 		reply_nterror(req, NT_STATUS_ACCESS_DENIED);
 		goto out;
 	}
+	mtime = convert_timespec_to_time_t(fsp->fsp_name->st.st_ex_mtime);
 
 	/* If the caller set the extended oplock request bit
 		and we granted one (by whatever means) - set the
@@ -2521,42 +2612,196 @@ void reply_open_and_X(struct smb_request *req)
  Reply to a SMBulogoffX.
 ****************************************************************************/
 
-void reply_ulogoffX(struct smb_request *req)
+static struct tevent_req *reply_ulogoffX_send(struct smb_request *smb1req,
+				struct smbXsrv_session *session);
+static void reply_ulogoffX_done(struct tevent_req *req);
+
+void reply_ulogoffX(struct smb_request *smb1req)
 {
-	struct smbd_server_connection *sconn = req->sconn;
-	struct user_struct *vuser;
+	struct timeval now = timeval_current();
 	struct smbXsrv_session *session = NULL;
+	struct tevent_req *req;
 	NTSTATUS status;
 
-	START_PROFILE(SMBulogoffX);
+	/*
+	 * Don't setup the profile charge here, take
+	 * it in reply_ulogoffX_done(). Not strictly correct
+	 * but better than the other SMB1 async
+	 * code that double-charges at the moment.
+	 */
 
-	vuser = get_valid_user_struct(sconn, req->vuid);
+	status = smb1srv_session_lookup(smb1req->xconn,
+					smb1req->vuid,
+					timeval_to_nttime(&now),
+					&session);
+	if (!NT_STATUS_IS_OK(status)) {
+		/* Not going async, profile here. */
+		START_PROFILE(SMBulogoffX);
+		DBG_WARNING("ulogoff, vuser id %llu does not map to user.\n",
+			 (unsigned long long)smb1req->vuid);
 
-	if(vuser == NULL) {
-		DEBUG(3,("ulogoff, vuser id %llu does not map to user.\n",
-			 (unsigned long long)req->vuid));
-
-		req->vuid = UID_FIELD_INVALID;
-		reply_force_doserror(req, ERRSRV, ERRbaduid);
+		smb1req->vuid = UID_FIELD_INVALID;
+		reply_force_doserror(smb1req, ERRSRV, ERRbaduid);
 		END_PROFILE(SMBulogoffX);
 		return;
 	}
 
-	session = vuser->session;
-	vuser = NULL;
+	req = reply_ulogoffX_send(smb1req, session);
+	if (req == NULL) {
+		/* Not going async, profile here. */
+		START_PROFILE(SMBulogoffX);
+		reply_force_doserror(smb1req, ERRDOS, ERRnomem);
+		END_PROFILE(SMBulogoffX);
+		return;
+	}
+
+	/* We're async. This will complete later. */
+	tevent_req_set_callback(req, reply_ulogoffX_done, smb1req);
+	return;
+}
+
+struct reply_ulogoffX_state {
+	struct tevent_queue *wait_queue;
+	struct smbXsrv_session *session;
+};
+
+static void reply_ulogoffX_wait_done(struct tevent_req *subreq);
+
+/****************************************************************************
+ Async SMB1 ulogoffX.
+ Note, on failure here we deallocate and return NULL to allow the caller to
+ SMB1 return an error of ERRnomem immediately.
+****************************************************************************/
+
+static struct tevent_req *reply_ulogoffX_send(struct smb_request *smb1req,
+					struct smbXsrv_session *session)
+{
+	struct tevent_req *req;
+	struct reply_ulogoffX_state *state;
+	struct tevent_req *subreq;
+	files_struct *fsp;
+	struct smbd_server_connection *sconn = session->client->sconn;
+	uint64_t vuid = session->global->session_wire_id;
+
+	req = tevent_req_create(smb1req, &state,
+			struct reply_ulogoffX_state);
+	if (req == NULL) {
+		return NULL;
+	}
+	state->wait_queue = tevent_queue_create(state,
+				"reply_ulogoffX_wait_queue");
+	if (tevent_req_nomem(state->wait_queue, req)) {
+		TALLOC_FREE(req);
+		return NULL;
+	}
+	state->session = session;
 
 	/*
-	 * TODO: cancel all outstanding requests on the session
+	 * Make sure that no new request will be able to use this session.
+	 * This ensures that once all outstanding fsp->aio_requests
+	 * on this session are done, we are safe to close it.
 	 */
+	session->status = NT_STATUS_USER_SESSION_DELETED;
+
+	for (fsp = sconn->files; fsp; fsp = fsp->next) {
+		if (fsp->vuid != vuid) {
+			continue;
+		}
+		/*
+		 * Flag the file as close in progress.
+		 * This will prevent any more IO being
+		 * done on it.
+		 */
+		fsp->closing = true;
+
+		if (fsp->num_aio_requests > 0) {
+			/*
+			 * Now wait until all aio requests on this fsp are
+			 * finished.
+			 *
+			 * We don't set a callback, as we just want to block the
+			 * wait queue and the talloc_free() of fsp->aio_request
+			 * will remove the item from the wait queue.
+			 */
+			subreq = tevent_queue_wait_send(fsp->aio_requests,
+						sconn->ev_ctx,
+						state->wait_queue);
+			if (tevent_req_nomem(subreq, req)) {
+				TALLOC_FREE(req);
+				return NULL;
+			}
+		}
+	}
+
+	/*
+	 * Now we add our own waiter to the end of the queue,
+	 * this way we get notified when all pending requests are finished
+	 * and reply to the outstanding SMB1 request.
+	 */
+	subreq = tevent_queue_wait_send(state,
+				sconn->ev_ctx,
+				state->wait_queue);
+	if (tevent_req_nomem(subreq, req)) {
+		TALLOC_FREE(req);
+		return NULL;
+	}
+
+	/*
+	 * We're really going async - move the SMB1 request from
+	 * a talloc stackframe above us to the sconn talloc-context.
+	 * We need this to stick around until the wait_done
+	 * callback is invoked.
+	 */
+	smb1req = talloc_move(sconn, &smb1req);
+
+	tevent_req_set_callback(subreq, reply_ulogoffX_wait_done, req);
+
+	return req;
+}
+
+static void reply_ulogoffX_wait_done(struct tevent_req *subreq)
+{
+	struct tevent_req *req = tevent_req_callback_data(
+		subreq, struct tevent_req);
+
+	tevent_queue_wait_recv(subreq);
+	TALLOC_FREE(subreq);
+	tevent_req_done(req);
+}
+
+static NTSTATUS reply_ulogoffX_recv(struct tevent_req *req)
+{
+	return tevent_req_simple_recv_ntstatus(req);
+}
+
+static void reply_ulogoffX_done(struct tevent_req *req)
+{
+	struct smb_request *smb1req = tevent_req_callback_data(
+		req, struct smb_request);
+	struct reply_ulogoffX_state *state = tevent_req_data(req,
+						struct reply_ulogoffX_state);
+	struct smbXsrv_session *session = state->session;
+	NTSTATUS status;
+
+	/*
+	 * Take the profile charge here. Not strictly
+	 * correct but better than the other SMB1 async
+	 * code that double-charges at the moment.
+	 */
+	START_PROFILE(SMBulogoffX);
+
+	status = reply_ulogoffX_recv(req);
+	TALLOC_FREE(req);
+	if (!NT_STATUS_IS_OK(status)) {
+		TALLOC_FREE(smb1req);
+		END_PROFILE(SMBulogoffX);
+		exit_server(__location__ ": reply_ulogoffX_recv failed");
+		return;
+	}
+
 	status = smbXsrv_session_logoff(session);
 	if (!NT_STATUS_IS_OK(status)) {
-		DEBUG(0, ("reply_ulogoff: "
-			  "smbXsrv_session_logoff() failed: %s\n",
-			  nt_errstr(status)));
-		/*
-		 * If we hit this case, there is something completely
-		 * wrong, so we better disconnect the transport connection.
-		 */
+		TALLOC_FREE(smb1req);
 		END_PROFILE(SMBulogoffX);
 		exit_server(__location__ ": smbXsrv_session_logoff failed");
 		return;
@@ -2564,15 +2809,21 @@ void reply_ulogoffX(struct smb_request *req)
 
 	TALLOC_FREE(session);
 
-	reply_outbuf(req, 2, 0);
-	SSVAL(req->outbuf, smb_vwv0, 0xff); /* andx chain ends */
-	SSVAL(req->outbuf, smb_vwv1, 0);    /* no andx offset */
+	reply_outbuf(smb1req, 2, 0);
+	SSVAL(smb1req->outbuf, smb_vwv0, 0xff); /* andx chain ends */
+	SSVAL(smb1req->outbuf, smb_vwv1, 0);    /* no andx offset */
 
-	DEBUG(3, ("ulogoffX vuid=%llu\n",
-		  (unsigned long long)req->vuid));
+	DBG_NOTICE("ulogoffX vuid=%llu\n",
+		  (unsigned long long)smb1req->vuid);
 
+	smb1req->vuid = UID_FIELD_INVALID;
+	/*
+	 * The following call is needed to push the
+	 * reply data back out the socket after async
+	 * return. Plus it frees smb1req.
+	 */
+	smb_request_done(smb1req);
 	END_PROFILE(SMBulogoffX);
-	req->vuid = UID_FIELD_INVALID;
 }
 
 /****************************************************************************
@@ -2597,7 +2848,7 @@ void reply_mknew(struct smb_request *req)
 	TALLOC_CTX *ctx = talloc_tos();
 
 	START_PROFILE(SMBcreate);
-	ZERO_STRUCT(ft);
+	init_smb_file_time(&ft);
 
         if (req->wct < 3) {
 		reply_nterror(req, NT_STATUS_INVALID_PARAMETER);
@@ -2616,7 +2867,7 @@ void reply_mknew(struct smb_request *req)
 	}
 
 	/* mtime. */
-	ft.mtime = convert_time_t_to_timespec(srv_make_unix_date3(req->vwv+1));
+	ft.mtime = time_t_to_full_timespec(srv_make_unix_date3(req->vwv+1));
 
 	srvstr_get_path_req(ctx, req, &fname, (const char *)req->buf + 1,
 			    STR_TERMINATE, &status);
@@ -2674,6 +2925,12 @@ void reply_mknew(struct smb_request *req)
 		if (open_was_deferred(req->xconn, req->mid)) {
 			/* We have re-scheduled this call. */
 			goto out;
+		}
+		if (NT_STATUS_EQUAL(status, NT_STATUS_SHARING_VIOLATION)) {
+			bool ok = defer_smb1_sharing_violation(req);
+			if (ok) {
+				goto out;
+			}
 		}
 		reply_openerror(req, status);
 		goto out;
@@ -2811,6 +3068,13 @@ void reply_ctemp(struct smb_request *req)
 			if (open_was_deferred(req->xconn, req->mid)) {
 				/* We have re-scheduled this call. */
 				goto out;
+			}
+			if (NT_STATUS_EQUAL(
+				    status, NT_STATUS_SHARING_VIOLATION)) {
+				bool ok = defer_smb1_sharing_violation(req);
+				if (ok) {
+					goto out;
+				}
 			}
 			reply_openerror(req, status);
 			goto out;
@@ -3329,6 +3593,12 @@ void reply_unlink(struct smb_request *req)
 			/* We have re-scheduled this call. */
 			goto out;
 		}
+		if (NT_STATUS_EQUAL(status, NT_STATUS_SHARING_VIOLATION)) {
+			bool ok = defer_smb1_sharing_violation(req);
+			if (ok) {
+				goto out;
+			}
+		}
 		reply_nterror(req, status);
 		goto out;
 	}
@@ -3517,6 +3787,25 @@ static void reply_readbraw_error(struct smbXsrv_connection *xconn)
 	smbd_unlock_socket(xconn);
 }
 
+/*******************************************************************
+ Ensure we don't use sendfile if server smb signing is active.
+********************************************************************/
+
+static bool lp_use_sendfile(int snum, struct smb_signing_state *signing_state)
+{
+	bool sign_active = false;
+
+	/* Using sendfile blows the brains out of any DOS or Win9x TCP stack... JRA. */
+	if (get_Protocol() < PROTOCOL_NT1) {
+		return false;
+	}
+	if (signing_state) {
+		sign_active = smb_signing_is_active(signing_state);
+	}
+	return (lp__use_sendfile(snum) &&
+			(get_remote_arch() != RA_WIN95) &&
+			!sign_active);
+}
 /****************************************************************************
  Use sendfile in readbraw.
 ****************************************************************************/
@@ -3540,7 +3829,6 @@ static void send_file_readbraw(connection_struct *conn,
 	 */
 
 	if ( !req_is_in_chain(req) && (nread > 0) && (fsp->base_fsp == NULL) &&
-	    (fsp->wcp == NULL) &&
 	    lp_use_sendfile(SNUM(conn), xconn->smb1.signing_state) ) {
 		ssize_t sendfile_read = -1;
 		char header[4];
@@ -3723,8 +4011,6 @@ void reply_readbraw(struct smb_request *req)
 		END_PROFILE(SMBreadbraw);
 		return;
 	}
-
-	flush_write_cache(fsp, SAMBA_READRAW_FLUSH);
 
 	startpos = IVAL_TO_SMB_OFF_T(req->vwv+1, 0);
 	if(req->wct == 10) {
@@ -4112,7 +4398,6 @@ static void send_file_readX(connection_struct *conn, struct smb_request *req,
 	if (!req_is_in_chain(req) &&
 	    !req->encrypted &&
 	    (fsp->base_fsp == NULL) &&
-	    (fsp->wcp == NULL) &&
 	    lp_use_sendfile(SNUM(conn), xconn->smb1.signing_state) ) {
 		uint8_t headerbuf[smb_size + 12 * 2 + 1 /* padding byte */];
 		DATA_BLOB header;
@@ -5343,8 +5628,6 @@ void reply_lseek(struct smb_request *req)
 		return;
 	}
 
-	flush_write_cache(fsp, SAMBA_SEEK_FLUSH);
-
 	mode = SVAL(req->vwv+1, 0) & 3;
 	/* NB. This doesn't use IVAL_TO_SMB_OFF_T as startpos can be signed in this case. */
 	startpos = (off_t)IVALS(req->vwv+2, 0);
@@ -5418,6 +5701,10 @@ static struct files_struct *file_sync_one_fn(struct files_struct *fsp,
 	}
 	sync_file(conn, fsp, True /* write through */);
 
+	if (fsp->modified) {
+		trigger_write_time_update_immediate(fsp);
+	}
+
 	return NULL;
 }
 
@@ -5456,6 +5743,9 @@ void reply_flush(struct smb_request *req)
 			END_PROFILE(SMBflush);
 			return;
 		}
+		if (fsp->modified) {
+			trigger_write_time_update_immediate(fsp);
+		}
 	}
 
 	reply_outbuf(req, 0, 0);
@@ -5470,16 +5760,228 @@ void reply_flush(struct smb_request *req)
  conn POINTER CAN BE NULL HERE !
 ****************************************************************************/
 
-void reply_exit(struct smb_request *req)
+static struct tevent_req *reply_exit_send(struct smb_request *smb1req);
+static void reply_exit_done(struct tevent_req *req);
+
+void reply_exit(struct smb_request *smb1req)
 {
+	struct tevent_req *req;
+
+	/*
+	 * Don't setup the profile charge here, take
+	 * it in reply_exit_done(). Not strictly correct
+	 * but better than the other SMB1 async
+	 * code that double-charges at the moment.
+	 */
+	req = reply_exit_send(smb1req);
+	if (req == NULL) {
+		/* Not going async, profile here. */
+		START_PROFILE(SMBexit);
+		reply_force_doserror(smb1req, ERRDOS, ERRnomem);
+		END_PROFILE(SMBexit);
+		return;
+	}
+
+	/* We're async. This will complete later. */
+	tevent_req_set_callback(req, reply_exit_done, smb1req);
+	return;
+}
+
+struct reply_exit_state {
+	struct tevent_queue *wait_queue;
+};
+
+static void reply_exit_wait_done(struct tevent_req *subreq);
+
+/****************************************************************************
+ Async SMB1 exit.
+ Note, on failure here we deallocate and return NULL to allow the caller to
+ SMB1 return an error of ERRnomem immediately.
+****************************************************************************/
+
+static struct tevent_req *reply_exit_send(struct smb_request *smb1req)
+{
+	struct tevent_req *req;
+	struct reply_exit_state *state;
+	struct tevent_req *subreq;
+	files_struct *fsp;
+	struct smbd_server_connection *sconn = smb1req->sconn;
+
+	req = tevent_req_create(smb1req, &state,
+			struct reply_exit_state);
+	if (req == NULL) {
+		return NULL;
+	}
+	state->wait_queue = tevent_queue_create(state,
+				"reply_exit_wait_queue");
+	if (tevent_req_nomem(state->wait_queue, req)) {
+		TALLOC_FREE(req);
+		return NULL;
+	}
+
+	for (fsp = sconn->files; fsp; fsp = fsp->next) {
+		if (fsp->file_pid != smb1req->smbpid) {
+			continue;
+		}
+		if (fsp->vuid != smb1req->vuid) {
+			continue;
+		}
+		/*
+		 * Flag the file as close in progress.
+		 * This will prevent any more IO being
+		 * done on it.
+		 */
+		fsp->closing = true;
+
+		if (fsp->num_aio_requests > 0) {
+			/*
+			 * Now wait until all aio requests on this fsp are
+			 * finished.
+			 *
+			 * We don't set a callback, as we just want to block the
+			 * wait queue and the talloc_free() of fsp->aio_request
+			 * will remove the item from the wait queue.
+			 */
+			subreq = tevent_queue_wait_send(fsp->aio_requests,
+						sconn->ev_ctx,
+						state->wait_queue);
+			if (tevent_req_nomem(subreq, req)) {
+				TALLOC_FREE(req);
+				return NULL;
+			}
+		}
+	}
+
+	/*
+	 * Now we add our own waiter to the end of the queue,
+	 * this way we get notified when all pending requests are finished
+	 * and reply to the outstanding SMB1 request.
+	 */
+	subreq = tevent_queue_wait_send(state,
+				sconn->ev_ctx,
+				state->wait_queue);
+	if (tevent_req_nomem(subreq, req)) {
+		TALLOC_FREE(req);
+		return NULL;
+	}
+
+	/*
+	 * We're really going async - move the SMB1 request from
+	 * a talloc stackframe above us to the conn talloc-context.
+	 * We need this to stick around until the wait_done
+	 * callback is invoked.
+	 */
+	smb1req = talloc_move(sconn, &smb1req);
+
+	tevent_req_set_callback(subreq, reply_exit_wait_done, req);
+
+	return req;
+}
+
+static void reply_exit_wait_done(struct tevent_req *subreq)
+{
+	struct tevent_req *req = tevent_req_callback_data(
+		subreq, struct tevent_req);
+
+	tevent_queue_wait_recv(subreq);
+	TALLOC_FREE(subreq);
+	tevent_req_done(req);
+}
+
+static NTSTATUS reply_exit_recv(struct tevent_req *req)
+{
+	return tevent_req_simple_recv_ntstatus(req);
+}
+
+static void reply_exit_done(struct tevent_req *req)
+{
+	struct smb_request *smb1req = tevent_req_callback_data(
+		req, struct smb_request);
+	struct smbd_server_connection *sconn = smb1req->sconn;
+	struct smbXsrv_connection *xconn = smb1req->xconn;
+	NTTIME now = timeval_to_nttime(&smb1req->request_time);
+	struct smbXsrv_session *session = NULL;
+	files_struct *fsp, *next;
+	NTSTATUS status;
+
+	/*
+	 * Take the profile charge here. Not strictly
+	 * correct but better than the other SMB1 async
+	 * code that double-charges at the moment.
+	 */
 	START_PROFILE(SMBexit);
 
-	file_close_pid(req->sconn, req->smbpid, req->vuid);
+	status = reply_exit_recv(req);
+	TALLOC_FREE(req);
+	if (!NT_STATUS_IS_OK(status)) {
+		TALLOC_FREE(smb1req);
+		END_PROFILE(SMBexit);
+		exit_server(__location__ ": reply_exit_recv failed");
+		return;
+	}
 
-	reply_outbuf(req, 0, 0);
+	/*
+	 * Ensure the session is still valid.
+	 */
+	status = smb1srv_session_lookup(xconn,
+					smb1req->vuid,
+					now,
+					&session);
+	if (!NT_STATUS_IS_OK(status)) {
+		reply_force_doserror(smb1req, ERRSRV, ERRinvnid);
+		smb_request_done(smb1req);
+		END_PROFILE(SMBexit);
+	}
 
-	DEBUG(3,("exit\n"));
+	/*
+	 * Ensure the vuid is still valid - no one
+	 * called reply_ulogoffX() in the meantime.
+	 * reply_exit() doesn't have AS_USER set, so
+	 * use set_current_user_info() directly.
+	 * This is the same logic as in switch_message().
+	 */
+	if (session->global->auth_session_info != NULL) {
+		set_current_user_info(
+			session->global->auth_session_info->unix_info->sanitized_username,
+			session->global->auth_session_info->unix_info->unix_name,
+			session->global->auth_session_info->info->domain_name);
+	}
 
+	/* No more aio - do the actual closes. */
+	for (fsp = sconn->files; fsp; fsp = next) {
+		bool ok;
+		next = fsp->next;
+
+		if (fsp->file_pid != smb1req->smbpid) {
+			continue;
+		}
+		if (fsp->vuid != smb1req->vuid) {
+			continue;
+		}
+		if (!fsp->closing) {
+			continue;
+		}
+
+		/*
+		 * reply_exit() has the DO_CHDIR flag set.
+		 */
+		ok = chdir_current_service(fsp->conn);
+		if (!ok) {
+			reply_force_doserror(smb1req, ERRSRV, ERRinvnid);
+			smb_request_done(smb1req);
+			END_PROFILE(SMBexit);
+		}
+		close_file(NULL, fsp, SHUTDOWN_CLOSE);
+	}
+
+	reply_outbuf(smb1req, 0, 0);
+	/*
+	 * The following call is needed to push the
+	 * reply data back out the socket after async
+	 * return. Plus it frees smb1req.
+	 */
+	smb_request_done(smb1req);
+	DBG_INFO("reply_exit complete\n");
 	END_PROFILE(SMBexit);
 	return;
 }
@@ -5529,7 +6031,7 @@ void reply_close(struct smb_request *req)
 		 */
 
 		t = srv_make_unix_date3(req->vwv+1);
-		set_close_write_time(fsp, convert_time_t_to_timespec(t));
+		set_close_write_time(fsp, time_t_to_full_timespec(t));
 	}
 
 	if (fsp->num_aio_requests != 0) {
@@ -5538,6 +6040,13 @@ void reply_close(struct smb_request *req)
 
 		DEBUG(10, ("closing with aio %u requests pending\n",
 			   fsp->num_aio_requests));
+
+		/*
+		 * Flag the file as close in progress.
+		 * This will prevent any more IO being
+		 * done on it.
+		 */
+		fsp->closing = true;
 
 		/*
 		 * We depend on the aio_extra destructor to take care of this
@@ -5666,7 +6175,7 @@ void reply_writeclose(struct smb_request *req)
 
 	numtowrite = SVAL(req->vwv+1, 0);
 	startpos = IVAL_TO_SMB_OFF_T(req->vwv+2, 0);
-	mtime = convert_time_t_to_timespec(srv_make_unix_date3(req->vwv+4));
+	mtime = time_t_to_full_timespec(srv_make_unix_date3(req->vwv+4));
 	data = (const char *)req->buf + 1;
 
 	/*
@@ -5898,46 +6407,211 @@ void reply_unlock(struct smb_request *req)
  conn POINTER CAN BE NULL HERE !
 ****************************************************************************/
 
-void reply_tdis(struct smb_request *req)
+static struct tevent_req *reply_tdis_send(struct smb_request *smb1req);
+static void reply_tdis_done(struct tevent_req *req);
+
+void reply_tdis(struct smb_request *smb1req)
 {
-	NTSTATUS status;
-	connection_struct *conn = req->conn;
-	struct smbXsrv_tcon *tcon;
+	connection_struct *conn = smb1req->conn;
+	struct tevent_req *req;
 
-	START_PROFILE(SMBtdis);
+	/*
+	 * Don't setup the profile charge here, take
+	 * it in reply_tdis_done(). Not strictly correct
+	 * but better than the other SMB1 async
+	 * code that double-charges at the moment.
+	 */
 
-	if (!conn) {
-		DEBUG(4,("Invalid connection in tdis\n"));
-		reply_force_doserror(req, ERRSRV, ERRinvnid);
+	if (conn == NULL) {
+		/* Not going async, profile here. */
+		START_PROFILE(SMBtdis);
+		DBG_INFO("Invalid connection in tdis\n");
+		reply_force_doserror(smb1req, ERRSRV, ERRinvnid);
 		END_PROFILE(SMBtdis);
 		return;
 	}
 
-	tcon = conn->tcon;
-	req->conn = NULL;
+	req = reply_tdis_send(smb1req);
+	if (req == NULL) {
+		/* Not going async, profile here. */
+		START_PROFILE(SMBtdis);
+		reply_force_doserror(smb1req, ERRDOS, ERRnomem);
+		END_PROFILE(SMBtdis);
+		return;
+	}
+	/* We're async. This will complete later. */
+	tevent_req_set_callback(req, reply_tdis_done, smb1req);
+	return;
+}
+
+struct reply_tdis_state {
+	struct tevent_queue *wait_queue;
+};
+
+static void reply_tdis_wait_done(struct tevent_req *subreq);
+
+/****************************************************************************
+ Async SMB1 tdis.
+ Note, on failure here we deallocate and return NULL to allow the caller to
+ SMB1 return an error of ERRnomem immediately.
+****************************************************************************/
+
+static struct tevent_req *reply_tdis_send(struct smb_request *smb1req)
+{
+	struct tevent_req *req;
+	struct reply_tdis_state *state;
+	struct tevent_req *subreq;
+	connection_struct *conn = smb1req->conn;
+	files_struct *fsp;
+
+	req = tevent_req_create(smb1req, &state,
+			struct reply_tdis_state);
+	if (req == NULL) {
+		return NULL;
+	}
+	state->wait_queue = tevent_queue_create(state, "reply_tdis_wait_queue");
+	if (tevent_req_nomem(state->wait_queue, req)) {
+		TALLOC_FREE(req);
+		return NULL;
+	}
 
 	/*
-	 * TODO: cancel all outstanding requests on the tcon
+	 * Make sure that no new request will be able to use this tcon.
+	 * This ensures that once all outstanding fsp->aio_requests
+	 * on this tcon are done, we are safe to close it.
 	 */
-	status = smbXsrv_tcon_disconnect(tcon, req->vuid);
-	if (!NT_STATUS_IS_OK(status)) {
-		DEBUG(0, ("reply_tdis: "
-			  "smbXsrv_tcon_disconnect() failed: %s\n",
-			  nt_errstr(status)));
+	conn->tcon->status = NT_STATUS_NETWORK_NAME_DELETED;
+
+	for (fsp = conn->sconn->files; fsp; fsp = fsp->next) {
+		if (fsp->conn != conn) {
+			continue;
+		}
 		/*
-		 * If we hit this case, there is something completely
-		 * wrong, so we better disconnect the transport connection.
+		 * Flag the file as close in progress.
+		 * This will prevent any more IO being
+		 * done on it. Not strictly needed, but
+		 * doesn't hurt to flag it as closing.
 		 */
+		fsp->closing = true;
+
+		if (fsp->num_aio_requests > 0) {
+			/*
+			 * Now wait until all aio requests on this fsp are
+			 * finished.
+			 *
+			 * We don't set a callback, as we just want to block the
+			 * wait queue and the talloc_free() of fsp->aio_request
+			 * will remove the item from the wait queue.
+			 */
+			subreq = tevent_queue_wait_send(fsp->aio_requests,
+						conn->sconn->ev_ctx,
+						state->wait_queue);
+			if (tevent_req_nomem(subreq, req)) {
+				TALLOC_FREE(req);
+				return NULL;
+			}
+		}
+	}
+
+	/*
+	 * Now we add our own waiter to the end of the queue,
+	 * this way we get notified when all pending requests are finished
+	 * and reply to the outstanding SMB1 request.
+	 */
+	subreq = tevent_queue_wait_send(state,
+				conn->sconn->ev_ctx,
+				state->wait_queue);
+	if (tevent_req_nomem(subreq, req)) {
+		TALLOC_FREE(req);
+		return NULL;
+	}
+
+	/*
+	 * We're really going async - move the SMB1 request from
+	 * a talloc stackframe above us to the sconn talloc-context.
+	 * We need this to stick around until the wait_done
+	 * callback is invoked.
+	 */
+	smb1req = talloc_move(smb1req->sconn, &smb1req);
+
+	tevent_req_set_callback(subreq, reply_tdis_wait_done, req);
+
+	return req;
+}
+
+static void reply_tdis_wait_done(struct tevent_req *subreq)
+{
+	struct tevent_req *req = tevent_req_callback_data(
+		subreq, struct tevent_req);
+
+	tevent_queue_wait_recv(subreq);
+	TALLOC_FREE(subreq);
+	tevent_req_done(req);
+}
+
+static NTSTATUS reply_tdis_recv(struct tevent_req *req)
+{
+	return tevent_req_simple_recv_ntstatus(req);
+}
+
+static void reply_tdis_done(struct tevent_req *req)
+{
+	struct smb_request *smb1req = tevent_req_callback_data(
+		req, struct smb_request);
+	NTSTATUS status;
+	struct smbXsrv_tcon *tcon = smb1req->conn->tcon;
+	bool ok;
+
+	/*
+	 * Take the profile charge here. Not strictly
+	 * correct but better than the other SMB1 async
+	 * code that double-charges at the moment.
+	 */
+	START_PROFILE(SMBtdis);
+
+	status = reply_tdis_recv(req);
+	TALLOC_FREE(req);
+	if (!NT_STATUS_IS_OK(status)) {
+		TALLOC_FREE(smb1req);
+		END_PROFILE(SMBtdis);
+		exit_server(__location__ ": reply_tdis_recv failed");
+		return;
+	}
+
+	/*
+	 * As we've been awoken, we may have changed
+	 * directory in the meantime.
+	 * reply_tdis() has the DO_CHDIR flag set.
+	 */
+	ok = chdir_current_service(smb1req->conn);
+	if (!ok) {
+		reply_force_doserror(smb1req, ERRSRV, ERRinvnid);
+		smb_request_done(smb1req);
+		END_PROFILE(SMBtdis);
+	}
+
+	status = smbXsrv_tcon_disconnect(tcon,
+					 smb1req->vuid);
+	if (!NT_STATUS_IS_OK(status)) {
+		TALLOC_FREE(smb1req);
 		END_PROFILE(SMBtdis);
 		exit_server(__location__ ": smbXsrv_tcon_disconnect failed");
 		return;
 	}
 
+	/* smbXsrv_tcon_disconnect frees smb1req->conn. */
+	smb1req->conn = NULL;
+
 	TALLOC_FREE(tcon);
 
-	reply_outbuf(req, 0, 0);
+	reply_outbuf(smb1req, 0, 0);
+	/*
+	 * The following call is needed to push the
+	 * reply data back out the socket after async
+	 * return. Plus it frees smb1req.
+	 */
+	smb_request_done(smb1req);
 	END_PROFILE(SMBtdis);
-	return;
 }
 
 /****************************************************************************
@@ -6111,6 +6785,8 @@ void reply_printclose(struct smb_request *req)
 
 void reply_printqueue(struct smb_request *req)
 {
+	const struct loadparm_substitution *lp_sub =
+		loadparm_s3_global_substitution();
 	connection_struct *conn = req->conn;
 	int max_count;
 	int start_index;
@@ -6149,7 +6825,7 @@ void reply_printqueue(struct smb_request *req)
 		TALLOC_CTX *mem_ctx = talloc_tos();
 		NTSTATUS status;
 		WERROR werr;
-		const char *sharename = lp_servicename(mem_ctx, SNUM(conn));
+		const char *sharename = lp_servicename(mem_ctx, lp_sub, SNUM(conn));
 		struct rpc_pipe_client *cli = NULL;
 		struct dcerpc_binding_handle *b = NULL;
 		struct policy_handle handle;
@@ -6424,7 +7100,6 @@ void reply_rmdir(struct smb_request *req)
 	files_struct *fsp = NULL;
 	int info = 0;
 	uint32_t ucf_flags = ucf_flags_from_smb_request(req);
-	struct smbd_server_connection *sconn = req->sconn;
 
 	START_PROFILE(SMBrmdir);
 
@@ -6482,6 +7157,12 @@ void reply_rmdir(struct smb_request *req)
 			/* We have re-scheduled this call. */
 			goto out;
 		}
+		if (NT_STATUS_EQUAL(status, NT_STATUS_SHARING_VIOLATION)) {
+			bool ok = defer_smb1_sharing_violation(req);
+			if (ok) {
+				goto out;
+			}
+		}
 		reply_nterror(req, status);
 		goto out;
 	}
@@ -6507,8 +7188,6 @@ void reply_rmdir(struct smb_request *req)
 	} else {
 		reply_outbuf(req, 0, 0);
 	}
-
-	dptr_closepath(sconn, smb_dname->base_name, req->smbpid);
 
 	DEBUG(3, ("rmdir %s\n", smb_fname_str_dbg(smb_dname)));
  out:
@@ -6662,6 +7341,7 @@ static void rename_open_files(connection_struct *conn,
 
 	for(fsp = file_find_di_first(conn->sconn, id); fsp;
 	    fsp = file_find_di_next(fsp)) {
+		struct file_id_buf idbuf;
 		/* fsp_name is a relative path under the fsp. To change this for other
 		   sharepaths we need to manipulate relative paths. */
 		/* TODO - create the absolute path and manipulate the newname
@@ -6672,10 +7352,12 @@ static void rename_open_files(connection_struct *conn,
 		if (fsp->name_hash != orig_name_hash) {
 			continue;
 		}
-		DEBUG(10, ("rename_open_files: renaming file %s "
-			   "(file_id %s) from %s -> %s\n", fsp_fnum_dbg(fsp),
-			   file_id_string_tos(&fsp->file_id), fsp_str_dbg(fsp),
-			   smb_fname_str_dbg(smb_fname_dst)));
+		DBG_DEBUG("renaming file %s "
+			  "(file_id %s) from %s -> %s\n",
+			  fsp_fnum_dbg(fsp),
+			  file_id_str_buf(fsp->file_id, &idbuf),
+			  fsp_str_dbg(fsp),
+			  smb_fname_str_dbg(smb_fname_dst));
 
 		status = fsp_set_smb_fname(fsp, smb_fname_dst);
 		if (NT_STATUS_IS_OK(status)) {
@@ -6685,9 +7367,11 @@ static void rename_open_files(connection_struct *conn,
 	}
 
 	if (!did_rename) {
-		DEBUG(10, ("rename_open_files: no open files on file_id %s "
-			   "for %s\n", file_id_string_tos(&id),
-			   smb_fname_str_dbg(smb_fname_dst)));
+		struct file_id_buf idbuf;
+		DBG_DEBUG("no open files on file_id %s "
+			  "for %s\n",
+			  file_id_str_buf(id, &idbuf),
+			  smb_fname_str_dbg(smb_fname_dst));
 	}
 
 	/* Send messages to all smbd's (not ourself) that the name has changed. */
@@ -6833,6 +7517,7 @@ NTSTATUS rename_internals_fsp(connection_struct *conn,
 	struct share_mode_lock *lck = NULL;
 	uint32_t access_mask = SEC_DIR_ADD_FILE;
 	bool dst_exists, old_is_stream, new_is_stream;
+	int ret;
 
 	status = check_name(conn, smb_fname_dst_in);
 	if (!NT_STATUS_IS_OK(status)) {
@@ -7061,7 +7746,12 @@ NTSTATUS rename_internals_fsp(connection_struct *conn,
 
 	SMB_ASSERT(lck != NULL);
 
-	if(SMB_VFS_RENAME(conn, fsp->fsp_name, smb_fname_dst) == 0) {
+	ret = SMB_VFS_RENAMEAT(conn,
+			conn->cwd_fsp,
+			fsp->fsp_name,
+			conn->cwd_fsp,
+			smb_fname_dst);
+	if (ret == 0) {
 		uint32_t create_options = fsp->fh->private_options;
 
 		DEBUG(3, ("rename_internals_fsp: succeeded doing rename on "
@@ -7616,6 +8306,12 @@ void reply_mv(struct smb_request *req)
 		if (open_was_deferred(req->xconn, req->mid)) {
 			/* We have re-scheduled this call. */
 			goto out;
+		}
+		if (NT_STATUS_EQUAL(status, NT_STATUS_SHARING_VIOLATION)) {
+			bool ok = defer_smb1_sharing_violation(req);
+			if (ok) {
+				goto out;
+			}
 		}
 		reply_nterror(req, status);
 		goto out;
@@ -8236,20 +8932,24 @@ uint64_t get_lock_offset(const uint8_t *data, int data_offset,
 	return offset;
 }
 
-NTSTATUS smbd_do_unlocking(struct smb_request *req,
-			   files_struct *fsp,
-			   uint16_t num_ulocks,
-			   struct smbd_lock_element *ulocks,
-			   enum brl_flavour lock_flav)
+struct smbd_do_unlocking_state {
+	struct files_struct *fsp;
+	uint16_t num_ulocks;
+	struct smbd_lock_element *ulocks;
+	enum brl_flavour lock_flav;
+	NTSTATUS status;
+};
+
+static void smbd_do_unlocking_fn(
+	TDB_DATA value, bool *pmodified_dependent, void *private_data)
 {
-	struct share_mode_lock *lck;
-	NTSTATUS status = NT_STATUS_UNSUCCESSFUL;
+	struct smbd_do_unlocking_state *state = private_data;
+	struct files_struct *fsp = state->fsp;
+	enum brl_flavour lock_flav = state->lock_flav;
 	uint16_t i;
 
-	lck = get_existing_share_mode_lock(talloc_tos(), fsp->file_id);
-
-	for(i = 0; i < num_ulocks; i++) {
-		struct smbd_lock_element *e = &ulocks[i];
+	for (i = 0; i < state->num_ulocks; i++) {
+		struct smbd_lock_element *e = &state->ulocks[i];
 
 		DBG_DEBUG("unlock start=%"PRIu64", len=%"PRIu64" for "
 			  "pid %"PRIu64", file %s\n",
@@ -8260,35 +8960,55 @@ NTSTATUS smbd_do_unlocking(struct smb_request *req,
 
 		if (e->brltype != UNLOCK_LOCK) {
 			/* this can only happen with SMB2 */
-			status = NT_STATUS_INVALID_PARAMETER;
-			goto done;
+			state->status = NT_STATUS_INVALID_PARAMETER;
+			return;
 		}
 
-		status = do_unlock(
-			fsp,
-			e->smblctx,
-			e->count,
-			e->offset,
-			lock_flav);
+		state->status = do_unlock(
+			fsp, e->smblctx, e->count, e->offset, lock_flav);
 
-		DEBUG(10, ("%s: unlock returned %s\n", __func__,
-			   nt_errstr(status)));
+		DBG_DEBUG("do_unlock returned %s\n",
+			  nt_errstr(state->status));
 
-		if (!NT_STATUS_IS_OK(status)) {
-			goto done;
+		if (!NT_STATUS_IS_OK(state->status)) {
+			return;
 		}
 	}
 
-	DEBUG(3, ("%s: %s num_ulocks=%d\n", __func__, fsp_fnum_dbg(fsp),
-		  num_ulocks));
+	*pmodified_dependent = true;
+}
 
-done:
-	if (NT_STATUS_IS_OK(status) && (lck != NULL)) {
-		lck->data->modified = true;
+NTSTATUS smbd_do_unlocking(struct smb_request *req,
+			   files_struct *fsp,
+			   uint16_t num_ulocks,
+			   struct smbd_lock_element *ulocks,
+			   enum brl_flavour lock_flav)
+{
+	struct smbd_do_unlocking_state state = {
+		.fsp = fsp,
+		.num_ulocks = num_ulocks,
+		.ulocks = ulocks,
+		.lock_flav = lock_flav,
+	};
+	NTSTATUS status;
+
+	DBG_NOTICE("%s num_ulocks=%"PRIu16"\n", fsp_fnum_dbg(fsp), num_ulocks);
+
+	status = share_mode_do_locked(
+		fsp->file_id, smbd_do_unlocking_fn, &state);
+
+	if (!NT_STATUS_IS_OK(status)) {
+		DBG_DEBUG("share_mode_do_locked failed: %s\n",
+			  nt_errstr(status));
+		return status;
+	}
+	if (!NT_STATUS_IS_OK(state.status)) {
+		DBG_DEBUG("smbd_do_unlocking_fn failed: %s\n",
+			  nt_errstr(status));
+		return state.status;
 	}
 
-	TALLOC_FREE(lck);
-	return status;
+	return NT_STATUS_OK;
 }
 
 /****************************************************************************
@@ -8641,7 +9361,7 @@ void reply_setattrE(struct smb_request *req)
 	NTSTATUS status;
 
 	START_PROFILE(SMBsetattrE);
-	ZERO_STRUCT(ft);
+	init_smb_file_time(&ft);
 
 	if (req->wct < 7) {
 		reply_nterror(req, NT_STATUS_INVALID_PARAMETER);
@@ -8659,11 +9379,11 @@ void reply_setattrE(struct smb_request *req)
 	 * Convert the DOS times into unix times.
 	 */
 
-	ft.atime = convert_time_t_to_timespec(
+	ft.atime = time_t_to_full_timespec(
 	    srv_make_unix_date2(req->vwv+3));
-	ft.mtime = convert_time_t_to_timespec(
+	ft.mtime = time_t_to_full_timespec(
 	    srv_make_unix_date2(req->vwv+5));
-	ft.create_time = convert_time_t_to_timespec(
+	ft.create_time = time_t_to_full_timespec(
 	    srv_make_unix_date2(req->vwv+1));
 
 	reply_outbuf(req, 0, 0);
@@ -8689,6 +9409,10 @@ void reply_setattrE(struct smb_request *req)
 	if (!NT_STATUS_IS_OK(status)) {
 		reply_nterror(req, status);
 		goto out;
+	}
+
+	if (fsp->modified) {
+		trigger_write_time_update_immediate(fsp);
 	}
 
 	DEBUG( 3, ( "reply_setattrE %s actime=%u modtime=%u "
