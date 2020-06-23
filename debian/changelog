@@ -1,3 +1,27 @@
+samba (2:4.12.3+dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream major version (Closes: #963106)
+    - Update d/gbp.conf, d/watch and d/README.source for 4.12
+    - Drop merged patches
+    - Bump build-depends talloc >= 2.3.1, tdb >= 1.4.3, tevent >= 0.10.2 and
+      ldb >= 2.1.3
+    - Upstream fixes:
+      + pygpo: use correct method flags
+        (Closes: #963242, #961585, #960171, #956428)
+      + CVE-2020-10700: A use-after-free flaw was found in the way samba AD DC
+        LDAP servers, handled 'Paged Results' control is combined with the 'ASQ'
+        control. A malicious user in a samba AD could use this flaw to cause
+        denial of service (Closes: #960189)
+      + CVE-2020-10704: A flaw was found when using samba as an Active Directory
+        Domain Controller. Due to the way samba handles certain requests as an
+        Active Directory Domain Controller LDAP server, an unauthorized user can
+        cause a stack overflow leading to a denial of service. The highest
+        threat from this vulnerability is to system availability
+        (Closes: #960188)
+  * d/control: Remove unused libattr1-dev Build-Depends (Closes: #953915)
+
+ -- Mathieu Parent <sathieu@debian.org>  Tue, 23 Jun 2020 13:13:25 +0200
+
 samba (2:4.11.5+dfsg-1) unstable; urgency=medium
 
   * New upstream security release
