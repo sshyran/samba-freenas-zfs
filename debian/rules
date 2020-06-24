@@ -90,11 +90,6 @@ else
 		--without-systemd
 endif
 
-ifeq ($(DEB_HOST_ARCH_CPU), amd64)
-	conf_args += \
-		--accel-aes=intelaesni
-endif
-
 %:
 	dh $* --with python3
 

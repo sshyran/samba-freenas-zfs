@@ -1,5 +1,3 @@
-#!/usr/bin/dh-exec --with-scripts=filter-arch
-[any-amd64] usr/lib/*/samba/libaesni-intel.so.0
 usr/lib/*/libsamba-util.so.*
 usr/lib/*/libwbclient.so.0*
 usr/lib/*/samba/libgenrand.so.0
