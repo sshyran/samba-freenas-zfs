@@ -10,6 +10,7 @@ libsmbclient.so.0 libsmbclient #MINVER#
  SMBCLIENT_0.3.3@SMBCLIENT_0.3.3 2:4.9.0+dfsg
  SMBCLIENT_0.4.0@SMBCLIENT_0.4.0 2:4.9.0+dfsg
  SMBCLIENT_0.5.0@SMBCLIENT_0.5.0 2:4.10.0+dfsg
+ SMBCLIENT_0.6.0@SMBCLIENT_0.6.0 2:4.12.0+dfsg
  smbc_chmod@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_close@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_closedir@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
@@ -51,6 +52,7 @@ libsmbclient.so.0 libsmbclient #MINVER#
  smbc_getFunctionPurgeCachedServers@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_getFunctionRead@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_getFunctionReaddir@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
+ smbc_getFunctionReaddirPlus2@SMBCLIENT_0.6.0 2:4.12.0+dfsg
  smbc_getFunctionReaddirPlus@SMBCLIENT_0.3.3 2:4.9.0+dfsg
  smbc_getFunctionRemoveCachedServer@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_getFunctionRemoveUnusedServer@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
@@ -109,6 +111,7 @@ libsmbclient.so.0 libsmbclient #MINVER#
  smbc_print_file@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_read@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_readdir@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
+ smbc_readdirplus2@SMBCLIENT_0.6.0 2:4.12.0+dfsg
  smbc_readdirplus@SMBCLIENT_0.3.3 2:4.9.0+dfsg
  smbc_removexattr@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_rename@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
@@ -143,6 +146,7 @@ libsmbclient.so.0 libsmbclient #MINVER#
  smbc_setFunctionPurgeCachedServers@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_setFunctionRead@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_setFunctionReaddir@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
+ smbc_setFunctionReaddirPlus2@SMBCLIENT_0.6.0 2:4.12.0+dfsg
  smbc_setFunctionReaddirPlus@SMBCLIENT_0.3.3 2:4.9.0+dfsg
  smbc_setFunctionRemoveCachedServer@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
  smbc_setFunctionRemoveUnusedServer@SMBCLIENT_0.1.0 2:4.0.3+dfsg1
