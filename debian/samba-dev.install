@@ -6,6 +6,7 @@ usr/include/samba-4.0/core/*.h
 usr/include/samba-4.0/credentials.h
 usr/include/samba-4.0/dcerpc.h
 usr/include/samba-4.0/dcerpc_server.h
+usr/include/samba-4.0/dcesrv_core.h
 usr/include/samba-4.0/domain_credentials.h
 usr/include/samba-4.0/gen_ndr/*.h
 usr/include/samba-4.0/ldb_wrap.h
@@ -31,6 +32,7 @@ usr/include/samba-4.0/util/*.h
 usr/include/samba-4.0/util_ldb.h
 usr/lib/*/libdcerpc-binding.so
 usr/lib/*/libdcerpc-samr.so
+usr/lib/*/libdcerpc-server-core.so
 usr/lib/*/libdcerpc-server.so
 usr/lib/*/libdcerpc.so
 usr/lib/*/libndr-krb5pac.so

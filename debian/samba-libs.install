@@ -1,5 +1,6 @@
 usr/lib/*/libdcerpc-binding.so.*
 usr/lib/*/libdcerpc-samr.so.*
+usr/lib/*/libdcerpc-server-core.so.*
 usr/lib/*/libdcerpc-server.so.*
 usr/lib/*/libdcerpc.so.*
 usr/lib/*/libndr-krb5pac.so.*
@@ -119,6 +120,7 @@ usr/lib/*/samba/libsmbd-conn.so.0
 usr/lib/*/samba/libsmbd-shim.so.0
 usr/lib/*/samba/libsmbldaphelper.so.*
 usr/lib/*/samba/libsmbpasswdparser.so.*
+usr/lib/*/samba/libtalloc-report-printf.so.0
 usr/lib/*/samba/libtalloc-report.so.0
 usr/lib/*/samba/libtdb-wrap.so.*
 usr/lib/*/samba/libtrusts-util.so.0
