@@ -1,3 +1,17 @@
+samba (2:4.12.5+dfsg-1) unstable; urgency=high
+
+  * New upstream security release:
+    - CVE-2020-10730: NULL pointer de-reference and use-after-free in Samba AD
+      DC LDAP Server with ASQ, VLV and paged_results
+    - CVE-2020-10745: Parsing and packing of NBT and DNS packets can consume
+      excessive CPU
+    - CVE-2020-10760: LDAP Use-after-free in Samba AD DC Global Catalog with
+      paged_results and VLV.
+    - CVE-2020-14303: Empty UDP packet DoS in Samba AD DC nbtd.
+    - Bump build-depends ldb >= 2.1.4
+
+ -- Mathieu Parent <sathieu@debian.org>  Thu, 02 Jul 2020 14:03:36 +0200
+
 samba (2:4.12.3+dfsg-2) unstable; urgency=medium
 
   * Upload to unstable
