@@ -279,6 +279,7 @@ libsamba-util.so.0 libwbclient0 #MINVER#
  null_timespec@SAMBA_UTIL_0.0.1 2:4.11.0
  panic_action@SAMBA_UTIL_0.0.1 2:4.11.0
  parse_guid_string@SAMBA_UTIL_0.0.1 2:4.11.0
+ path_expand_tilde@SAMBA_UTIL_0.0.1 2:4.12.5
  pidfile_create@SAMBA_UTIL_0.0.1 2:4.11.0
  pidfile_fd_close@SAMBA_UTIL_0.0.1 2:4.11.0
  pidfile_path_create@SAMBA_UTIL_0.0.1 2:4.11.0
