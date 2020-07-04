@@ -864,7 +864,7 @@ planoldpythontestsuite("ad_dc_ntvfs",
                        extra_args=['-U"$USERNAME%$PASSWORD"'])
 planoldpythontestsuite("none", "samba.tests.loadparm")
 planoldpythontestsuite("fileserver",
-                       "samba.tests.blackbox.mdfind",
+                       "samba.tests.blackbox.mdsearch",
                        extra_args=['-U"$USERNAME%$PASSWORD"'])
 
 #

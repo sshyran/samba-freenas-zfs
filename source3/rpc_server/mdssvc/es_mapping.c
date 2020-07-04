@@ -41,7 +41,7 @@
  * search term, the corresponding Spotlight query and the final string that gets
  * sent to the target Elasticsearch server.
  *
- * string | mdfind | http
+ * string | mdsearch | http
  * -------+--------+------
  * x!x     x!x      x\\!x
  * x&x     x&x      x\\&x
