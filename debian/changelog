@@ -1,3 +1,13 @@
+samba (2:4.12.5+dfsg-3) unstable; urgency=high
+
+  * Add Breaks: sssd-ad-common (<< 2.3.0), due to libndr so bump
+    (Closes: #963971)
+  * Add patch traffic_packets: fix SyntaxWarning: "is" with a literal
+    (Closes: #964165)
+  * Add patch Rename mdfind to mdsearch (Closes: #963985)
+
+ -- Mathieu Parent <sathieu@debian.org>  Sat, 04 Jul 2020 23:57:59 +0200
+
 samba (2:4.12.5+dfsg-2) unstable; urgency=high
 
   * Add missing symbol (path_expand_tilde)
