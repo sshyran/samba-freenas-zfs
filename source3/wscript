@@ -93,6 +93,11 @@ def options(opt):
                    help=("Directory under which libcephfs is installed"),
                    action="store", dest='libcephfs_dir', default=None)
 
+    opt.add_option('--with-libzfs',
+                   help='enable libZFS support',
+                   action='store_true', dest='with_libzfs', default=False)
+
+
     opt.samba_add_onoff_option('glusterfs', with_name="enable", without_name="disable", default=True)
     opt.samba_add_onoff_option('cephfs', with_name="enable", without_name="disable", default=True)
     opt.samba_add_onoff_option('snapper', with_name="enable", without_name="disable", default=True)
@@ -1746,6 +1751,19 @@ main() {
                       or lack of ceph_statx support''')
             conf.undefine('HAVE_CEPH')
 
+    if Options.options.with_libzfs:
+        conf.DEFINE('HAVE_LIBZFS', '1')
+        if os.path.exists('/usr/include/libzfs/libzfs.h'): 
+            Logs.warn("XXX:::               ADDING ZFS PATHS")
+            conf.env['CPPPATH_ZFS'] = [
+                '/usr/include/libspl',
+                '/usr/include/libzfs',
+                '/usr/include/libzfs/sys',
+                '/usr/include/libzfs/sys/fs',
+            ]
+        else:
+            Logs.warn("XXX:::   NOT_______________            ADDING ZFS PATHS")
+
     if Options.options.with_glusterfs:
         conf.CHECK_CFG(package='glusterfs-api', args='"glusterfs-api >= 4" --cflags --libs',
                        msg='Checking for glusterfs-api >= 4', uselib_store="GFAPI")
@@ -1995,6 +2013,11 @@ main() {
 
     if conf.CONFIG_SET('HAVE_LDAP'):
         default_static_modules.extend(TO_LIST('pdb_ldapsam idmap_ldap'))
+
+    if conf.CONFIG_SET('HAVE_LIBZFS'):
+        default_shared_modules.extend(TO_LIST('vfs_shadow_copy_zfs'))
+        default_shared_modules.extend(TO_LIST('vfs_zfs_fsrvp'))
+        default_shared_modules.extend(TO_LIST('vfs_tmprotect'))
 
     if conf.CONFIG_SET('DARWINOS'):
         default_static_modules.extend(TO_LIST('charset_macosxfs'))
