@@ -58,7 +58,7 @@ static void tmprotect_free_data(void **pptr) {
 	 * but will not be triggered in case of power loss event or
 	 * application crash. The idea here is that if this function
 	 * isn't called for an smb session, then the data is more
-	 * likely to be questionable. 
+	 * likely to be questionable.
 	 */
 	struct tmprotect_config_data *config = NULL;
 
@@ -165,7 +165,7 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 						 "exclude", empty_list);
 
 
-	enumval = lp_parm_enum(SNUM(handle->conn), TMPROTECT_MODULE, 
+	enumval = lp_parm_enum(SNUM(handle->conn), TMPROTECT_MODULE,
 			       "auto_rollback", autorollback, A_DISABLED);
 
 	if (enumval == -1) {
@@ -190,7 +190,7 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 	time(&curtime);
 
 	/*
-	 * Iterate through list of snapshots with the tmprotect 
+	 * Iterate through list of snapshots with the tmprotect
 	 * prefixand check for ones that we need to remove,
 	 * and add them to the to_delete list.
 	 */
@@ -202,7 +202,7 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 					   0, 0);
 
 	for (entry = snapshots->entries; entry; entry = entry->next) {
-		if ((config->last_snap == 0) || 
+		if ((config->last_snap == 0) ||
 		    (entry->cr_time > config->last_snap)) {
 			config->last_snap = entry->cr_time;
 		}
@@ -227,7 +227,7 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 	 * of those snaps is somewhat old. Otherwise, refuse to delete. This is to
 	 * address potential issue of login storm causing min_snaps to suddenly increase
 	 * and trigger a pruning of useful history. It's better to err on the side of
-	 * having too many snapshots. 
+	 * having too many snapshots.
 	 */
 	if (remaining_snaps > min_snaps || (config->oldest_snap > (curtime-(retention/2)))) {
 		DBG_DEBUG("num_snaps: %d, num_delete: %d, remaining_snaps: %d, "
@@ -260,7 +260,7 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 					    &backup_interrupted);
 		if ((ret == 0) && (strcmp(backup_interrupted, "true") == 0)) {
 			smb_zfs_rollback_last(config->hdl);
-		} 
+		}
 		break;
 	default:
 		break;

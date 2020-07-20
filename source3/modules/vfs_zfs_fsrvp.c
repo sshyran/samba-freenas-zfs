@@ -26,7 +26,7 @@
 
 #define ZFS_FSRVP_PREFIX "fss"
 #define ZFS_FSRVP_MODULE "zfs_fsrvp"
-#define ZFS_FSRVP_SNAPLEN 17 
+#define ZFS_FSRVP_SNAPLEN 17
 
 struct zfs_fsrvp_config_data {
 	struct zfs_dataset *ds;
@@ -79,7 +79,7 @@ static NTSTATUS zfs_fsrvp_snap_create(struct vfs_handle_struct *handle,
 	/*
 	 * Snap_path must be set to the full path inside the
 	 * correct .zfs/snapshot directory. This path is used
-	 * when generating the dynamic shares for FSS. 
+	 * when generating the dynamic shares for FSS.
 	 *
 	 * base_path is set to the ZFS dataset underlying
 	 * the original service path.
@@ -104,7 +104,7 @@ static NTSTATUS zfs_fsrvp_snap_create(struct vfs_handle_struct *handle,
 	 * try to keep the snapshot name as short as possible
 	 * while avoiding collisions with other snapshots.
 	 * Since these may also be managed from the commandline
-	 * "zfs" application, a timestamp is somewhat useful to present. 
+	 * "zfs" application, a timestamp is somewhat useful to present.
 	 * FreeBSD prior to 12.0 is limited to 80 characters for the
 	 * length of mountpoint names, and so shorter is better here.
 	 */
@@ -120,7 +120,7 @@ static NTSTATUS zfs_fsrvp_snap_create(struct vfs_handle_struct *handle,
 	DBG_INFO("Successfully snapshotted [%s]\n", snap_name);
 	*snap_path = talloc_asprintf(mem_ctx, "%s/.zfs/snapshot/%s",
 				     handle->conn->connectpath, snap_name);
-	*base_path = talloc_strdup(mem_ctx, base_volume); 
+	*base_path = talloc_strdup(mem_ctx, base_volume);
 	DBG_INFO("Setting snap path to [%s] and base path to [%s]\n",
 		 *snap_path, *base_path);
 	return NT_STATUS_OK;
@@ -151,7 +151,7 @@ static NTSTATUS zfs_fsrvp_snap_delete(struct vfs_handle_struct *handle,
 
 	tmp_ctx = talloc_new(mem_ctx);
 
-	/* The last component of the snapshot mp is the name of the ZFS snapshot */ 
+	/* The last component of the snapshot mp is the name of the ZFS snapshot */
 	if (!parent_dirname(tmp_ctx, snap_path, &parent, &base)) {
 		TALLOC_FREE(tmp_ctx);
 		return NT_STATUS_NO_MEMORY;

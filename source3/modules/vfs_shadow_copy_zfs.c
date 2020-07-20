@@ -70,7 +70,7 @@ struct shadow_copy_zfs_config {
 	int			timedelta;
 
 	/* Snapshot parameters */
-	bool 			ignore_empty_snaps;	
+	bool 			ignore_empty_snaps;
 	const char 		**inclusions;
 	const char 		**exclusions;
 	struct snapshot_list 	*snapshots;
@@ -309,7 +309,7 @@ static inline bool shadow_copy_zfs_match_name(const struct smb_filename *name)
 	if (name->twrp == 0) {
 		return false;
 	}
-	return true; 
+	return true;
 }
 
 static char *snapshot_mp_to_dataset(TALLOC_CTX *mem_ctx,
@@ -926,7 +926,7 @@ static int shadow_copy_zfs_open(vfs_handle_struct *handle,
 						     0,
 						     smb_fname->flags);
 		TALLOC_FREE(conv);
-		
+
 		if (conv_smb_fname == NULL) {
 			return -1;
 		}
@@ -1418,7 +1418,7 @@ static ssize_t shadow_copy_zfs_getxattr(vfs_handle_struct *handle,
 					    size);
 		TALLOC_FREE(conv_smb_fname);
 		return ret;
-	} 
+	}
 	return SMB_VFS_NEXT_GETXATTR(handle, smb_fname, aname, value, size);
 }
 
