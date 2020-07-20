@@ -68,16 +68,6 @@ struct mntent
 #define SHADOW_COPY_ZFS_GMT_FORMAT "@GMT-%Y.%m.%d-%H.%M.%S"
 #define ZFS_PROP_SAMBA_PREFIX "org.samba"
 
-#ifndef SMB_QUOTA_TYPE
-enum SMB_QUOTA_TYPE {
-        SMB_INVALID_QUOTA_TYPE = -1,
-        SMB_USER_FS_QUOTA_TYPE = 1,
-        SMB_USER_QUOTA_TYPE = 2,
-        SMB_GROUP_FS_QUOTA_TYPE = 3,/* not used yet */
-        SMB_GROUP_QUOTA_TYPE = 4 /* used by disk_free queries */
-};
-#endif
-
 static struct smblibzfshandle *global_libzfs_handle = NULL;
 
 static const struct {
@@ -267,10 +257,10 @@ void close_smbzhandle(struct smbzhandle *zfsp_ext)
 }
 
 int
-smb_zfs_get_userspace_quota(struct smblibzfshandle *smblibzfsp,
-		  char *path, int64_t xid,
-		  enum SMB_QUOTA_TYPE quota_type,
-		  uint64_t *hardlimit, uint64_t *usedspace)
+smb_zfs_get_userspace_quota(struct smbzhandle *hdl,
+			    int64_t xid,
+			    enum zfs_quotatype quota_type,
+			    uint64_t *hardlimit, uint64_t *usedspace)
 {
 	int ret;
 	size_t blocksize = 1024;
@@ -278,24 +268,14 @@ smb_zfs_get_userspace_quota(struct smblibzfshandle *smblibzfsp,
 	char u_req[ZFS_MAXPROPLEN] = { 0 };
 	char q_req[ZFS_MAXPROPLEN] = { 0 };
 	uint64_t quota, used;
-	quota = used = 0;
-	if (smblibzfsp->sli == NULL) {
-		DBG_ERR("Failed to retrieve smblibzfs_int handle\n");
-		return -1;
-	}
-
-	DBG_DEBUG("Path: (%s), xid: %lu), qtype (%u)\n",
-		path, xid, quota_type);
 
 	switch (quota_type) {
-	case SMB_USER_QUOTA_TYPE:
-	case SMB_USER_FS_QUOTA_TYPE:
+	case SMBZFS_USER:
 		snprintf(u_req, sizeof(u_req), "userused@%lu", xid);
 		snprintf(q_req, sizeof(q_req), "userquota@%lu", xid);
 		DBG_DEBUG("u_req: (%s), q_req (%s)\n", u_req, q_req);
 		break;
-	case SMB_GROUP_QUOTA_TYPE:
-	case SMB_GROUP_FS_QUOTA_TYPE:
+	case SMBZFS_GROUP:
 		snprintf(u_req, sizeof(u_req), "groupused@%lu", xid);
 		snprintf(q_req, sizeof(q_req), "groupquota@%lu", xid);
 		DBG_DEBUG("u_req: (%s), q_req (%s)\n", u_req, q_req);
@@ -305,60 +285,42 @@ smb_zfs_get_userspace_quota(struct smblibzfshandle *smblibzfsp,
 		return (-1);
 	}
 
-	if (path == NULL) {
-		DBG_ERR("Path does not exist\n");
-		return (-1);
-	}
-
-	zfsp = zfs_path_to_zhandle(smblibzfsp->sli->libzfsp, path,
-		ZFS_TYPE_VOLUME|ZFS_TYPE_DATASET|ZFS_TYPE_FILESYSTEM);
-
+	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL) {
-		DBG_ERR("Failed to convert path (%s) to zhandle\n", path);
 		return (-1);
 	}
 
 	zfs_prop_get_userquota_int(zfsp, q_req, &quota);
 	zfs_prop_get_userquota_int(zfsp, u_req, &used);
 
-	zfs_close(zfsp);
-
 	quota /= blocksize;
 	used /= blocksize;
 
 	*hardlimit = quota;
 	*usedspace = used;
-
 	return 0;
 }
 
 int
-smb_zfs_set_userspace_quota(struct smblibzfshandle *smblibzfsp,
-		  char *path, int64_t xid,
-		  enum SMB_QUOTA_TYPE quota_type,
-		  uint64_t hardlimit)
+smb_zfs_set_userspace_quota(struct smbzhandle *hdl,
+			    int64_t xid,
+			    enum zfs_quotatype quota_type,
+			    uint64_t hardlimit)
 {
 	size_t blocksize = 1024;
 	zfs_handle_t *zfsp = NULL;
 	char q_req[256] = { 0 };
 	char quota[256] = { 0 };
+
 	hardlimit *= blocksize;
 	snprintf(quota, sizeof(quota), "%lu", hardlimit);
-	if (smblibzfsp->sli == NULL) {
-		DBG_ERR("Failed to retrieve smblibzfs_int handle\n");
-		return -1;
-	}
 
-	DBG_DEBUG("Path: (%s), xid: %lu), qtype (%u), limit (%lu)\n",
-		path, xid, quota_type, hardlimit);
 	switch (quota_type) {
-	case SMB_USER_QUOTA_TYPE:
-	case SMB_USER_FS_QUOTA_TYPE:
+	case SMBZFS_USER:
 		snprintf(q_req, sizeof(q_req), "userquota@%lu", xid);
 		DBG_DEBUG("userquota string is (%s)\n", q_req);
 		break;
-	case SMB_GROUP_QUOTA_TYPE:
-	case SMB_GROUP_FS_QUOTA_TYPE:
+	case SMBZFS_GROUP:
 		snprintf(q_req, sizeof(q_req), "groupquota@%lu", xid);
 		DBG_DEBUG("groupquota string is (%s)\n", q_req);
 		break;
@@ -367,16 +329,8 @@ smb_zfs_set_userspace_quota(struct smblibzfshandle *smblibzfsp,
 		return (-1);
 	}
 
-	if (path == NULL) {
-		DBG_ERR("smb_zfs_set_quota received NULL path\n");
-		return (-1);
-	}
-
-	zfsp = zfs_path_to_zhandle(smblibzfsp->sli->libzfsp, path,
-		ZFS_TYPE_VOLUME|ZFS_TYPE_DATASET|ZFS_TYPE_FILESYSTEM);
-
+	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL){
-		DBG_ERR("Failed to convert path (%s) to zhandle\n", path);
 		return (-1);
 	}
 
@@ -386,14 +340,13 @@ smb_zfs_set_userspace_quota(struct smblibzfshandle *smblibzfsp,
 		return (-1);
 	}
 
-	zfs_close(zfsp);
 	DBG_INFO("smb_zfs_set_quota: Set (%s = %s)\n", q_req, quota);
 	return 0;
 }
 
 uint64_t
-smb_zfs_disk_free(struct smblibzfshandle *smblibzfsp,
-		  char *path, uint64_t *bsize, uint64_t *dfree,
+smb_zfs_disk_free(struct smbzhandle *hdl,
+		  uint64_t *bsize, uint64_t *dfree,
 		  uint64_t *dsize, uid_t euid)
 {
 	size_t blocksize = 1024;
@@ -401,25 +354,10 @@ smb_zfs_disk_free(struct smblibzfshandle *smblibzfsp,
 	char uu_req[256] = { 0 };
 	char uq_req[256] = { 0 };
 	uint64_t available, usedbysnapshots, usedbydataset,
-		usedbychildren, usedbyrefreservation, real_used, total,
-		userquota, userused, userquotarem;
+		usedbychildren, usedbyrefreservation, real_used, total;
 
-	snprintf(uu_req, sizeof(uu_req), "userused@%u", euid);
-	snprintf(uq_req, sizeof(uq_req), "userquota@%u", euid);
-	if (smblibzfsp->sli == NULL) {
-		DBG_ERR("Failed to retrieve smblibzfs_int handle\n");
-		return -1;
-	}
-
-	if (path == NULL) {
-		DBG_ERR("received NULL path\n");
-		return (-1);
-	}
-
-	zfsp = zfs_path_to_zhandle(smblibzfsp->sli->libzfsp, path,
-		ZFS_TYPE_VOLUME|ZFS_TYPE_DATASET|ZFS_TYPE_FILESYSTEM);
+	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL) {
-		DBG_ERR("Failed to convert path (%s) to zhandle\n", path);
 		return (-1);
 	}
 
@@ -428,32 +366,15 @@ smb_zfs_disk_free(struct smblibzfshandle *smblibzfsp,
 	usedbydataset = zfs_prop_get_int(zfsp, ZFS_PROP_USEDDS);
 	usedbychildren = zfs_prop_get_int(zfsp, ZFS_PROP_USEDCHILD);
 	usedbyrefreservation = zfs_prop_get_int(zfsp, ZFS_PROP_USEDREFRESERV);
-	zfs_prop_get_userquota_int(zfsp, uq_req, &userquota);
-	zfs_prop_get_userquota_int(zfsp, uu_req, &userused);
-
-	zfs_close(zfsp);
 
 	real_used = usedbysnapshots + usedbydataset + usedbychildren;
-
-	userquotarem = (userquota - userused) / blocksize;
-	userquota /= blocksize;
 
 	total = (real_used + available) / blocksize;
 	available /= blocksize;
 
 	*bsize = blocksize;
-	if ( userquota && (available > userquotarem) ) {
-		*dfree = userquotarem;
-	}
-	else {
-		*dfree = available;
-	}
-	if ( userquota && (total > userquota) ) {
-		*dsize = userquota;
-	}
-	else {
-		*dsize = total;
-	}
+	*dfree = available;
+	*dsize = total;
 
 	return (*dfree);
 }
@@ -680,9 +601,8 @@ smb_zfs_create_dataset(TALLOC_CTX *mem_ctx,
 }
 
 int
-smb_zfs_get_user_prop(struct smblibzfshandle *smblibzfsp,
+smb_zfs_get_user_prop(struct smbzhandle *hdl,
 		      TALLOC_CTX *mem_ctx,
-		      const char *path,
 		      const char *prop,
 		      char **value)
 {
@@ -693,9 +613,8 @@ smb_zfs_get_user_prop(struct smblibzfshandle *smblibzfsp,
 	char *propstr = NULL;
 	char *prefixed_prop = NULL;
 
-	zfsp = get_zhandle(smblibzfsp, path);
+	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL) {
-		DBG_ERR("Failed to obtain zhandle on path: (%s)\n", path);
 		return -1;
 	}
 	userprops = zfs_get_user_props(zfsp);
@@ -704,9 +623,8 @@ smb_zfs_get_user_prop(struct smblibzfshandle *smblibzfsp,
 					prop);
 	ret = nvlist_lookup_nvlist(userprops, prefixed_prop, &propval);
 	if (ret != 0) {
-		DBG_INFO("Failed to look up custom user property %s "
-			 "on path [%s]: %s\n", prop, path, strerror(errno));
-		zfs_close(zfsp);
+		DBG_INFO("Failed to look up custom user property %s on dataset [%s]: %s\n",
+			 prop, zfs_get_name(zfsp), strerror(errno));
 		return -1;
 	}
 	ret = nvlist_lookup_string(propval, ZPROP_VALUE, &propstr);
@@ -714,17 +632,14 @@ smb_zfs_get_user_prop(struct smblibzfshandle *smblibzfsp,
 	if (ret != 0) {
 		DBG_ERR("Failed to get nvlist string for property %s\n",
 			prop);
-		zfs_close(zfsp);
 		return -1;
 	}
 	*value = talloc_strdup(mem_ctx, propstr);
-	zfs_close(zfsp);
 	return 0;
 }
 
 int
-smb_zfs_set_user_prop(struct smblibzfshandle *smblibzfsp,
-		      const char *path,
+smb_zfs_set_user_prop(struct smbzhandle *hdl,
 		      const char *prop,
 		      const char *value)
 {
@@ -732,10 +647,8 @@ smb_zfs_set_user_prop(struct smblibzfshandle *smblibzfsp,
 	zfs_handle_t *zfsp = NULL;
 	char prefixed_prop[ZFS_MAXPROPLEN] = {0};
 
-	zfsp = get_zhandle(smblibzfsp, path);
-
+	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL) {
-		DBG_ERR("Failed to obtain zhandle on path: (%s)\n", path);
 		return -1;
 	}
 
@@ -744,17 +657,14 @@ smb_zfs_set_user_prop(struct smblibzfshandle *smblibzfsp,
 	if (ret < 0) {
 		DBG_ERR("Failed to generate property name: %s",
 			strerror(errno));
-		zfs_close(zfsp);
 		return -1;
 	}
 
 	ret = zfs_prop_set(zfsp, prefixed_prop, value);
 	if (ret != 0) {
-		DBG_ERR("Failed to set property [%s] on path [%s] to [%s]\n",
-			prefixed_prop, path, value);
+		DBG_ERR("Failed to set property [%s] on dataset [%s] to [%s]\n",
+			prefixed_prop, zfs_get_name(zfsp), value);
 	}
-
-	zfs_close(zfsp);
 	return ret;
 }
 
@@ -1164,12 +1074,8 @@ smb_zfs_delete_snapshots(struct smblibzfshandle *smblibzfsp,
 	return 0;
 }
 
-/*
- * Create snapshot with specified name on specified dataset.
- */
 int
-smb_zfs_snapshot(struct smblibzfshandle *smblibzfsp,
-		 const char *path,
+smb_zfs_snapshot(struct smbzhandle *hdl,
 		 const char *snapshot_name,
 		 bool recursive)
 {
@@ -1178,15 +1084,8 @@ smb_zfs_snapshot(struct smblibzfshandle *smblibzfsp,
 	char snap[ZFS_MAXPROPLEN] = {0};
 	const char *dataset_name;
 
-	if (smblibzfsp->sli == NULL) {
-		errno=ENOMEM;
-		return -1;
-	}
-
-	zfsp = get_zhandle(smblibzfsp, path);
+	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL) {
-		DBG_ERR("Failed to obtain zhandle on path: (%s)\n",
-			path);
 		return -1;
 	}
 	dataset_name = zfs_get_name(zfsp);
@@ -1198,7 +1097,7 @@ smb_zfs_snapshot(struct smblibzfshandle *smblibzfsp,
 			strerror(errno));
 		return -1;
 	}
-	ret = zfs_snapshot(smblibzfsp->sli->libzfsp,
+	ret = zfs_snapshot(hdl->lz->sli->libzfsp,
 			   snap, recursive, NULL);
 	if (ret != 0) {
 		DBG_ERR("Failed to create snapshot %s: [%s]\n",
@@ -1212,8 +1111,7 @@ smb_zfs_snapshot(struct smblibzfshandle *smblibzfsp,
  * Roll back to specified snapshot
  */
 int
-smb_zfs_rollback(struct smblibzfshandle *smblibzfsp,
-		 const char *path,
+smb_zfs_rollback(struct smbzhandle *hdl,
 		 const char *snapshot_name,
 		 bool force)
 {
@@ -1221,19 +1119,13 @@ smb_zfs_rollback(struct smblibzfshandle *smblibzfsp,
 	zfs_handle_t *dataset_handle = NULL;
 	zfs_handle_t *snap_handle = NULL;
 
-	if (smblibzfsp->sli == NULL) {
-		errno=ENOMEM;
-		return -1;
-	}
-
-	dataset_handle = get_zhandle(smblibzfsp, path);
+	dataset_handle = get_zhandle_from_smbzhandle(hdl);
 	if (dataset_handle == NULL) {
-		DBG_ERR("Failed to obtain zhandle on path: (%s)\n",
-			path);
 		return -1;
 	}
 
-	snap_handle = zfs_open(smblibzfsp->sli->libzfsp, snapshot_name,
+	snap_handle = zfs_open(hdl->lz->sli->libzfsp,
+			       snapshot_name,
 			       ZFS_TYPE_DATASET);
 	if (snap_handle == NULL) {
 		DBG_ERR("Failed to obtain zhandle for snap: (%s)\n",
@@ -1244,9 +1136,8 @@ smb_zfs_rollback(struct smblibzfshandle *smblibzfsp,
 	ret = zfs_rollback(dataset_handle, snap_handle, force);
 	if (ret != 0) {
 		DBG_ERR("Failed to roll back %s to snapshot %s\n",
-			path, snapshot_name);
+			zfs_get_name(dataset_handle), snapshot_name);
 	}
-	zfs_close(dataset_handle);
 	zfs_close(snap_handle);
 	return ret;
 }
@@ -1255,26 +1146,23 @@ smb_zfs_rollback(struct smblibzfshandle *smblibzfsp,
  * Roll back to last snapshot
  */
 int
-smb_zfs_rollback_last(struct smblibzfshandle *smblibzfsp,
-		      const char *path)
+smb_zfs_rollback_last(struct smbzhandle *hdl)
 {
 	int ret;
 	zfs_handle_t *dataset_handle = NULL;
 	const char *dataset_name;
 
-	dataset_handle = get_zhandle(smblibzfsp, path);
+	dataset_handle = get_zhandle_from_smbzhandle(hdl);
 	if (dataset_handle == NULL) {
-		DBG_ERR("Failed to obtain zhandle on path: (%s)\n",
-			path);
 		return -1;
 	}
 	dataset_name = zfs_get_name(dataset_handle);
 
 	ret = lzc_rollback(dataset_name, NULL, 0);
 	if (ret != 0) {
-		DBG_ERR("Failed to roll back snapshot on %s\n", path);
+		DBG_ERR("Failed to roll back snapshot on %s\n",
+			zfs_get_name(dataset_handle));
 	}
-	zfs_close(dataset_handle);
 	return ret;
 }
 
@@ -1418,12 +1306,12 @@ struct dataset_list *zhandle_list_children(TALLOC_CTX *mem_ctx,
 struct dataset_list *cache_zhandle_list_children(TALLOC_CTX *mem_ctx,
 					  struct smbzhandle *zhandle_ext)
 {
-	struct dataset_list *dl;
+	struct dataset_list *dl = NULL;
 	dl = cache_get_dataset_list(mem_ctx, zhandle_ext);
 	if (dl != NULL) {
 		return dl;
 	}
-	dl = zhandle_list_children(mem_ctx, zhandle_ext, false);
+	dl = zhandle_list_children(mem_ctx, zhandle_ext, true);
 	if (dl == NULL) {
 		return dl;
 	}

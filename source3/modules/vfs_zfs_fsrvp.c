@@ -29,7 +29,7 @@
 #define ZFS_FSRVP_SNAPLEN 17 
 
 struct zfs_fsrvp_config_data {
-	struct smblibzfshandle *libzp;
+	struct zfs_dataset *ds;
 	char *dataset_name;
 };
 
@@ -49,7 +49,7 @@ static NTSTATUS zfs_fsrvp_check_path(struct vfs_handle_struct *handle,
 				struct zfs_fsrvp_config_data,
 				return NT_STATUS_NO_MEMORY);
 
-	*base_volume = talloc_strdup(mem_ctx, config->dataset_name);
+	*base_volume = talloc_strdup(mem_ctx, config->ds->dataset_name);
 	DBG_INFO("zfs_fsrvp: base volume is [%s]\n", *base_volume);
 	return NT_STATUS_OK;
 }
@@ -112,8 +112,7 @@ static NTSTATUS zfs_fsrvp_snap_create(struct vfs_handle_struct *handle,
 	snprintf(snap_name, sizeof(snap_name), "%s-%ld%ld",
 		 ZFS_FSRVP_PREFIX, ts.tv_sec, ts.tv_nsec);
 	become_root();
-	ret = smb_zfs_snapshot(config->libzp, handle->conn->connectpath,
-			       snap_name, false);
+	ret = smb_zfs_snapshot(config->ds->zhandle, snap_name, false);
 	unbecome_root();
 	if (ret != 0) {
 		return map_nt_error_from_unix(errno);
@@ -166,7 +165,7 @@ static NTSTATUS zfs_fsrvp_snap_delete(struct vfs_handle_struct *handle,
 	del_entry->name = talloc_strdup(tmp_ctx, base);
 	DLIST_ADD(to_delete->entries, del_entry);
 	become_root();
-	ret = smb_zfs_delete_snapshots(config->libzp,
+	ret = smb_zfs_delete_snapshots(config->ds->zhandle->lz,
 				       tmp_ctx,
 				       to_delete);
 	unbecome_root();
@@ -209,10 +208,7 @@ static int zfs_fsrvp_connect(struct vfs_handle_struct *handle,
 		return -1;
 	}
 
-	config->libzp = libzp;
-
-	config->dataset_name = talloc_strdup(handle->conn,
-					     ds_list->root->dataset_name);
+	config->ds = ds_list->root;
 
 	if ((strcmp(ds_list->root->mountpoint, handle->conn->connectpath) != 0) &&
 	    (strlen(handle->conn->connectpath) > 15) &&

@@ -65,6 +65,8 @@ struct snapshot_list
 
 enum casesensitivity {SMBZFS_SENSITIVE, SMBZFS_INSENSITIVE, SMBZFS_MIXED};
 
+enum zfs_quotatype {SMBZFS_USER, SMBZFS_USEROBJ, SMBZFS_GROUP, SMBZFS_GROUPOBJ};
+
 struct zfs_dataset_prop
 {
 	enum casesensitivity casesens;
@@ -115,8 +117,7 @@ int get_smbzhandle(struct smblibzfshandle *smblibzfsp,
 
 /*
  * Get userspace quotas for a given path, ID, and quota type.
- * @param[in]	smblibzfsp		smblibzfs handle struct
- * @param[in]	path		 	the full path in which to get quota.
+ * @param[in]	hdl			ZFS dataset handle from which to get quota
  * @param[in]	xid		 	user id or group id.
  * @param[in]	quota_type	 	quota type
  * @param[out]	hardlimit	 	quota size in bytes
@@ -124,32 +125,28 @@ int get_smbzhandle(struct smblibzfshandle *smblibzfsp,
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_get_userspace_quota(struct smblibzfshandle *smblibzfsp,
-				char *path,
+int smb_zfs_get_userspace_quota(struct smbzhandle *hdl,
 				int64_t xid,
-				int quota_type,
+				enum zfs_quotatype quota_type,
 				uint64_t *hardlimit,
 				uint64_t *usedspace);
 
 /*
  * Set userspace quotas for a given path, ID, and quota type. May require
  * fail with EPERM if user lacks permissions to set quota.
- * @param[in]	smblibzfsp		smblibzfs handle struct
- * @param[in]	path		 	the full path in which to get quota.
+ * @param[in]	hdl			ZFS dataset handle on which to get quota
  * @param[in]	xid		 	user id or group id.
  * @param[in]	quota_type	 	quota type
  * @param[in]	hardlimit	 	quota size in bytes
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_set_userspace_quota(struct smblibzfshandle *smblibzfsp,
-				char *path,
+int smb_zfs_set_userspace_quota(struct smbzhandle *hdl,
 				int64_t xid,
-				int quota_type,
+				enum zfs_quotatype quota_type,
 				uint64_t hardlimit);
 
-uint64_t smb_zfs_disk_free(struct smblibzfshandle *smblibzfsp,
-			   char *path,
+uint64_t smb_zfs_disk_free(struct smbzhandle *hdl,
 			   uint64_t *bsize,
 			   uint64_t *dfree,
 			   uint64_t *dsize,
@@ -184,19 +181,16 @@ int smb_zfs_create_dataset(TALLOC_CTX *mem_ctx,
  * Retrieve the value of a user-defined ZFS dataset property
  * "org.samba:" prefix will be automatically applied.
  *
- * @param[in]	smblibzfsp		smblibzfs handle struct
+ * @param[in]	hdl			ZFS dataset from which to retrieve property
  * @param[in]	mem_ctx			talloc memory context
- * @param[in]	path			path on which to retrieve
- *					custom user property
  * @param[in]	prop			property name
  * @param[out]	value			talloc'ed string containing
  *					value of propert.
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_get_user_prop(struct smblibzfshandle *smblibzfsp,
+int smb_zfs_get_user_prop(struct smbzhandle *hdl,
 			  TALLOC_CTX *mem_ctx,
-			  const char *path,
 			  const char *prop,
 			  char **value);
 
@@ -204,16 +198,14 @@ int smb_zfs_get_user_prop(struct smblibzfshandle *smblibzfsp,
  * Set the value of a user-defined ZFS dataset property.
  * "org.samba:" prefix will be automatically applied.
  *
- * @param[in]	smblibzfsp		smblibzfs handle struct
- * @param[in]	path			path on which to set
- *					custom user property
+ * @param[in]	hdl			ZFS dataset on which to apply custom
+ *					proprety
  * @param[in]	prop			property name
  * @param[out]	value			value to set
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_set_user_prop(struct smblibzfshandle *smblibzfsp,
-			  const char *path,
+int smb_zfs_set_user_prop(struct smbzhandle *hdl,
 			  const char *prop,
 			  const char *value);
 
@@ -277,12 +269,12 @@ struct snapshot_list *smb_zfs_list_snapshots(struct smblibzfshandle *smblibzfsp,
  * @return	struct snapshot_list
  */
 struct snapshot_list *zhandle_list_snapshots(struct smbzhandle *zhandle_ext,
-                                      TALLOC_CTX *mem_ctx,
-                                      bool ignore_empty_snaps,
-                                      const char **inclusions,
-                                      const char **exclusions,
-                                      time_t start,
-                                      time_t end);
+					     TALLOC_CTX *mem_ctx,
+					     bool ignore_empty_snaps,
+					     const char **inclusions,
+					     const char **exclusions,
+					     time_t start,
+					     time_t end);
 
 /*
  * Delete a list of ZFS snapshots. List is converted into an nvlist
@@ -301,20 +293,19 @@ int smb_zfs_delete_snapshots(struct smblibzfshandle *smblibzfsp,
 
 /*
  * Take a named snapshot of a given path.
- * @param[in]	smblibzfsp		smblibzfs handle struct
- * @param[in]	path			path on which to take snapshot
+ * @param[in]	hdl			ZFS dataset handle to snapshot
  * @param[in]	snapshot_name		name to give snapshot
+ * @param[in]	recursive		snapshot child datasets
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_snapshot(struct smblibzfshandle *smblibzfsp,
-		     const char *path,
+int smb_zfs_snapshot(struct smbzhandle *hdl,
 		     const char *snapshot_name,
 		     bool recursive);
 
 /*
  * Roll back to named snapshot. This is a destructive process.
- * Given a path, convert path to dataset handle and rollback to a specific
+ * Roll back specified dataset handle to specified snapshot
  * snapshot, discarding any data changes since then and making it the
  * active dataset.
  *
@@ -322,27 +313,23 @@ int smb_zfs_snapshot(struct smblibzfshandle *smblibzfsp,
  * destroyed, along with their dependents (i.e. clones).
  *
  * @param[in]	smblibzfsp		smblibzfs handle struct
- * @param[in]	path			path on which to take snapshot
  * @param[in]	snapshot_name		name to give snapshot
  * @param[in]	force			forcibly unmount cloned filesystems
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_rollback(struct smblibzfshandle *smblibzfsp,
-		     const char *path,
+int smb_zfs_rollback(struct smbzhandle *smbzhandle,
 		     const char *snapshot_name,
 		     bool force);
 
 /*
  * Roll back to the last successful snapshot. This is a destructive process. All
  * data from after the last snapshot was taken will be destroyed.
- * @param[in]	smblibzfsp		smblibzfs handle struct
- * @param[in]	path			path on which to take snapshot
- * @param[in]	snapshot_name		name to give snapshot
  *
+ * @param[in]	hdl			target ZFS dataset handle
  * @return	0 on success -1 on failure
  */
-int smb_zfs_rollback_last(struct smblibzfshandle *smblibzfsp, const char *path);
+int smb_zfs_rollback_last(struct smbzhandle *hdl);
 
 void close_smbzhandle(struct smbzhandle *zfsp_ext);
 
@@ -357,9 +344,9 @@ void close_smbzhandle(struct smbzhandle *zfsp_ext);
  * @return	dataset_list		dataset->root->zhandle is a pointer to the
  *					same zhandle used to generate the dataset list.
  */
-struct dataset_list *zhandle_list_children( TALLOC_CTX *mem_ctx,
-                                          struct smbzhandle *zhandle_ext,
-                                          bool open_zhandles);
+struct dataset_list *zhandle_list_children(TALLOC_CTX *mem_ctx,
+					   struct smbzhandle *zhandle_ext,
+					   bool open_zhandles);
 
 struct dataset_list *cache_zhandle_list_children(TALLOC_CTX *mem_ctx,
 						 struct smbzhandle *zhandle_ext);

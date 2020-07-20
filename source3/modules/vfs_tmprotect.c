@@ -36,9 +36,9 @@ enum autorollback {A_ALWAYS, A_POWERLOSS, A_DISABLED};
 
 struct tmprotect_config_data {
 	struct smblibzfshandle *libzp;
+	struct smbzhandle *hdl;
 	const char **inclusions;
 	const char **exclusions;
-	const char *connectpath;
 	enum autorollback autorollback;
 	time_t last_snap;
 	time_t oldest_snap;
@@ -68,8 +68,7 @@ static void tmprotect_free_data(void **pptr) {
 		return;
 	}
 	if (config->autorollback != A_DISABLED) {
-		smb_zfs_set_user_prop(config->libzp, config->connectpath,
-				      "tm_in_progress", "false");
+		smb_zfs_set_user_prop(config->hdl, "tm_in_progress", "false");
 	}
 }
 
@@ -99,10 +98,7 @@ static void tmprotect_disconnect(vfs_handle_struct *handle)
 					TMPROTECT_PREFIX,
 					curtime);
 
-	ret = smb_zfs_snapshot(config->libzp,
-			       handle->conn->connectpath,
-			       snapshot_name,
-			       false);
+	ret = smb_zfs_snapshot(config->hdl, snapshot_name, false);
 	if (ret != 0) {
 		DBG_ERR("Failed to generate closing snapshot on path: %s\n",
 			handle->conn->connectpath);
@@ -152,6 +148,7 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 		errno = EINVAL;
 		return -1;
 	}
+	config->hdl = ds_list->root->zhandle;
 
 	/*
 	 * Copy the connectpath to the config so that it's guaranteed
@@ -159,8 +156,6 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 	 * available so that we can unset the custom dataset property
 	 * indicating that a backup is in progress.
 	 */
-	config->connectpath = talloc_strdup(config, handle->conn->connectpath);
-
 	config->inclusions = lp_parm_string_list(SNUM(handle->conn),
 						 TMPROTECT_MODULE,
 						 "include", default_prefix);
@@ -199,9 +194,8 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 	 * prefixand check for ones that we need to remove,
 	 * and add them to the to_delete list.
 	 */
-	snapshots = smb_zfs_list_snapshots(config->libzp,
+	snapshots = zhandle_list_snapshots(config->hdl,
 					   talloc_tos(),
-					   handle->conn->connectpath,
 					   false,
 					   config->inclusions,
 					   config->exclusions,
@@ -257,25 +251,22 @@ static int tmprotect_connect(struct vfs_handle_struct *handle,
 
 	switch (config->autorollback){
 	case A_ALWAYS:
-		smb_zfs_rollback_last(config->libzp, handle->conn->connectpath);	
+		smb_zfs_rollback_last(config->hdl);
 		break;
 	case A_POWERLOSS:
-		ret = smb_zfs_get_user_prop(config->libzp,
+		ret = smb_zfs_get_user_prop(config->hdl,
 					    talloc_tos(),
-					    handle->conn->connectpath,
 					    "tm_in_progress",
 					    &backup_interrupted);
 		if ((ret == 0) && (strcmp(backup_interrupted, "true") == 0)) {
-			smb_zfs_rollback_last(config->libzp,
-					      handle->conn->connectpath);	
+			smb_zfs_rollback_last(config->hdl);
 		} 
 		break;
 	default:
 		break;
 	}
 	if (config->autorollback != A_DISABLED) {
-		smb_zfs_set_user_prop(config->libzp, handle->conn->connectpath,
-				      "tm_in_progress", "true");
+		smb_zfs_set_user_prop(config->hdl, "tm_in_progress", "true");
 	}
 	SMB_VFS_HANDLE_SET_DATA(handle, config,
 				tmprotect_free_data, struct tmprotect_config_data,
