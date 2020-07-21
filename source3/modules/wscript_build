@@ -250,6 +250,14 @@ bld.SAMBA3_MODULE('vfs_tmprotect',
                  internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_tmprotect'),
                  enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_tmprotect'))
 
+bld.SAMBA3_MODULE('vfs_zfs_core',
+                 subsystem='vfs',
+                 source='vfs_zfs_core.c',
+                 deps='smb_libzfs',
+                 init_function='',
+                 internal_module=bld.SAMBA3_IS_STATIC_MODULE('vfs_zfs_core'),
+                 enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_zfs_core'))
+
 bld.SAMBA3_MODULE('vfs_zfs_fsrvp',
                  subsystem='vfs',
                  source='vfs_zfs_fsrvp.c',
@@ -311,7 +319,7 @@ bld.SAMBA3_LIBRARY('smb_libzfs',
                    deps='samba-util',
                    includes=bld.CONFIG_GET('CPPPATH_ZFS'),
                    ldflags='-luutil -lzfs_core -lzfs -lnvpair',
-                   enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_shadow_copy_zfs'),
+                   enabled=bld.SAMBA3_IS_ENABLED_MODULE('vfs_zfs_core'),
                    private_library=True)
 
 bld.SAMBA3_MODULE('vfs_nfs4acl_xattr',

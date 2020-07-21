@@ -149,8 +149,7 @@ int smb_zfs_set_userspace_quota(struct smbzhandle *hdl,
 uint64_t smb_zfs_disk_free(struct smbzhandle *hdl,
 			   uint64_t *bsize,
 			   uint64_t *dfree,
-			   uint64_t *dsize,
-			   uid_t euid);
+			   uint64_t *dsize);
 
 /*
  * Create a dataset with a given quota (NULL for no quota). Optionally,
@@ -173,7 +172,7 @@ uint64_t smb_zfs_disk_free(struct smbzhandle *hdl,
  */
 int smb_zfs_create_dataset(TALLOC_CTX *mem_ctx,
 			   struct smblibzfshandle *smblibzfsp,
-			   const char *path, char *quota,
+			   const char *path, const char *quota,
 			   struct dataset_list **created,
 			   bool create_ancestors);
 

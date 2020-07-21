@@ -347,7 +347,7 @@ smb_zfs_set_userspace_quota(struct smbzhandle *hdl,
 uint64_t
 smb_zfs_disk_free(struct smbzhandle *hdl,
 		  uint64_t *bsize, uint64_t *dfree,
-		  uint64_t *dsize, uid_t euid)
+		  uint64_t *dsize)
 {
 	size_t blocksize = 1024;
 	zfs_handle_t *zfsp = NULL;
@@ -423,13 +423,13 @@ get_mp_offset(zfs_handle_t *zfsp, size_t *offset)
 }
 
 static char *
-get_target_name(zfs_handle_t *zfsp, const char *path)
+get_target_name(TALLOC_CTX *mem_ctx, zfs_handle_t *zfsp, const char *path)
 {
 	int rv;
 	size_t len_mp;
 	char *out = NULL;
 	rv = get_mp_offset(zfsp, &len_mp);
-	out = strdup(path);
+	out = talloc_strdup(mem_ctx, path);
 	if (out == NULL) {
 		DBG_ERR("strdup failed for %s: %s\n",
 			path, strerror(errno));
@@ -438,7 +438,7 @@ get_target_name(zfs_handle_t *zfsp, const char *path)
 	}
 	if (strlen(path) < len_mp) {
 		errno = EINVAL;
-		free(out);
+		TALLOC_FREE(out);
 		return NULL;
 	}
 	out += len_mp;
@@ -448,7 +448,7 @@ get_target_name(zfs_handle_t *zfsp, const char *path)
 static int
 create_dataset_internal(struct smblibzfshandle *lz,
 			char *to_create,
-			char *quota)
+			const char *quota)
 {
 	/* Create and mount new dataset. to_create should be dataset name */
 	int rv;
@@ -495,24 +495,29 @@ struct dataset_list *path_to_dataset_list(TALLOC_CTX *mem_ctx,
 	int rv;
 
 	strlcpy(tmp_path, path, sizeof(tmp_path));
+
+	if (tmp_path[strlen(tmp_path) -1] == '/') {
+		tmp_path[strlen(tmp_path) -1] = '\0';
+	}
 	dl = talloc_zero(mem_ctx, struct dataset_list);
 	for (dl->nentries = 0; dl->nentries <= depth; dl->nentries++) {
 		slashp = strrchr(tmp_path, '/');
 		if (slashp == NULL) {
-			DBG_ERR("Exiting at depth %zu", dl->nentries);
-			break;
+			DBG_ERR("Prematurely exiting at depth %zu\n",
+				 dl->nentries);
+			return NULL;
 		}
 		*slashp = '\0';
 		ds = smb_zfs_path_get_dataset(lz, mem_ctx, tmp_path, true, false);
 		if (ds == NULL) {
 			return NULL;
 		}
-		DLIST_ADD_END(dl->children, ds);
-	}
-	if (dl != NULL) {
-		root = dl->children;
-		DLIST_REMOVE(dl->children, root);
-		dl->nentries--;
+		if (dl->nentries = depth) {
+			dl->root = ds;
+		}
+		else {
+			DLIST_ADD_END(dl->children, ds);
+		}
 	}
 	return dl;
 }
@@ -520,7 +525,7 @@ struct dataset_list *path_to_dataset_list(TALLOC_CTX *mem_ctx,
 int
 smb_zfs_create_dataset(TALLOC_CTX *mem_ctx,
 		       struct smblibzfshandle *smblibzfsp,
-		       const char *path, char *quota,
+		       const char *path, const char *quota,
 		       struct dataset_list **created,
 		       bool create_ancestors)
 {
@@ -529,24 +534,29 @@ smb_zfs_create_dataset(TALLOC_CTX *mem_ctx,
 	char parent[ZFS_MAXPROPLEN] = {0};
 	char *target_ds = NULL;
 	struct dataset_list *ds_list = NULL;
+	TALLOC_CTX *tmp_ctx = talloc_new(mem_ctx);
+	if (tmp_ctx == NULL) {
+		errno = ENOMEM;
+		return -1;
+	}
 
 	if (access(path, F_OK) == 0) {
 		DBG_ERR("Path %s already exists.\n", path);
 		errno = EEXIST;
-		return -1;
+		goto fail;
 	}
 
 	if (smblibzfsp->sli == NULL) {
 		DBG_ERR("Failed to retrieve smblibzfs_int handle\n");
 		errno = ENOMEM;
-		return -1;
+		goto fail;
 	}
 
 	rv = existing_parent_name(path, parent, sizeof(parent), &to_create);
 	if (rv != 0) {
 		DBG_ERR("Unable to access parent of %s\n", path);
 		errno = ENOENT;
-		return -1;
+		goto fail;
 	}
 	/*
 	 * This zfs dataset handle allows us to figure out the
@@ -558,46 +568,46 @@ smb_zfs_create_dataset(TALLOC_CTX *mem_ctx,
 	if (zfsp == NULL) {
 		DBG_ERR("Failed to obtain zhandle on %s: %s\n",
 			parent, strerror(errno));
-		return -1;
+		goto fail;
 	}
 
-	target_ds = get_target_name(zfsp, path);
+	target_ds = get_target_name(tmp_ctx, zfsp, path);
 	if (target_ds == NULL) {
 		zfs_close(zfsp);
-		return -1;
+		goto fail;
 	}
 	zfs_close(zfsp);
 
 	if (to_create > 1 && create_ancestors) {
 		rv = zfs_create_ancestors(smblibzfsp->sli->libzfsp, target_ds);
 		if (rv != 0 ) {
-			free(target_ds);
-			return -1;
+			goto fail;
 		}
 	}
 	else if (to_create > 1) {
 		DBG_ERR("Unable to create dataset [%s] due to "
 			"missing ancestor datasets.", target_ds);
 		errno = ENOENT;
-		free(target_ds);
-		return -1;
+		goto fail;
 	}
 
 	rv = create_dataset_internal(smblibzfsp, target_ds, quota);
 	if (rv != 0) {
-		free(target_ds);
-		return -1;
+		goto fail;
 	}
 
-	free(target_ds);
 	ds_list = path_to_dataset_list(mem_ctx, smblibzfsp, path, to_create);
 	if (ds_list == NULL) {
 		DBG_ERR("Failed to generate dataset list for %s\n",
 			path);
-		return -1;
+		goto fail;
 	}
 	*created = ds_list;
+	TALLOC_FREE(tmp_ctx);
 	return 0;
+fail:
+	TALLOC_FREE(tmp_ctx);
+	return -1;
 }
 
 int
