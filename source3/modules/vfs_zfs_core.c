@@ -44,6 +44,7 @@ static struct zfs_dataset *smbfname_to_ds(const struct connection_struct *conn,
 					  const struct smb_filename *smb_fname)
 {
 	int ret;
+	SMB_STRUCT_STAT sbuf;
 	const SMB_STRUCT_STAT *psbuf = NULL;
 	struct zfs_dataset *child = NULL;
 	char *full_path = NULL;
@@ -55,50 +56,69 @@ static struct zfs_dataset *smbfname_to_ds(const struct connection_struct *conn,
 		psbuf = &smb_fname->st;
 	}
 	else {
-		ret = vfs_stat_smb_basename(discard_const(conn), smb_fname,
-					    discard_const(psbuf));
+		ret = vfs_stat_smb_basename(discard_const(conn),
+					    smb_fname, &sbuf);
 		if (ret != 0) {
 			DBG_ERR("Failed to stat() %s: %s\n",
 				smb_fname_str_dbg(smb_fname), strerror(errno));
 			return NULL;
 		}
+		psbuf = &sbuf;
 	}
 
-        if (psbuf->st_ex_dev == dl->root->devid) {
-                return dl->root;
-        }
-        for (child=dl->children; child; child=child->next) {
-                if (child->devid == psbuf->st_ex_dev) {
-                        return child;
-                }
-        }
+	if (psbuf->st_ex_dev == dl->root->devid) {
+		return dl->root;
+	}
+	for (child=dl->children; child; child=child->next) {
+		if (child->devid == psbuf->st_ex_dev) {
+			return child;
+		}
+	}
 
-        /*
-         * Our current cache of datasets does not contain the path in
-         * question. Use libzfs to try to get it. Allocate under
-         * memory context of our dataset list.
-         */
+	/*
+	 * Our current cache of datasets does not contain the path in
+	 * question. Use libzfs to try to get it. Allocate under
+	 * memory context of our dataset list.
+	 */
 	len = full_path_tos(discard_const(conn->cwd_fsp->fsp_name->base_name),
 			    smb_fname->base_name,
 			    path, sizeof(path),
 			    &full_path, &to_free);
-        if (len == -1) {
-                DBG_ERR("Could not allocate memory in full_path_tos.\n");
-                return NULL;
+	if (len == -1) {
+		DBG_ERR("Could not allocate memory in full_path_tos.\n");
+		return NULL;
 	}
 
-        child = smb_zfs_path_get_dataset(dl->root->zhandle->lz,
-					 dl, path, true, false);
+	child = smb_zfs_path_get_dataset(dl->root->zhandle->lz,
+					 dl, path, true, true);
 	TALLOC_FREE(to_free);
-        if (child != NULL) {
-                DLIST_ADD(dl->children, child);
-                return child;
-        }
+	if (child != NULL) {
+		DLIST_ADD(dl->children, child);
+		return child;
+	}
 
-        DBG_ERR("No dataset found for %s with device id: %lu\n",
-                path, psbuf->st_ex_dev);
-        errno = ENOENT;
-        return NULL;
+	DBG_ERR("No dataset found for %s with device id: %lu\n",
+		path, psbuf->st_ex_dev);
+	errno = ENOENT;
+	return NULL;
+}
+
+static uint32_t zfs_core_fs_capabilities(struct vfs_handle_struct *handle,
+					 enum timestamp_set_resolution *p_ts_res)
+{
+	struct zfs_core_config_data *config = NULL;
+	uint32_t fscaps;
+
+	fscaps = SMB_VFS_NEXT_FS_CAPABILITIES(handle, p_ts_res);
+
+	SMB_VFS_HANDLE_GET_DATA(handle, config,
+				struct zfs_core_config_data,
+				return fscaps);
+
+	if (!config->zfs_quota_enabled) {
+		fscaps &= ~FILE_VOLUME_QUOTAS;
+	}
+	return fscaps;
 }
 
 static uint64_t zfs_core_disk_free(vfs_handle_struct *handle,
@@ -136,16 +156,17 @@ static uint64_t zfs_core_disk_free(vfs_handle_struct *handle,
 }
 
 static int zfs_core_get_quota(struct vfs_handle_struct *handle,
-                                const struct smb_filename *smb_fname,
-                                enum SMB_QUOTA_TYPE qtype,
-                                unid_t id,
-                                SMB_DISK_QUOTA *qt)
+			      const struct smb_filename *smb_fname,
+			      enum SMB_QUOTA_TYPE qtype,
+			      unid_t id,
+			      SMB_DISK_QUOTA *qt)
 
 {
 	int ret;
 	struct zfs_core_config_data *config = NULL;
 	struct zfs_dataset *ds = NULL;
-	uint64_t hardlimit, usedspace;
+	struct zfs_quota zfs_qt;
+	uint64_t hardlimit, usedspace, xid;
 	hardlimit = usedspace = 0;
 
 	SMB_VFS_HANDLE_GET_DATA(handle, config,
@@ -163,39 +184,26 @@ static int zfs_core_get_quota(struct vfs_handle_struct *handle,
 		DBG_ERR("Failed to retrive ZFS dataset handle on %s: %s\n",
 			smb_fname_str_dbg(smb_fname), strerror(errno));
 	}
-
+	ZERO_STRUCT(zfs_qt);
 	switch (qtype) {
 	case SMB_USER_QUOTA_TYPE:
 	case SMB_USER_FS_QUOTA_TYPE:
-		//passing -1 to quotactl means that the current UID should be used. Do the same.
-		if (id.uid == -1) {
-			uid_t current_user = geteuid();
-			become_root();
-			ret = smb_zfs_get_userspace_quota(ds->zhandle,
-							  current_user,
-							  SMBZFS_USER,
-							  &hardlimit,
-							  &usedspace);
-			unbecome_root();
-		}
-		else {
-			become_root();
-			ret = smb_zfs_get_userspace_quota(ds->zhandle,
-							  id.uid,
-							  SMBZFS_USER,
-							  &hardlimit,
-							  &usedspace);
-			unbecome_root();
-		}
+		xid = id.uid == -1?(uint64_t)geteuid():(uint64_t)id.uid;
+		become_root();
+		ret = smb_zfs_get_quota(ds->zhandle,
+					xid,
+					SMBZFS_USER_QUOTA,
+					&zfs_qt);
+		unbecome_root();
 		break;
 	case SMB_GROUP_QUOTA_TYPE:
 	case SMB_GROUP_FS_QUOTA_TYPE:
+		xid = id.gid == -1?(uint64_t)getegid():(uint64_t)id.gid;
 		become_root();
-		ret = smb_zfs_get_userspace_quota(ds->zhandle,
-						  id.gid,
-						  SMBZFS_GROUP,
-						  &hardlimit,
-						  &usedspace);
+		ret = smb_zfs_get_quota(ds->zhandle,
+					xid,
+					SMBZFS_GROUP_QUOTA,
+					&zfs_qt);
 		unbecome_root();
 		break;
 	default:
@@ -206,18 +214,19 @@ static int zfs_core_get_quota(struct vfs_handle_struct *handle,
 
 	ZERO_STRUCTP(qt);
 	qt->bsize = 1024;
-	qt->hardlimit = hardlimit;
-	qt->softlimit = hardlimit;
-	qt->curblocks = usedspace;
-	qt->ihardlimit = hardlimit;
-	qt->isoftlimit = hardlimit;
-	qt->curinodes = usedspace;
+	qt->hardlimit = zfs_qt.bytes;
+	qt->softlimit = zfs_qt.bytes;
+	qt->curblocks = zfs_qt.bytes_used;
+	qt->ihardlimit = zfs_qt.obj;
+	qt->isoftlimit = zfs_qt.obj;
+	qt->curinodes = zfs_qt.obj_used;
 	qt->qtype = qtype;
 	qt->qflags = QUOTAS_DENY_DISK|QUOTAS_ENABLED;
 
-        DBG_INFO("zfs_core_get_quota: hardlimit: (%lu), usedspace: (%lu)\n", qt->hardlimit, qt->curblocks);
+	DBG_INFO("zfs_core_get_quota: hardlimit: (%lu), usedspace: (%lu)\n",
+		 qt->hardlimit, qt->curblocks);
 
-        return ret;
+	return ret;
 }
 
 static int zfs_core_set_quota(struct vfs_handle_struct *handle,
@@ -227,7 +236,8 @@ static int zfs_core_set_quota(struct vfs_handle_struct *handle,
 	struct zfs_core_config_data *config = NULL;
 	int ret;
 	bool is_disk_op = false;
-
+	uint64_t xid;
+	struct zfs_quota zq;
 	SMB_VFS_HANDLE_GET_DATA(handle, config,
 				struct zfs_core_config_data,
 				return -1);
@@ -247,25 +257,30 @@ static int zfs_core_set_quota(struct vfs_handle_struct *handle,
 		return -1;
 	}
 
+	zq.bytes = qt->hardlimit * 1024;
+	zq.obj = qt->ihardlimit;
+
 	switch (qtype) {
 	case SMB_USER_QUOTA_TYPE:
 	case SMB_USER_FS_QUOTA_TYPE:
 		DBG_INFO("zfs_core_set_quota: quota type: (%d), "
 			 "id: (%d), h-limit: (%lu), s-limit: (%lu)\n",
-			 qtype, id.uid, qt->hardlimit, qt->softlimit);
+			 SMBZFS_USER_QUOTA, id.uid, qt->hardlimit, qt->softlimit);
+		xid = id.uid == -1?(uint64_t)geteuid():(uint64_t)id.uid;
+		zq.quota_type = SMBZFS_USER_QUOTA;
 		become_root();
-		ret = smb_zfs_set_userspace_quota(config->dl->root->zhandle,
-						  id.uid, qtype, qt->hardlimit);
+		ret = smb_zfs_set_quota(config->dl->root->zhandle, xid, zq);
 		unbecome_root();
 		break;
 	case SMB_GROUP_QUOTA_TYPE:
 	case SMB_GROUP_FS_QUOTA_TYPE:
 		DBG_INFO("zfs_core_set_quota: quota type: (%d), "
 			 "id: (%d), h-limit: (%lu), s-limit: (%lu)\n",
-			 qtype, id.gid, qt->hardlimit, qt->softlimit);
+			 SMBZFS_GROUP_QUOTA, id.gid, qt->hardlimit, qt->softlimit);
+		xid = id.gid == -1?(uint64_t)getegid():(uint64_t)id.gid;
+		zq.quota_type = SMBZFS_GROUP_QUOTA;
 		become_root();
-		ret = smb_zfs_set_userspace_quota(config->dl->root->zhandle,
-						  id.gid, qtype, qt->hardlimit);
+		ret = smb_zfs_set_quota(config->dl->root->zhandle, xid, zq);
 		unbecome_root();
 		break;
 	default:
@@ -390,15 +405,14 @@ static int create_zfs_connectpath(vfs_handle_struct *handle,
  * If it exists, then we assume that the base quota has either already been set
  * or it has been modified by the admin. In either case, do nothing.
  */
-
 static int set_base_user_quota(vfs_handle_struct *handle,
 			       struct zfs_core_config_data *config,
 			       const char *user)
 {
 	int ret;
-	uint64_t existing_quota, usedspace, base_quota;
-	existing_quota = usedspace = 0;
+	uint64_t base_quota;
 	uid_t current_user = nametouid(user);
+	struct zfs_quota zq = {0};
 
 	if (current_user == -1) {
 		DBG_ERR("Failed to convert (%s) to uid.\n", user);
@@ -409,11 +423,10 @@ static int set_base_user_quota(vfs_handle_struct *handle,
 		return -1;
 	}
 
-	ret = smb_zfs_get_userspace_quota(config->dl->root->zhandle,
+	ret = smb_zfs_get_quota(config->dl->root->zhandle,
 					  current_user,
-					  SMBZFS_USER,
-					  &existing_quota,
-					  &usedspace);
+					  SMBZFS_USER_QUOTA,
+					  &zq);
 	if (ret != 0) {
 		DBG_ERR("Failed to get base quota uid: (%u), path (%s)\n",
 			current_user, handle->conn->connectpath );
@@ -423,11 +436,11 @@ static int set_base_user_quota(vfs_handle_struct *handle,
 	DBG_INFO("set_base_user_quote: uid (%u), quota (%lu)\n",
 		 current_user, base_quota);
 
-	if ( !existing_quota ) {
-		ret = smb_zfs_set_userspace_quota(config->dl->root->zhandle,
-						  current_user,
-						  SMBZFS_USER,
-						  config->base_user_quota);
+	if (zq.bytes == 0) {
+		zq.bytes = config->base_user_quota;
+		zq.obj = 0;
+		ret = smb_zfs_set_quota(config->dl->root->zhandle,
+				        current_user, zq);
 		if (ret != 0) {
 			DBG_ERR("Failed to set base quota uid: (%u), "
 				"path (%s), value (%lu)\n", current_user,
@@ -488,7 +501,7 @@ static int zfs_core_connect(struct vfs_handle_struct *handle,
 			"zfs_core", "base_user_quota", NULL);
 
 	if (base_quota_str != NULL) {
-		config->base_user_quota = (conv_str_size(base_quota_str) / 1024);
+		config->base_user_quota = conv_str_size(base_quota_str);
 		set_base_user_quota(handle, config, user);
         }
 
@@ -514,6 +527,7 @@ static int zfs_core_connect(struct vfs_handle_struct *handle,
 }
 
 static struct vfs_fn_pointers zfs_core_fns = {
+	.fs_capabilities_fn = zfs_core_fs_capabilities,
 	.connect_fn = zfs_core_connect,
 	.get_quota_fn = zfs_core_get_quota,
 	.set_quota_fn = zfs_core_set_quota,

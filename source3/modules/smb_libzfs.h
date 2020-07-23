@@ -65,7 +65,19 @@ struct snapshot_list
 
 enum casesensitivity {SMBZFS_SENSITIVE, SMBZFS_INSENSITIVE, SMBZFS_MIXED};
 
-enum zfs_quotatype {SMBZFS_USER, SMBZFS_USEROBJ, SMBZFS_GROUP, SMBZFS_GROUPOBJ};
+enum zfs_quotatype {
+	SMBZFS_USER_QUOTA,
+	SMBZFS_GROUP_QUOTA,
+	SMBZFS_DATASET_QUOTA
+};
+
+struct zfs_quota {
+	enum zfs_quotatype quota_type;
+	uint64_t bytes;
+	uint64_t bytes_used;
+	uint64_t obj;
+	uint64_t obj_used;
+};
 
 struct zfs_dataset_prop
 {
@@ -120,31 +132,27 @@ int get_smbzhandle(struct smblibzfshandle *smblibzfsp,
  * @param[in]	hdl			ZFS dataset handle from which to get quota
  * @param[in]	xid		 	user id or group id.
  * @param[in]	quota_type	 	quota type
- * @param[out]	hardlimit	 	quota size in bytes
- * @param[out]	usedspace		space used against quota in bytes
+ * @param[out]	qt			zfs_quota struct with quota info
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_get_userspace_quota(struct smbzhandle *hdl,
-				int64_t xid,
-				enum zfs_quotatype quota_type,
-				uint64_t *hardlimit,
-				uint64_t *usedspace);
+int smb_zfs_get_quota(struct smbzhandle *hdl,
+		      uint64_t xid,
+		      enum zfs_quotatype quota_type,
+		      struct zfs_quota *qt);
 
 /*
  * Set userspace quotas for a given path, ID, and quota type. May require
  * fail with EPERM if user lacks permissions to set quota.
  * @param[in]	hdl			ZFS dataset handle on which to get quota
  * @param[in]	xid		 	user id or group id.
- * @param[in]	quota_type	 	quota type
- * @param[in]	hardlimit	 	quota size in bytes
+ * @param[in]	qt		 	struct containing quota info
  *
  * @return	0 on success -1 on failure
  */
-int smb_zfs_set_userspace_quota(struct smbzhandle *hdl,
-				int64_t xid,
-				enum zfs_quotatype quota_type,
-				uint64_t hardlimit);
+int smb_zfs_set_quota(struct smbzhandle *hdl,
+		      uint64_t xid,
+		      struct zfs_quota qt);
 
 uint64_t smb_zfs_disk_free(struct smbzhandle *hdl,
 			   uint64_t *bsize,

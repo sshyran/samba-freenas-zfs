@@ -79,6 +79,24 @@ static const struct {
 	{SMBZFS_MIXED, "mixed"},
 };
 
+static const char *user_quota_strings[] =  {
+	"userquota",
+	"userused",
+#ifdef HAVE_ZFS_OBJ_QUOTA
+	"userobjquota",
+	"userobjused"
+#endif
+};
+
+static const char *group_quota_strings[] =  {
+	"groupquota",
+	"groupused",
+#ifdef HAVE_ZFS_OBJ_QUOTA
+	"groupobjquota",
+	"groupobjused"
+#endif
+};
+
 struct smblibzfs_int {
 	libzfs_handle_t *libzfsp;
 };
@@ -257,90 +275,113 @@ void close_smbzhandle(struct smbzhandle *zfsp_ext)
 }
 
 int
-smb_zfs_get_userspace_quota(struct smbzhandle *hdl,
-			    int64_t xid,
-			    enum zfs_quotatype quota_type,
-			    uint64_t *hardlimit, uint64_t *usedspace)
+smb_zfs_get_quota(struct smbzhandle *hdl,
+		  uint64_t xid,
+		  enum zfs_quotatype quota_type,
+		  struct zfs_quota *qt)
 {
-	int ret;
+	int i;
 	size_t blocksize = 1024;
 	zfs_handle_t *zfsp = NULL;
-	char u_req[ZFS_MAXPROPLEN] = { 0 };
-	char q_req[ZFS_MAXPROPLEN] = { 0 };
-	uint64_t quota, used;
+	char req[ZFS_MAXPROPLEN] = { 0 };
+	uint64_t rv[4] = { 0 };
+
+	zfsp = get_zhandle_from_smbzhandle(hdl);
+	if (zfsp == NULL) {
+		return -1;
+	}
 
 	switch (quota_type) {
-	case SMBZFS_USER:
-		snprintf(u_req, sizeof(u_req), "userused@%lu", xid);
-		snprintf(q_req, sizeof(q_req), "userquota@%lu", xid);
-		DBG_DEBUG("u_req: (%s), q_req (%s)\n", u_req, q_req);
+	case SMBZFS_USER_QUOTA:
+		for (i = 0; i < ARRAY_SIZE(user_quota_strings); i++) {
+			snprintf(req, sizeof(req), "%s@%lu",
+				 user_quota_strings[i], xid);
+			zfs_prop_get_userquota_int(zfsp, req, &rv[i]);
+		}
 		break;
-	case SMBZFS_GROUP:
-		snprintf(u_req, sizeof(u_req), "groupused@%lu", xid);
-		snprintf(q_req, sizeof(q_req), "groupquota@%lu", xid);
-		DBG_DEBUG("u_req: (%s), q_req (%s)\n", u_req, q_req);
+	case SMBZFS_GROUP_QUOTA:
+		for (i = 0; i < ARRAY_SIZE(group_quota_strings); i++) {
+			snprintf(req, sizeof(req), "%s@%lu",
+				 group_quota_strings[i], xid);
+			zfs_prop_get_userquota_int(zfsp, req, &rv[i]);
+		}
 		break;
+	case SMBZFS_DATASET_QUOTA:
+		errno = EINVAL;
+		DBG_ERR("Retrieving dataset quotas is not yet supported\n");
+		return -1;
 	default:
 		DBG_ERR("Received unknown quota type (%d)\n", quota_type);
 		return (-1);
 	}
 
-	zfsp = get_zhandle_from_smbzhandle(hdl);
-	if (zfsp == NULL) {
-		return (-1);
-	}
-
-	zfs_prop_get_userquota_int(zfsp, q_req, &quota);
-	zfs_prop_get_userquota_int(zfsp, u_req, &used);
-
-	quota /= blocksize;
-	used /= blocksize;
-
-	*hardlimit = quota;
-	*usedspace = used;
+	qt->bytes = rv[0] / blocksize;
+	qt->bytes_used = rv[1] / blocksize;
+	qt->obj = rv[2];
+	qt->obj_used = rv[3];
+	qt->quota_type = quota_type;
 	return 0;
 }
 
 int
-smb_zfs_set_userspace_quota(struct smbzhandle *hdl,
-			    int64_t xid,
-			    enum zfs_quotatype quota_type,
-			    uint64_t hardlimit)
+smb_zfs_set_quota(struct smbzhandle *hdl, uint64_t xid, struct zfs_quota qt)
 {
-	size_t blocksize = 1024;
+	int rv;
 	zfs_handle_t *zfsp = NULL;
-	char q_req[256] = { 0 };
-	char quota[256] = { 0 };
+	char qr[ZFS_MAXPROPLEN] = { 0 };
+#ifdef HAVE_ZFS_OBJ_QUOTA
+	char qr_obj[ZFS_MAXPROPLEN] = { 0 };
+#endif
+	char quota[ZFS_MAXPROPLEN] = { 0 };
 
-	hardlimit *= blocksize;
-	snprintf(quota, sizeof(quota), "%lu", hardlimit);
-
-	switch (quota_type) {
-	case SMBZFS_USER:
-		snprintf(q_req, sizeof(q_req), "userquota@%lu", xid);
-		DBG_DEBUG("userquota string is (%s)\n", q_req);
-		break;
-	case SMBZFS_GROUP:
-		snprintf(q_req, sizeof(q_req), "groupquota@%lu", xid);
-		DBG_DEBUG("groupquota string is (%s)\n", q_req);
-		break;
-	default:
-		DBG_ERR("Received unknown quota type (%d)\n", quota_type);
-		return (-1);
+	if (xid == 0) {
+		DBG_ERR("Setting quota on id 0 is not permitted\n");
+		errno = EPERM;
+		return -1;
 	}
 
 	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL){
-		return (-1);
+		DBG_ERR("Failed to retrieve ZFS dataset handle\n");
+		return -1;
 	}
 
-	if (zfs_prop_set(zfsp, q_req, quota) != 0) {
-		DBG_ERR("Failed to set (%s = %s)\n", q_req, quota);
-		zfs_close(zfsp);
-		return (-1);
+	switch (qt.quota_type) {
+	case SMBZFS_USER_QUOTA:
+		snprintf(qr, sizeof(qr), "userquota@%lu", xid);
+#ifdef HAVE_ZFS_OBJ_QUOTA
+		snprintf(qr_obj, sizeof(qr_obj), "userobj@%lu", xid);
+#endif
+		break;
+	case SMBZFS_GROUP_QUOTA:
+		snprintf(qr, sizeof(qr), "groupquota@%lu", xid);
+#ifdef HAVE_ZFS_OBJ_QUOTA
+		snprintf(qr_obj, sizeof(qr_obj), "groupobj@%lu", xid);
+#endif
+		break;
+	case SMBZFS_DATASET_QUOTA:
+		errno = EINVAL;
+		DBG_ERR("Setting dataset quotas is not yet supported\n");
+		return -1;
+	default:
+		DBG_ERR("Received unknown quota type (%d)\n", qt.quota_type);
+		return -1;
 	}
 
-	DBG_INFO("smb_zfs_set_quota: Set (%s = %s)\n", q_req, quota);
+	snprintf(quota, sizeof(quota), "%lu", qt.bytes);
+	rv = zfs_prop_set(zfsp, qr, quota);
+	if (rv != 0) {
+		DBG_ERR("Failed to set (%s = %s)\n", qr, quota);
+		return -1;
+	}
+#ifdef HAVE_ZFS_OBJ_QUOTA
+	snprintf(quota, sizeof(quota), "%lu", qt.obj);
+	rv = zfs_prop_set(zfsp, qr_obj, quota);
+	if (rv != 0) {
+		DBG_ERR("Failed to set (%s = %s)\n", qr_obj, quota);
+		return -1;
+	}
+#endif
 	return 0;
 }
 
