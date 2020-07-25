@@ -19,7 +19,6 @@
 #include "libcli/security/security.h"
 #include "auth.h"
 #include "privileges.h"
-#include "nfs4_acls.h"
 #include "system/filesys.h"
 
 #include "lib/util/tevent_ntstatus.h"
@@ -514,7 +513,7 @@ static int zfs_core_connect(struct vfs_handle_struct *handle,
 	}
 
 	config->zfs_space_enabled = lp_parm_bool(SNUM(handle->conn),
-			"zfs_core", "zfs_space_enabled", true);
+			"zfs_core", "zfs_space_enabled", false);
 
 	config->zfs_quota_enabled = lp_parm_bool(SNUM(handle->conn),
 			"zfs_core", "zfs_quota_enabled", true);

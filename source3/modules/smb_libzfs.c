@@ -25,16 +25,7 @@
  *
  */
 
-#if 0
-#ifndef hrtime_t
-typedef long long               hrtime_t;
-#endif
-#endif
 #include <talloc.h>
-#if 0
-#include <sys/mntent.h>
-#include <sys/mount.h>
-#endif
 #include <sys/stat.h>
 #include <stdint.h>
 #include <stdarg.h>
@@ -69,6 +60,7 @@ struct mntent
 #define ZFS_PROP_SAMBA_PREFIX "org.samba"
 
 static struct smblibzfshandle *global_libzfs_handle = NULL;
+static struct dataset_list *global_ds_list = NULL;
 
 static const struct {
 	enum casesensitivity sens;
@@ -225,8 +217,8 @@ static zfs_handle_t *get_zhandle_from_smbzhandle(struct smbzhandle *smbzhandle)
 }
 
 int get_smbzhandle(struct smblibzfshandle *smblibzfsp,
-		         TALLOC_CTX *mem_ctx, const char *path,
-                         struct smbzhandle **smbzhandle)
+		   TALLOC_CTX *mem_ctx, const char *path,
+		   struct smbzhandle **smbzhandle)
 {
 	zfs_handle_t *zfsp = NULL;
 	struct smbzhandle_int *szhandle_int = NULL;
@@ -392,10 +384,8 @@ smb_zfs_disk_free(struct smbzhandle *hdl,
 {
 	size_t blocksize = 1024;
 	zfs_handle_t *zfsp = NULL;
-	char uu_req[256] = { 0 };
-	char uq_req[256] = { 0 };
 	uint64_t available, usedbysnapshots, usedbydataset,
-		usedbychildren, usedbyrefreservation, real_used, total;
+		usedbychildren, real_used, total;
 
 	zfsp = get_zhandle_from_smbzhandle(hdl);
 	if (zfsp == NULL) {
@@ -406,7 +396,6 @@ smb_zfs_disk_free(struct smbzhandle *hdl,
 	usedbysnapshots = zfs_prop_get_int(zfsp, ZFS_PROP_USEDSNAP);
 	usedbydataset = zfs_prop_get_int(zfsp, ZFS_PROP_USEDDS);
 	usedbychildren = zfs_prop_get_int(zfsp, ZFS_PROP_USEDCHILD);
-	usedbyrefreservation = zfs_prop_get_int(zfsp, ZFS_PROP_USEDREFRESERV);
 
 	real_used = usedbysnapshots + usedbydataset + usedbychildren;
 
@@ -743,10 +732,10 @@ zhandle_get_props(struct smbzhandle *zfsp_ext,
 		return -1;
 	}
 	for (i = 0; i < ARRAY_SIZE(sens_enum_list); i++) {
-                if (strcmp(buf, sens_enum_list[i].sens_str) == 0) {
+		if (strcmp(buf, sens_enum_list[i].sens_str) == 0) {
 			props->casesens = sens_enum_list[i].sens;
-                }
-        }
+		}
+	}
 	props->readonly = zfs_prop_get_int(zfsp, ZFS_PROP_READONLY);
 #if 0 /* properties we may wish to return in the future */
 	props->exec = zfs_prop_get_int(zfsp, ZFS_PROP_EXEC);
@@ -1267,40 +1256,6 @@ smb_zfs_add_child(zfs_handle_t *child, void *data)
 	return 0;
 }
 
-static struct dataset_list *cache_get_dataset_list(TALLOC_CTX *mem_ctx, struct smbzhandle *zh)
-{
-	struct dataset_list *out = NULL;
-	zfs_handle_t *hdl = NULL;
-	char *keystr = NULL;
-	const char *ds_name;
-	DATA_BLOB key;
-
-        hdl = get_zhandle_from_smbzhandle(zh);
-        ds_name = zfs_get_name(hdl);
-	keystr = talloc_asprintf(mem_ctx, "dataset_list:%s", ds_name);
-
-	key = data_blob_const(discard_const_p(uint8_t, keystr),
-			      strlen(keystr));
-
-	out = (struct dataset_list *)memcache_lookup_talloc(zh->lz->zcache,
-							    ZFS_CACHE,
-							    key);
-	TALLOC_FREE(keystr);
-	return out;
-}
-
-static void *cache_set_dataset_list(TALLOC_CTX *mem_ctx, struct dataset_list *dsl)
-{
-	char *keystr = talloc_asprintf(mem_ctx, "dataset_list:%s",
-				       dsl->root->dataset_name);
-	DATA_BLOB key = data_blob_const(discard_const_p(uint8_t, keystr),
-					strlen(keystr));
-
-	memcache_add_talloc(dsl->root->zhandle->lz->zcache,
-			    ZFS_CACHE, key, &dsl);
-	TALLOC_FREE(keystr);
-}
-
 struct dataset_list *zhandle_list_children(TALLOC_CTX *mem_ctx,
 					  struct smbzhandle *zhandle_ext,
 					  bool open_zhandles)
@@ -1351,22 +1306,6 @@ struct dataset_list *zhandle_list_children(TALLOC_CTX *mem_ctx,
 		return NULL;
 	}
 	TALLOC_FREE(tmp_ctx);
-	return dl;
-}
-
-struct dataset_list *cache_zhandle_list_children(TALLOC_CTX *mem_ctx,
-					  struct smbzhandle *zhandle_ext)
-{
-	struct dataset_list *dl = NULL;
-	dl = cache_get_dataset_list(mem_ctx, zhandle_ext);
-	if (dl != NULL) {
-		return dl;
-	}
-	dl = zhandle_list_children(mem_ctx, zhandle_ext, true);
-	if (dl == NULL) {
-		return dl;
-	}
-	cache_set_dataset_list(mem_ctx, dl);
 	return dl;
 }
 
@@ -1425,6 +1364,25 @@ int conn_zfs_init(TALLOC_CTX *mem_ctx,
 		*pdsl = NULL;
 		return 0;
 	}
-	*pdsl = cache_zhandle_list_children(mem_ctx, conn_zfsp);
+
+	if (global_ds_list != NULL) {
+		const char *old_name = NULL;
+		const char *new_name = NULL;
+		old_name = zfs_get_name(global_ds_list->root->zhandle->zhp->zhandle);
+		new_name = zfs_get_name(conn_zfsp->zhp->zhandle);
+		if (strcmp(old_name, new_name) != 0) {
+			TALLOC_FREE(global_ds_list);
+			global_ds_list = zhandle_list_children(mem_ctx,
+							       conn_zfsp,
+							       true);
+		}
+	}
+	else {
+		global_ds_list = zhandle_list_children(mem_ctx,
+						       conn_zfsp,
+						       true);
+	}
+
+	*pdsl = global_ds_list;
 	return 0;
 }

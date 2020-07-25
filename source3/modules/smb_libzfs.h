@@ -347,16 +347,12 @@ void close_smbzhandle(struct smbzhandle *zfsp_ext);
  * @param[in]	smbzhandle_ext		smb zfs dataset handle
  * @param[in]	open_handles		specifies whether to leave zhandles on child
  *					datasets open
- * @param[out]	from_cache		true if returned from cache
  * @return	dataset_list		dataset->root->zhandle is a pointer to the
  *					same zhandle used to generate the dataset list.
  */
 struct dataset_list *zhandle_list_children(TALLOC_CTX *mem_ctx,
 					   struct smbzhandle *zhandle_ext,
 					   bool open_zhandles);
-
-struct dataset_list *cache_zhandle_list_children(TALLOC_CTX *mem_ctx,
-						 struct smbzhandle *zhandle_ext);
 
 /*
  * Initialize global libzfs handle if necessary and populate
