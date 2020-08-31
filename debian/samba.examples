@@ -2,3 +2,6 @@ examples/LDAP
 examples/logon
 examples/printing
 source3/smbadduser.in
+#XXX: samba-common.examples
+examples/smb.conf.default
+examples/pcap2nbench
