@@ -40,7 +40,8 @@ conf_args = \
 		--sysconfdir=/etc \
 		--localstatedir=/var \
 		--libexecdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
-		--with-privatedir=/var/lib/samba/private \
+		--with-privatedir=/var/db/system/samba4/private \
+		--with-statedir=/var/db/system/samba4 \
 		--with-smbpasswd-file=/etc/samba/smbpasswd \
 		--with-piddir=/run/samba \
 		--with-pammodulesdir=/lib/$(DEB_HOST_MULTIARCH)/security \
@@ -48,6 +49,7 @@ conf_args = \
 		--with-syslog \
 		--with-utmp \
 		--with-winbind \
+		--without-ad-dc \
 		--with-quota \
 		--with-shared-modules=idmap_rid,idmap_ad,idmap_adex,idmap_hash,idmap_ldap,idmap_tdb2,vfs_dfs_samba4,auth_samba4,vfs_nfs4acl_xattr \
 		--with-automount \
@@ -58,11 +60,11 @@ conf_args = \
 		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 		--with-modulesdir=/usr/lib/$(DEB_HOST_MULTIARCH)/samba \
 		--datadir=/usr/share \
-		--with-lockdir=/run/samba \
-		--with-statedir=/var/lib/samba \
-		--with-cachedir=/var/cache/samba \
-		--enable-avahi \
+		--with-lockdir=/var/lock \
+		--with-cachedir=/var/run/samba \
+		--disable-avahi \
 		--disable-rpath \
+		--enable-libzfs \
 		--disable-rpath-install \
 		--bundled-libraries=NONE,pytevent,iniparser,roken,replace,wind,hx509,asn1,heimbase,hcrypto,krb5,gssapi,heimntlm,hdb,kdc,com_err,compile_et,asn1_compile \
 		--builtin-libraries=ccan,samba-cluster-support \
@@ -70,15 +72,10 @@ conf_args = \
 		--with-cluster-support \
 		--with-socketpath=/run/ctdb/ctdbd.socket \
 		--with-logdir=/var/log/ctdb \
-		--enable-etcd-reclock
-
-ifneq (,$(filter amd64 arm64 armel armhf i386 mips64el mipsel ppc64el ppc64 s390x x32, $(DEB_HOST_ARCH)))
-        conf_args += \
-                --enable-ceph-reclock
-else
-        conf_args += \
+		--enable-etcd-reclock \
+		--disable-cups \
+		--disable-iprint \
                 --disable-cephfs
-endif
 
 ifeq ($(DEB_HOST_ARCH_OS), linux)
 	conf_args += \
