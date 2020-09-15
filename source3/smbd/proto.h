@@ -690,6 +690,7 @@ NTSTATUS check_parent_access(struct connection_struct *conn,
 				uint32_t access_mask);
 NTSTATUS fd_open(struct connection_struct *conn, files_struct *fsp,
 		 int flags, mode_t mode);
+NTSTATUS inherit_new_acl(files_struct *fsp);
 NTSTATUS fd_close(files_struct *fsp);
 void change_file_owner_to_parent(connection_struct *conn,
 				 const char *inherit_from_dir,

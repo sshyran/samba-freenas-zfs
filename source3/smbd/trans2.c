@@ -258,9 +258,22 @@ NTSTATUS get_ea_value(TALLOC_CTX *mem_ctx,
 			struct ea_struct *pea)
 {
 	/* Get the value of this xattr. Max size is 64k. */
-	size_t attr_size = 256;
+	size_t attr_size = 0;
 	char *val = NULL;
 	ssize_t sizeret;
+	static size_t min_xattr_size = 0;
+	static size_t max_xattr_size = 0;
+
+	if (min_xattr_size == 0) {
+		min_xattr_size = (size_t)lp_parm_ulonglong(
+			SNUM(conn), "smbd", "min_xattr_size", 256);
+	}
+	attr_size = min_xattr_size;
+
+	if (max_xattr_size == 0) {
+		max_xattr_size = (size_t)lp_parm_ulonglong(
+			SNUM(conn), "smbd", "max_xattr_size", 65536);
+	}
 
  again:
 
@@ -276,8 +289,8 @@ NTSTATUS get_ea_value(TALLOC_CTX *mem_ctx,
 				ea_name, val, attr_size);
 	}
 
-	if (sizeret == -1 && errno == ERANGE && attr_size != 65536) {
-		attr_size = 65536;
+	if (sizeret == -1 && errno == ERANGE && attr_size <= max_xattr_size) {
+		attr_size = max_xattr_size;
 		goto again;
 	}
 
@@ -3908,12 +3921,21 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAvail=%d\n", (unsigned int)bsize, (unsigned
 
 			ZERO_STRUCT(fsp);
 			ZERO_STRUCT(quotas);
+			bool allowed_user;
+			if ((get_current_uid(conn) == 0) || (security_token_has_privilege(
+			   conn->session_info->security_token, SEC_PRIV_DISK_OPERATOR) == 0)) {
+				allowed_user = true;
+			}
+
+
 
 			fsp.conn = conn;
 			fsp.fnum = FNUM_FIELD_INVALID;
 
-			/* access check */
-			if (get_current_uid(conn) != 0) {
+			/* access check
+			 * Allow access in case we have SEC_PRIV_DISK_OPERATOR.
+			 */
+			if ( !allowed_user ) {
 				DEBUG(0,("get_user_quota: access_denied "
 					 "service [%s] user [%s]\n",
 					 lp_servicename(talloc_tos(), lp_sub, SNUM(conn)),
@@ -4212,11 +4234,17 @@ static NTSTATUS smb_set_fsquota(connection_struct *conn,
 		loadparm_s3_global_substitution();
 	NTSTATUS status;
 	SMB_NTQUOTA_STRUCT quotas;
+	bool allowed_user;
+
+	if ((get_current_uid(conn) == 0) || (security_token_has_privilege(
+	   conn->session_info->security_token, SEC_PRIV_DISK_OPERATOR) == 0)) {
+		allowed_user = true;
+	}
 
 	ZERO_STRUCT(quotas);
 
 	/* access check */
-	if ((get_current_uid(conn) != 0) || !CAN_WRITE(conn)) {
+	if ((!allowed_user) || !CAN_WRITE(conn)) {
 		DEBUG(3, ("set_fsquota: access_denied service [%s] user [%s]\n",
 			  lp_servicename(talloc_tos(), lp_sub, SNUM(conn)),
 			  conn->session_info->unix_info->unix_name));
