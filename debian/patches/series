@@ -1,5 +1,4 @@
 07_private_lib
-bug_221618_precise-64bit-prototype.patch
 README_nosmbldap-tools.patch
 smbclient-pager.patch
 VERSION.patch
