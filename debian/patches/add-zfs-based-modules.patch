@@ -1,13 +1,34 @@
-commit dfc487799ab9de0570502dee8b81d17b768ec9c5
-Author: Andrew Walker <awalker@ixsystems.com>
-Date:   Fri Jul 17 10:25:11 2020 -0400
+From f19c9e0e52e1c72cdac4115d5903908afbec97fe Mon Sep 17 00:00:00 2001
+From: Andrew Walker <awalker@ixsystems.com>
+Date: Fri, 17 Jul 2020 10:25:11 -0400
+Subject: [PATCH] Add zfs-based VFS modules
 
-    Add zfs-based VFS modules
-    
-    Add smb_libzfs (general-purpose library for libzfs in samba),
-    tmprotect (a module to help protect time machine backups by snapshotting
-    on share disconnect), zfs_fsrvp (FSRVP support), and shadow_copy_zfs to
-    provide support for shadow copies
+Add smb_libzfs (general-purpose library for libzfs in samba),
+tmprotect (a module to help protect time machine backups by snapshotting
+on share disconnect), zfs_fsrvp (FSRVP support), and shadow_copy_zfs to
+provide support for shadow copies
+---
+ lib/util/memcache.c                   |    1 +
+ lib/util/memcache.h                   |    1 +
+ source3/modules/smb_libzfs.c          | 1388 ++++++++++++++++++++
+ source3/modules/smb_libzfs.h          |  371 ++++++
+ source3/modules/vfs_shadow_copy_zfs.c | 1730 +++++++++++++++++++++++++
+ source3/modules/vfs_tmprotect.c       |  285 ++++
+ source3/modules/vfs_zfs_core.c        |  555 ++++++++
+ source3/modules/vfs_zfs_fsrvp.c       |  241 ++++
+ source3/modules/wscript_build         |   44 +-
+ source3/smbd/fake_file.c              |   42 +-
+ source3/smbd/open.c                   |    2 +-
+ source3/smbd/proto.h                  |    1 +
+ source3/smbd/trans2.c                 |   40 +-
+ source3/wscript                       |   41 +
+ 14 files changed, 4725 insertions(+), 17 deletions(-)
+ create mode 100644 source3/modules/smb_libzfs.c
+ create mode 100644 source3/modules/smb_libzfs.h
+ create mode 100644 source3/modules/vfs_shadow_copy_zfs.c
+ create mode 100644 source3/modules/vfs_tmprotect.c
+ create mode 100644 source3/modules/vfs_zfs_core.c
+ create mode 100644 source3/modules/vfs_zfs_fsrvp.c
 
 diff --git a/lib/util/memcache.c b/lib/util/memcache.c
 index 1e616bd0e9a..9d7694e65d8 100644
@@ -4948,3 +4969,6 @@ index 335cfd797f1..a9db8552fc8 100644
      if conf.CONFIG_SET('DARWINOS'):
          default_static_modules.extend(TO_LIST('charset_macosxfs'))
  
+-- 
+2.28.0
+

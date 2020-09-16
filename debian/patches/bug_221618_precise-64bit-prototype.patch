@@ -11,8 +11,8 @@ diff --git a/source3/include/libsmbclient.h b/source3/include/libsmbclient.h
 index cf67b1d..ff9ed53 100644
 --- a/source3/include/libsmbclient.h
 +++ b/source3/include/libsmbclient.h
-@@ -80,6 +80,16 @@ extern "C" {
- #include <fcntl.h>
+@@ -81,6 +81,16 @@ extern "C" {
+ #include <time.h>
  #include <utime.h>
  
 +  /* Debian bug #221618 */
