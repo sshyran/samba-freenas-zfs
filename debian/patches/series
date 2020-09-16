@@ -1,0 +1,10 @@
+07_private_lib
+bug_221618_precise-64bit-prototype.patch
+README_nosmbldap-tools.patch
+smbclient-pager.patch
+VERSION.patch
+add-so-version-to-private-libraries
+heimdal-rfc3454.txt
+smbd.service-Run-update-apparmor-samba-profile-befor.patch
+fix-nfs-service-name-to-nfs-kernel-server.patch
+add-zfs-based-modules.patch
